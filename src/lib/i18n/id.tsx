@@ -202,4 +202,192 @@ export const id: Messages = {
     haveAccount: 'Sudah punya akun?',
     signInLink: 'Masuk',
   },
+
+  tool: {
+    keysButton: 'Kunci',
+    keySummary: (keys: number, parallel: number) =>
+      `${keys} kunci · ${parallel} paralel`,
+
+    step1: 'Langkah 1 · File Anda',
+    step2: 'Langkah 2 · Tempat unggah',
+    step3: 'Langkah 3 · Jalankan',
+    stepReview: 'Langkah 3 · Periksa',
+    stepUnfinished: 'Langkah 3 · Belum selesai',
+
+    partialNote: (done: number, total: number) =>
+      `${done} dari ${total} berkas selesai sebelum kuota kunci habis. Jalankan lagi — akan dilanjutkan dari tempat berhentinya — dan CSV ditulis setelah semua berkas beres.`,
+    exportedNote: (csvName: string) =>
+      `${csvName} sudah jadi. Ubah dan ekspor lagi kalau Anda berubah pikiran.`,
+    reviewNote:
+      'Belum ada apa pun yang ditulis. Perbaiki yang kurang pas, lalu ekspor.',
+    continueRun: 'Lanjutkan run',
+    startOver: 'Mulai ulang',
+
+    scanning: 'membaca folder…',
+    counts: (files: number, images: number, videos: number) =>
+      `${files} berkas · ${images} gambar · ${videos} video`,
+    unreadable: (names: string) =>
+      `${names} tidak bisa dibuka — file .ai hanya terbaca kalau disimpan dengan "Create PDF Compatible File" dicentang. Simpan ulang, atau ekspor jadi JPEG.`,
+    skipped: (names: string, extension: string) =>
+      `${names} dilewati — perkakas ini tidak bisa membukanya. Ekspor jadi JPEG, PNG atau MP4 lalu masukkan yang itu; nama baris CSV-nya tetap bisa Anda buat ${extension} di layar periksa.`,
+    nothingReadable:
+      'Tidak ada yang bisa dibaca di sana. Format yang bisa dibuka: JPG, PNG, WEBP, SVG, AI, PDF, MP4, MOV dan M4V.',
+
+    adobeDetail: 'Judul, 49 kata kunci, satu nomor kategori.',
+    shutterstockDetail: 'Deskripsi, 49 kata kunci, sampai dua nama kategori.',
+
+    working: 'Sedang bekerja…',
+    writeMetadata: 'Tulis metadata saya',
+    stop: 'Berhenti',
+    needKeyFirst: 'tambahkan kunci Gemini dulu — cuma sebentar dan gratis',
+    needMediaFirst: 'masukkan foto di atas untuk mulai',
+    progress: (done: number, total: number) => `${done} / ${total} berkas`,
+
+    keysInRotation: 'Kunci yang dirotasi',
+    manage: 'Kelola',
+    rotationNote:
+      'Tiap kunci bekerja sekitar 15 permintaan per menit. Kunci yang kena limit istirahat sebentar sementara yang lain lanjut, jadi makin banyak kunci makin cepat.',
+
+    csvWritten: (csvName: string) => `${csvName} ditulis di samping file Anda`,
+    csvDownloaded: (csvName: string) => `${csvName} diunduh`,
+  },
+
+  picker: {
+    title: 'Seret folder foto ke sini',
+    body: 'Foto, video, SVG, dan file Illustrator — tidak ada yang diunggah ke kami. Halaman ini membacanya dari disk Anda dan mengirim satu per satu langsung ke Google dengan kunci Anda sendiri.',
+    chooseFolder: 'Pilih folder',
+    chooseFiles: 'Pilih file',
+    noFolderSupport:
+      'browser ini tidak bisa membuka folder — Chrome atau Edge bisa, dan CSV-nya akan ditulis di samping file Anda, bukan diunduh',
+    nothingUsable: 'Tidak ada yang bisa dipakai dari situ — hanya gambar dan video.',
+    fileCount: (files: number) => `${files} berkas`,
+    folderMode: 'folder · CSV ditulis balik, run bisa dilanjutkan kalau terputus',
+    filesMode: 'file · CSV diunduh, tidak bisa dilanjutkan',
+    clear: 'Hapus',
+    videoBadge: 'video',
+    more: (rest: number) => `+ ${rest} berkas lagi dalam antrean`,
+  },
+
+  keys: {
+    railEmpty: 'belum ada kunci aktif — tambahkan di atas',
+    keyN: (index: number) => `kunci ${index}`,
+    filesDone: (files: number) => `${files} berkas`,
+    idle: 'diam',
+    ready: 'siap',
+    busy: 'bekerja',
+    outOfQuota: 'kuota habis',
+    cooling: (seconds: number) => `istirahat ${seconds}d`,
+
+    dialogTitle: 'Kunci Gemini Anda',
+    dialogDescription: (
+      <>
+        Gratis dari{' '}
+        <a
+          href="https://aistudio.google.com/apikey"
+          target="_blank"
+          rel="noreferrer"
+          className="underline underline-offset-4"
+        >
+          aistudio.google.com/apikey
+        </a>
+        . Tiap kunci menambah sekitar 15 permintaan per menit, jadi dua kunci
+        dua kali lebih cepat. Kunci dienkripsi sebelum disimpan, dan satu-satunya
+        saat kunci utuh keluar dari server kami adalah ketika tab ini
+        membutuhkannya untuk memanggil Google.
+      </>
+    ),
+    labelOptional: 'Label (opsional)',
+    labelPlaceholder: 'Akun pribadi',
+    addAndVerify: 'Tambah dan verifikasi',
+    pasteHint: (
+      <>
+        Satu per baris — tempel{' '}
+        <code className="border-(--line) text-foreground border px-1 font-mono text-[0.7rem]">
+          gemini-key.txt
+        </code>{' '}
+        Anda apa adanya, komentar dan baris kosong sekalian. Tiap kunci dicek ke
+        Google sebelum disimpan.
+      </>
+    ),
+    added: (count: number) => `${count} kunci ditambahkan`,
+    removed: (preview: string) => `${preview} dihapus`,
+    removeAria: (preview: string) => `Hapus ${preview}`,
+    columnLabel: 'Label',
+    columnKey: 'Kunci',
+    columnStatus: 'Status',
+    columnLastUsed: 'Terakhir dipakai',
+    columnActions: 'Aksi',
+    never: 'belum pernah',
+    enable: 'Aktifkan',
+    disable: 'Nonaktifkan',
+    status: { active: 'aktif', disabled: 'nonaktif' },
+    empty: 'belum ada kunci — tempel satu di atas dan perkakas siap dipakai',
+    firstBody:
+      'Perkakas ini berjalan dengan kunci Google milik Anda sendiri, gratis dan cuma perlu semenit untuk membuatnya. Tidak perlu yang lain.',
+    firstCta: 'Tambahkan kunci Gemini Anda',
+  },
+
+  options: {
+    heading: 'Kolom Shutterstock',
+    changedAria: 'berbeda dari bawaan',
+    illustration: 'Kolom illustration',
+    illustrationAuto: 'Otomatis — model yang menentukan',
+    illustrationYes: 'Paksa yes',
+    illustrationNo: 'Paksa no',
+    editorial: 'Editorial = yes',
+    mature: 'Mature content = yes',
+  },
+
+  review: {
+    logHeading: 'Log run',
+    rowsReady: 'baris siap',
+    needLook: (count: number) => `${count} perlu dicek`,
+    filterPlaceholder: 'Saring baris…',
+    bulkKeywordPlaceholder: 'Kata kunci untuk semua baris',
+    addToAllAria: 'Tambahkan ke semua baris',
+    extensionAria: 'Ekstensi untuk semua baris',
+    extensionPlaceholder: 'Ekstensi untuk semua baris…',
+    renameEvery: (extension: string) => `ubah semua baris jadi ${extension}`,
+    writeCsv: 'Tulis CSV ke folder',
+    downloadCsv: 'Unduh CSV',
+    fallbackNote: (model: string) =>
+      `fallback ${model} — tulis manual atau jalankan ulang`,
+    filenameInCsv: 'Nama berkas di CSV',
+    onDisk: (name: string) => `di disk: ${name}`,
+    titleLabel: 'Judul',
+    descriptionLabel: 'Deskripsi',
+    chars: (count: number) => `${count} karakter`,
+    keywords: 'Kata kunci',
+    keywordPlaceholder: '+ kata kunci',
+    category: 'Kategori',
+    categories: 'Kategori',
+    noMatch: 'tidak ada yang cocok dengan saringan itu',
+    issues: {
+      noFilename: 'nama berkas kosong',
+      badFilename: 'nama berkas mengandung garis miring atau ganti baris',
+      noTitle: 'judul masih kosong',
+      noKeywords: 'belum ada kata kunci',
+      overLimit: (over: number) => `${over} kata kunci melebihi batas`,
+      adobeComma: 'judul Adobe tidak boleh mengandung koma atau tanda kutip',
+      noCategory: 'kategori kosong',
+    },
+  },
+
+  log: {
+    cancelled: 'Dibatalkan — progres tersimpan, jalankan lagi untuk melanjutkan.',
+    noKeys: 'Tidak ada kunci API aktif di akun ini — tambahkan lewat menu Kunci.',
+    scanned: (total: number, images: number, videos: number, skipped: number) =>
+      `${total} berkas media (${images} gambar, ${videos} video); ${skipped} berkas lain diabaikan`,
+    fileFailed: (name: string, message: string, requeued: boolean) =>
+      `${name}: ${message}${requeued ? ' — dicoba ulang' : ' — pakai baris cadangan'}`,
+    keyCooldown: (index: number, consecutive: number) =>
+      `Kunci ${index} kena limit (429) — istirahat 60 detik (${consecutive}/5)`,
+    keyDead: (index: number) => `Kunci ${index} kuotanya habis untuk hari ini`,
+    modelFallback: (name: string, model: string) =>
+      `${name}: mencoba ulang dengan ${model}`,
+    partial: (done: number, total: number, remaining: number) =>
+      `Run sebagian: ${done}/${total} selesai, ${remaining} tersisa. Belum ada CSV — jalankan lagi untuk melanjutkan.`,
+    finished: (csvName: string, rows: number) =>
+      `${csvName} ditulis (${rows} baris)`,
+  },
 }

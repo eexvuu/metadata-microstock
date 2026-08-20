@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { FolderOpen, HardDriveDownload, Upload } from 'lucide-react'
 
 import { Button } from '#/components/ui/button'
+import { useMessages } from '#/lib/i18n'
 import {
   BrowserDirectorySource,
   directoryFromHandle,
@@ -43,6 +44,7 @@ export function MediaPicker({
   onSelect: (source: SelectedSource | null) => void
   disabled: boolean
 }) {
+  const m = useMessages()
   const [over, setOver] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -55,12 +57,12 @@ export function MediaPicker({
     const usable = files.filter((file) => file.size > 0)
 
     if (usable.length === 0) {
-      setError('Nothing usable in that drop — images and videos only.')
+      setError(m.picker.nothingUsable)
       return
     }
 
     onSelect({
-      label: `${usable.length} file${usable.length === 1 ? '' : 's'}`,
+      label: m.picker.fileCount(usable.length),
       writable: false,
       source: new DroppedFilesSource(usable),
       video: mp4boxPreprocessor,
@@ -130,13 +132,9 @@ export function MediaPicker({
         </span>
 
         <div>
-          <p className="font-display text-xl font-medium">
-            Drag a folder of photos here
-          </p>
+          <p className="font-display text-xl font-medium">{m.picker.title}</p>
           <p className="text-muted-foreground mx-auto mt-1.5 max-w-md text-sm text-pretty">
-            Photos, videos, SVG, and Illustrator files — nothing is uploaded.
-            The page reads them off your disk and sends each one straight to
-            Google with your own key.
+            {m.picker.body}
           </p>
         </div>
 
@@ -148,7 +146,7 @@ export function MediaPicker({
               onClick={() => void chooseFolder()}
             >
               <FolderOpen className="size-4" />
-              Choose folder
+              {m.picker.chooseFolder}
             </Button>
           ) : null}
 
@@ -158,7 +156,7 @@ export function MediaPicker({
             onClick={() => fileInput.current?.click()}
           >
             <HardDriveDownload className="size-4" />
-            Choose files
+            {m.picker.chooseFiles}
           </Button>
 
           <input
@@ -176,8 +174,7 @@ export function MediaPicker({
 
         {!supportsFolders ? (
           <p className="text-muted-foreground max-w-md font-mono text-[0.7rem] text-pretty">
-            this browser cannot open a folder — Chrome or Edge can, and then the
-            CSV is written next to your media instead of downloaded
+            {m.picker.noFolderSupport}
           </p>
         ) : null}
       </div>
@@ -186,9 +183,7 @@ export function MediaPicker({
         <div className="border-(--line) bg-card flex flex-wrap items-center gap-x-6 gap-y-2 border p-3 font-mono text-xs">
           <span className="text-primary truncate">{selected.label}</span>
           <span className="text-muted-foreground">
-            {selected.writable
-              ? 'folder · CSV written back, run resumes if interrupted'
-              : 'files · CSV downloaded, no resume'}
+            {selected.writable ? m.picker.folderMode : m.picker.filesMode}
           </span>
           <Button
             variant="ghost"
@@ -197,7 +192,7 @@ export function MediaPicker({
             disabled={disabled}
             onClick={() => onSelect(null)}
           >
-            Clear
+            {m.picker.clear}
           </Button>
         </div>
       ) : null}

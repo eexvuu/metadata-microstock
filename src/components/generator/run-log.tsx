@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 
 import type { LogLine } from '#/lib/generator/use-generator'
+import { useMessages } from '#/lib/i18n'
 
 const LEVEL_CLASS: Record<LogLine['level'], string> = {
   info: 'text-muted-foreground',
@@ -10,6 +11,7 @@ const LEVEL_CLASS: Record<LogLine['level'], string> = {
 
 /** The tape: everything the engine said, in the order it said it. */
 export function RunLog({ lines }: { lines: LogLine[] }) {
+  const m = useMessages()
   const endRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -22,7 +24,7 @@ export function RunLog({ lines }: { lines: LogLine[] }) {
     <div className="border-(--line) border">
       <div className="border-(--line) bg-muted/40 flex items-center gap-2 border-b px-2.5 py-1.5">
         <span className="bg-primary size-1.5" />
-        <span className="eyebrow text-muted-foreground">Run log</span>
+        <span className="eyebrow text-muted-foreground">{m.review.logHeading}</span>
         <span className="text-muted-foreground/60 ml-auto font-mono text-[0.65rem] tabular-nums">
           {lines.length}
         </span>

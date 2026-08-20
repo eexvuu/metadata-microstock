@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import type { KeyLive } from '#/lib/generator/use-generator'
+import { useMessages } from '#/lib/i18n'
 
 export interface RailKey {
   id: string
@@ -20,12 +21,13 @@ export interface RailKey {
  * created-at-ascending, active-only list the run was started with.
  */
 export function KeyRail({ keys, live }: { keys: RailKey[]; live: KeyLive[] }) {
+  const m = useMessages()
   const now = useNow(live.some((entry) => entry.cooldownUntil > 0))
 
   if (keys.length === 0) {
     return (
       <p className="border-(--line) text-muted-foreground border border-dashed px-3 py-4 text-center font-mono text-xs">
-        no active keys — add one under API keys
+        {m.keys.railEmpty}
       </p>
     )
   }
@@ -36,14 +38,14 @@ export function KeyRail({ keys, live }: { keys: RailKey[]; live: KeyLive[] }) {
         const state = live[index]
         const cooling = state ? Math.max(0, state.cooldownUntil - now) : 0
         const status = !state
-          ? 'idle'
+          ? m.keys.idle
           : state.dead
-            ? 'out of quota'
+            ? m.keys.outOfQuota
             : cooling > 0
-              ? `cooling ${Math.ceil(cooling / 1000)}s`
+              ? m.keys.cooling(Math.ceil(cooling / 1000))
               : state.current
-                ? 'working'
-                : 'ready'
+                ? m.keys.busy
+                : m.keys.ready
 
         return (
           <div
@@ -53,7 +55,7 @@ export function KeyRail({ keys, live }: { keys: RailKey[]; live: KeyLive[] }) {
           >
             <div className="flex items-center justify-between gap-2">
               <span className="eyebrow text-muted-foreground">
-                key {index + 1}
+                {m.keys.keyN(index + 1)}
               </span>
               <span
                 className={
@@ -78,7 +80,7 @@ export function KeyRail({ keys, live }: { keys: RailKey[]; live: KeyLive[] }) {
                 {status}
               </span>
               <span className="text-muted-foreground tabular-nums">
-                {state?.done ?? 0} files
+                {m.keys.filesDone(state?.done ?? 0)}
               </span>
             </div>
 

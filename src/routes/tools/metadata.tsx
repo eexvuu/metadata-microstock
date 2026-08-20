@@ -33,6 +33,7 @@ import {
   type StoredSettings,
 } from '#/lib/generator/settings'
 import { useGenerator } from '#/lib/generator/use-generator'
+import { useMessages } from '#/lib/i18n'
 import { getDecryptedKeys, listGeminiKeys, markKeysUsed } from '#/lib/server/gemini-keys'
 import { finishRun, startRun } from '#/lib/server/runs'
 
@@ -41,20 +42,18 @@ export const Route = createFileRoute('/tools/metadata')({
   component: MetadataTool,
 })
 
+/** The names belong to the platforms; what each wants is translated copy. */
 const PLATFORMS = [
-  {
-    id: 'adobe' as const,
-    name: 'Adobe Stock',
-    detail: 'Title, 49 keywords, one category number.',
-  },
+  { id: 'adobe' as const, name: 'Adobe Stock', detail: 'adobeDetail' as const },
   {
     id: 'shutterstock' as const,
     name: 'Shutterstock',
-    detail: 'Description, 49 keywords, up to two category names.',
+    detail: 'shutterstockDetail' as const,
   },
 ]
 
 function MetadataTool() {
+  const m = useMessages()
   const keys = Route.useLoaderData()
   const [settings, setSettings] = useState<StoredSettings>(DEFAULT_SETTINGS)
   const [selected, setSelected] = useState<SelectedSource | null>(null)
@@ -204,8 +203,8 @@ function MetadataTool() {
       setExported(csvName)
       toast.success(
         selected.writable
-          ? `${csvName} written next to your media`
-          : `${csvName} downloaded`,
+          ? m.tool.csvWritten(csvName)
+          : m.tool.csvDownloaded(csvName),
       )
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error))
@@ -233,22 +232,24 @@ function MetadataTool() {
           className="text-muted-foreground hover:text-foreground eyebrow inline-flex items-center gap-1.5"
         >
           <ArrowLeft className="size-3" />
-          Tools
+          {m.nav.tools}
         </Link>
 
         <div className="flex items-baseline gap-3">
           <h1 className="font-display text-2xl leading-none font-medium tracking-tight">
-            Metadata
+            {m.nav.metadata}
           </h1>
           <span className="border-primary/40 text-primary border px-1.5 py-0.5 font-mono text-[0.6rem] tracking-[0.1em] uppercase">
-            free
+            {m.catalog.free}
           </span>
         </div>
 
         <div className="text-muted-foreground ml-auto flex flex-wrap items-center gap-x-5 gap-y-1 font-mono text-xs">
           <span>
-            {activeKeys.length} key{activeKeys.length === 1 ? '' : 's'} ·{' '}
-            {workersFor(activeKeys.length)} parallel
+            {m.tool.keySummary(
+              activeKeys.length,
+              workersFor(activeKeys.length),
+            )}
           </span>
           <KeysDialog keys={keys}>
             <button
@@ -256,7 +257,7 @@ function MetadataTool() {
               className="hover:text-foreground inline-flex items-center gap-1.5 transition-colors"
             >
               <KeyRound className="size-3" />
-              Keys
+              {m.tool.keysButton}
             </button>
           </KeysDialog>
         </div>
@@ -267,14 +268,14 @@ function MetadataTool() {
           <div className="border-(--line) flex flex-wrap items-center gap-4 border p-4">
             <div>
               <p className="eyebrow text-primary">
-                {partial ? 'Step 3 · Unfinished' : 'Step 3 · Review'}
+                {partial ? m.tool.stepUnfinished : m.tool.stepReview}
               </p>
               <p className="text-muted-foreground mt-1 max-w-2xl text-sm text-pretty">
                 {partial
-                  ? `${rows.length} of ${entries.length} files got through before the keys ran out. Run it again — it picks up where it stopped — and the CSV is written once every file is done.`
+                  ? m.tool.partialNote(rows.length, entries.length)
                   : exported
-                    ? `${exported} is done. Edit and export again if you change your mind.`
-                    : 'Nothing has been written yet. Fix anything that looks wrong, then export.'}
+                    ? m.tool.exportedNote(exported)
+                    : m.tool.reviewNote}
               </p>
             </div>
 
@@ -282,12 +283,12 @@ function MetadataTool() {
               {partial ? (
                 <Button onClick={() => void run()} className="eyebrow">
                   <Play className="size-4" />
-                  Continue the run
+                  {m.tool.continueRun}
                 </Button>
               ) : null}
               <Button variant="outline" onClick={startOver}>
                 <RotateCcw className="size-4" />
-                Start over
+                {m.tool.startOver}
               </Button>
             </div>
           </div>
@@ -308,7 +309,7 @@ function MetadataTool() {
         <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
           <div className="space-y-6">
             <section className="space-y-3">
-              <p className="eyebrow text-muted-foreground">Step 1 · Your media</p>
+              <p className="eyebrow text-muted-foreground">{m.tool.step1}</p>
               <MediaPicker
                 selected={selected}
                 onSelect={setSelected}
@@ -317,16 +318,18 @@ function MetadataTool() {
 
               {scanning ? (
                 <p className="text-muted-foreground font-mono text-xs">
-                  reading the folder…
+                  {m.tool.scanning}
                 </p>
               ) : null}
 
               {selected && entries.length > 0 ? (
                 <>
                   <p className="text-muted-foreground font-mono text-xs">
-                    {entries.length} file{entries.length === 1 ? '' : 's'} ·{' '}
-                    {entries.filter((entry) => entry.kind === 'image').length} images ·{' '}
-                    {entries.filter((entry) => entry.kind === 'video').length} videos
+                    {m.tool.counts(
+                      entries.length,
+                      entries.filter((entry) => entry.kind === 'image').length,
+                      entries.filter((entry) => entry.kind === 'video').length,
+                    )}
                   </p>
                   <MediaGrid source={selected.source} entries={entries} />
                 </>
@@ -339,25 +342,19 @@ function MetadataTool() {
               */}
               {selected && !scanning && unreadable.length > 0 ? (
                 <p className="text-destructive font-mono text-xs text-pretty">
-                  {unreadable.join(', ')} could not be opened — an .ai only works
-                  when it was saved with "Create PDF Compatible File" ticked.
-                  Re-save it, or export a JPEG.
+                  {m.tool.unreadable(unreadable.join(', '))}
                 </p>
               ) : null}
 
               {selected && !scanning && skipped.length > 0 ? (
                 <p className="text-primary font-mono text-xs text-pretty">
-                  {skipped.join(', ')} skipped — this tool cannot open those.
-                  Export a JPEG, PNG or MP4 of them and drop that instead; you
-                  can still name the CSV rows {skipped[0] ?? '.eps'} on the
-                  review screen.
+                  {m.tool.skipped(skipped.join(', '), skipped[0] ?? '.eps')}
                 </p>
               ) : null}
 
               {selected && !scanning && entries.length === 0 ? (
                 <p className="text-muted-foreground text-sm text-pretty">
-                  Nothing readable in there. JPG, PNG, WEBP, SVG, AI, PDF, MP4,
-                  MOV and M4V are the formats this tool can open.
+                  {m.tool.nothingReadable}
                 </p>
               ) : null}
             </section>
@@ -367,7 +364,7 @@ function MetadataTool() {
 
           <div className="space-y-6">
             <section className="space-y-3">
-              <p className="eyebrow text-muted-foreground">Step 2 · Where you upload</p>
+              <p className="eyebrow text-muted-foreground">{m.tool.step2}</p>
 
               <div className="grid gap-px sm:grid-cols-2">
                 {PLATFORMS.map((platform) => {
@@ -391,7 +388,7 @@ function MetadataTool() {
                         {active ? <Check className="text-primary size-4" /> : null}
                       </div>
                       <p className="text-muted-foreground mt-1 text-xs text-pretty">
-                        {platform.detail}
+                        {m.tool[platform.detail]}
                       </p>
                     </button>
                   )
@@ -406,7 +403,7 @@ function MetadataTool() {
             </section>
 
             <section className="border-(--line) space-y-4 border p-4">
-              <p className="eyebrow text-muted-foreground">Step 3 · Run it</p>
+              <p className="eyebrow text-muted-foreground">{m.tool.step3}</p>
 
               <div className="flex flex-wrap items-center gap-3">
                 <Button
@@ -420,13 +417,13 @@ function MetadataTool() {
                   ) : (
                     <Play className="size-4" />
                   )}
-                  {running ? 'Working…' : 'Write my metadata'}
+                  {running ? m.tool.working : m.tool.writeMetadata}
                 </Button>
 
                 {running ? (
                   <Button variant="outline" size="lg" onClick={cancel} className="h-11">
                     <Square className="size-4" />
-                    Stop
+                    {m.tool.stop}
                   </Button>
                 ) : null}
               </div>
@@ -434,8 +431,8 @@ function MetadataTool() {
               {!ready && !running ? (
                 <p className="text-muted-foreground font-mono text-xs">
                   {activeKeys.length === 0
-                    ? 'add a Gemini key first — it takes a minute and it is free'
-                    : 'drop some photos above to start'}
+                    ? m.tool.needKeyFirst
+                    : m.tool.needMediaFirst}
                 </p>
               ) : null}
 
@@ -443,7 +440,7 @@ function MetadataTool() {
                 <div className="space-y-2">
                   <div className="flex items-baseline justify-between font-mono text-xs">
                     <span className="text-muted-foreground">
-                      {state.done} / {state.total} files
+                      {m.tool.progress(state.done, state.total)}
                     </span>
                     <span className="text-primary tabular-nums">{percent}%</span>
                   </div>
@@ -459,7 +456,7 @@ function MetadataTool() {
               <div className="space-y-2">
                 <div className="flex items-baseline justify-between">
                   <p className="eyebrow text-muted-foreground">
-                    Keys in rotation
+                    {m.tool.keysInRotation}
                   </p>
                   {activeKeys.length > 0 ? (
                     <KeysDialog keys={keys}>
@@ -467,7 +464,7 @@ function MetadataTool() {
                         type="button"
                         className="text-muted-foreground hover:text-foreground eyebrow transition-colors"
                       >
-                        Manage
+                        {m.tool.manage}
                       </button>
                     </KeysDialog>
                   ) : null}
@@ -479,9 +476,7 @@ function MetadataTool() {
                   <>
                     <KeyRail keys={activeKeys} live={state.keys} />
                     <p className="text-muted-foreground text-xs text-pretty">
-                      Each key works at ~15 requests a minute. One that hits a
-                      limit cools down while the others carry on, so more keys is
-                      simply faster.
+                      {m.tool.rotationNote}
                     </p>
                   </>
                 )}

@@ -3,6 +3,7 @@ import { Film, Image as ImageIcon } from 'lucide-react'
 
 import type { MediaEntry } from '#/lib/engine/types'
 import { isPdfBacked, rasterizePdf } from '#/lib/image/pdf-raster'
+import { useMessages } from '#/lib/i18n'
 import type { FileSource } from '#/lib/sources/types'
 
 /**
@@ -21,6 +22,7 @@ export function MediaThumb({
   entry: MediaEntry
   className?: string
 }) {
+  const m = useMessages()
   const [url, setUrl] = useState<string | null>(null)
   const holder = useRef<HTMLDivElement>(null)
 
@@ -92,7 +94,7 @@ export function MediaThumb({
 
       {entry.kind === 'video' ? (
         <span className="eyebrow bg-background/75 text-foreground absolute right-1 bottom-1 px-1 py-px text-[0.55rem]">
-          video
+          {m.picker.videoBadge}
         </span>
       ) : null}
     </div>
@@ -125,6 +127,7 @@ export function MediaGrid({
   entries: MediaEntry[]
   limit?: number
 }) {
+  const m = useMessages()
   const shown = entries.slice(0, limit)
   const rest = entries.length - shown.length
 
@@ -143,7 +146,7 @@ export function MediaGrid({
 
       {rest > 0 ? (
         <p className="text-muted-foreground font-mono text-xs">
-          + {rest} more file{rest === 1 ? '' : 's'} in the queue
+          {m.picker.more(rest)}
         </p>
       ) : null}
     </div>

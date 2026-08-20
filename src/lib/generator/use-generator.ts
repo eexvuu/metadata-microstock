@@ -7,6 +7,7 @@ import type { PlatformProfile } from '#/lib/engine/profiles/types'
 import { runFolder } from '#/lib/engine/runner'
 import type { EngineEvent, MetadataRow, RunOptions } from '#/lib/engine/types'
 import { browserImagePreprocessor } from '#/lib/image/browser'
+import { useMessages } from '#/lib/i18n'
 import type { FileSource } from '#/lib/sources/types'
 import type { VideoPreprocessor } from '#/lib/video/types'
 
@@ -70,6 +71,10 @@ function timestamp(): string {
 }
 
 export function useGenerator() {
+  // The engine writes its own lines in English — it is runtime-agnostic and
+  // cannot reach this module. These are the ones the hook formats, which is
+  // the narrative anyone actually follows during a run.
+  const m = useMessages()
   const [state, setState] = useState<GeneratorState>(INITIAL)
   const abortRef = useRef<AbortController | null>(null)
   const logId = useRef(0)
@@ -87,8 +92,8 @@ export function useGenerator() {
 
   const cancel = useCallback(() => {
     abortRef.current?.abort()
-    append('warn', 'Cancelled — progress is saved, re-run to resume.')
-  }, [append])
+    append('warn', m.log.cancelled)
+  }, [append, m])
 
   const start = useCallback(
     async (
@@ -101,7 +106,7 @@ export function useGenerator() {
         setState({
           ...INITIAL,
           status: 'error',
-          error: 'No active API keys on this account — add one under API keys.',
+          error: m.log.noKeys,
         })
         return { rows: [], status: 'error' }
       }
@@ -132,7 +137,12 @@ export function useGenerator() {
             setState((previous) => ({ ...previous, total: event.total }))
             append(
               'info',
-              `${event.total} media files (${event.images} images, ${event.videos} videos); ${event.skipped} other files ignored`,
+              m.log.scanned(
+                event.total,
+                event.images,
+                event.videos,
+                event.skipped,
+              ),
             )
             break
           case 'file-start':
@@ -172,22 +182,22 @@ export function useGenerator() {
           case 'file-failed':
             append(
               'error',
-              `${event.name}: ${event.message}${event.requeued ? ' — requeued' : ' — using fallback row'}`,
+              m.log.fileFailed(event.name, event.message, event.requeued),
             )
             break
           case 'key-cooldown':
             patchKey(event.keyIndex, { cooldownUntil: event.untilMs, current: undefined })
             append(
               'warn',
-              `Key ${event.keyIndex + 1} rate-limited (429) — cooling down 60s (${event.consecutive429s}/5)`,
+              m.log.keyCooldown(event.keyIndex + 1, event.consecutive429s),
             )
             break
           case 'key-dead':
             patchKey(event.keyIndex, { dead: true, current: undefined })
-            append('error', `Key ${event.keyIndex + 1} is out of quota for today`)
+            append('error', m.log.keyDead(event.keyIndex + 1))
             break
           case 'model-fallback':
-            append('warn', `${event.name}: retrying on ${event.model}`)
+            append('warn', m.log.modelFallback(event.name, event.model))
             break
           case 'stats':
             setState((previous) => ({
@@ -203,11 +213,11 @@ export function useGenerator() {
           case 'partial':
             append(
               'warn',
-              `Partial run: ${event.done}/${event.total} done, ${event.remaining} left. No CSV yet — re-run to resume.`,
+              m.log.partial(event.done, event.total, event.remaining),
             )
             break
           case 'finished':
-            append('info', `Wrote ${event.csvName} (${event.rows} rows)`)
+            append('info', m.log.finished(event.csvName, event.rows))
             setState((previous) => ({ ...previous, csvName: event.csvName }))
             break
         }
@@ -237,7 +247,7 @@ export function useGenerator() {
         abortRef.current = null
       }
     },
-    [append],
+    [append, m],
   )
 
   return { state, start, cancel, reset }

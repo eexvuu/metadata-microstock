@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '#/components/ui/select'
 import type { StoredSettings } from '#/lib/generator/settings'
+import { useMessages } from '#/lib/i18n'
 
 interface AdvancedOptionsProps {
   settings: StoredSettings
@@ -31,6 +32,7 @@ export function AdvancedOptions({
   onChange,
   disabled,
 }: AdvancedOptionsProps) {
+  const m = useMessages()
   const [open, setOpen] = useState(false)
 
   if (settings.platform !== 'shutterstock') return null
@@ -52,9 +54,9 @@ export function AdvancedOptions({
         <ChevronDown
           className={`size-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
         />
-        <span className="eyebrow">Shutterstock columns</span>
+        <span className="eyebrow">{m.options.heading}</span>
         {changed && !open ? (
-          <span className="bg-primary size-1.5" aria-label="changed from defaults" />
+          <span className="bg-primary size-1.5" aria-label={m.options.changedAria} />
         ) : null}
         <span className="text-muted-foreground/60 ml-auto font-mono text-[0.65rem]">
           editorial · mature · illustration
@@ -64,7 +66,7 @@ export function AdvancedOptions({
       {open ? (
         <div className="space-y-3 pb-5">
           <div className="space-y-2">
-            <Label>Illustration column</Label>
+            <Label>{m.options.illustration}</Label>
             <Select
               value={settings.illustration}
               disabled={disabled}
@@ -76,23 +78,23 @@ export function AdvancedOptions({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="auto">Auto — the model decides</SelectItem>
-                <SelectItem value="yes">Force yes</SelectItem>
-                <SelectItem value="no">Force no</SelectItem>
+                <SelectItem value="auto">{m.options.illustrationAuto}</SelectItem>
+                <SelectItem value="yes">{m.options.illustrationYes}</SelectItem>
+                <SelectItem value="no">{m.options.illustrationNo}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <CheckRow
             id="editorial"
-            label="Editorial = yes"
+            label={m.options.editorial}
             checked={settings.editorial}
             disabled={disabled}
             onChange={(checked) => set('editorial', checked)}
           />
           <CheckRow
             id="mature"
-            label="Mature content = yes"
+            label={m.options.mature}
             checked={settings.mature}
             disabled={disabled}
             onChange={(checked) => set('mature', checked)}

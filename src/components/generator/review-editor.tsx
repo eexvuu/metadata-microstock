@@ -16,6 +16,8 @@ import { Textarea } from '#/components/ui/textarea'
 import { ADOBE_CATEGORIES } from '#/lib/engine/profiles/adobe'
 import { CATEGORY_NAMES } from '#/lib/engine/shutterstock-categories'
 import type { MediaEntry, MetadataRow, RunOptions } from '#/lib/engine/types'
+import { useMessages } from '#/lib/i18n'
+import type { Messages } from '#/lib/i18n'
 import type { FileSource } from '#/lib/sources/types'
 
 const MAX_KEYWORDS: Record<RunOptions['platform'], number> = {
@@ -62,6 +64,7 @@ export function ReviewEditor({
   canExport?: boolean
   writable: boolean
 }) {
+  const m = useMessages()
   const [query, setQuery] = useState('')
   const [bulkKeyword, setBulkKeyword] = useState('')
 
@@ -110,7 +113,9 @@ export function ReviewEditor({
     setBulkKeyword('')
   }
 
-  const problems = rows.filter((row) => issuesOf(row, platform).length > 0).length
+  const problems = rows.filter(
+    (row) => issuesOf(row, platform, m.review.issues).length > 0,
+  ).length
 
   return (
     <div className="space-y-4">
@@ -119,19 +124,21 @@ export function ReviewEditor({
           <span className="font-display text-2xl leading-none font-medium tabular-nums">
             {rows.length}
           </span>
-          <span className="eyebrow text-muted-foreground">rows ready</span>
+          <span className="eyebrow text-muted-foreground">
+            {m.review.rowsReady}
+          </span>
         </div>
 
         {problems > 0 ? (
           <span className="text-primary flex items-center gap-1.5 font-mono text-xs">
             <AlertTriangle className="size-3.5" />
-            {problems} need a look
+            {m.review.needLook(problems)}
           </span>
         ) : null}
 
         <Input
           value={query}
-          placeholder="Filter rows…"
+          placeholder={m.review.filterPlaceholder}
           onChange={(event) => setQuery(event.target.value)}
           className="w-48"
         />
@@ -139,7 +146,7 @@ export function ReviewEditor({
         <div className="flex items-center gap-1.5">
           <Input
             value={bulkKeyword}
-            placeholder="Keyword for every row"
+            placeholder={m.review.bulkKeywordPlaceholder}
             onChange={(event) => setBulkKeyword(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter') {
@@ -149,20 +156,20 @@ export function ReviewEditor({
             }}
             className="w-56"
           />
-          <Button variant="outline" size="icon" onClick={addToAll} aria-label="Add to all rows">
+          <Button variant="outline" size="icon" onClick={addToAll} aria-label={m.review.addToAllAria}>
             <Plus className="size-4" />
           </Button>
         </div>
 
         <div className="flex items-center gap-1.5">
           <Select value="" onValueChange={applyExtension}>
-            <SelectTrigger className="w-52" aria-label="Extension for every row">
-              <SelectValue placeholder="Extension for all rows…" />
+            <SelectTrigger className="w-52" aria-label={m.review.extensionAria}>
+              <SelectValue placeholder={m.review.extensionPlaceholder} />
             </SelectTrigger>
             <SelectContent>
               {EXTENSIONS.map((extension) => (
                 <SelectItem key={extension} value={extension}>
-                  rename every row to {extension}
+                  {m.review.renameEvery(extension)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -175,7 +182,7 @@ export function ReviewEditor({
           className="eyebrow ml-auto"
         >
           <Download className="size-4" />
-          {writable ? 'Write CSV to folder' : 'Download CSV'}
+          {writable ? m.review.writeCsv : m.review.downloadCsv}
         </Button>
       </div>
 
@@ -183,7 +190,7 @@ export function ReviewEditor({
         {visible.map((row) => {
           const entry = byName.get(row.sourceName) ?? byName.get(row.filename)
           const keywords = splitKeywords(row.keywords)
-          const issues = issuesOf(row, platform)
+          const issues = issuesOf(row, platform, m.review.issues)
 
           return (
             <article
@@ -198,7 +205,7 @@ export function ReviewEditor({
                 )}
                 {row.fallback ? (
                   <p className="text-destructive font-mono text-[0.6rem]">
-                    {row.fallback} fallback — written by hand or re-run
+                    {m.review.fallbackNote(row.fallback)}
                   </p>
                 ) : null}
               </div>
@@ -206,10 +213,12 @@ export function ReviewEditor({
               <div className="min-w-0 space-y-3">
                 <div className="space-y-1.5">
                   <div className="flex items-baseline justify-between gap-3">
-                    <Label htmlFor={`file-${row.sourceName}`}>Filename in the CSV</Label>
+                    <Label htmlFor={`file-${row.sourceName}`}>
+                      {m.review.filenameInCsv}
+                    </Label>
                     {row.filename !== row.sourceName ? (
                       <span className="text-muted-foreground truncate font-mono text-[0.65rem]">
-                        on disk: {row.sourceName}
+                        {m.review.onDisk(row.sourceName)}
                       </span>
                     ) : null}
                   </div>
@@ -226,12 +235,17 @@ export function ReviewEditor({
                 <div className="space-y-1.5">
                   <div className="flex items-baseline justify-between">
                     <Label htmlFor={`title-${row.sourceName}`}>
-                      {platform === 'adobe' ? 'Title' : 'Description'}
+                      {platform === 'adobe'
+                        ? m.review.titleLabel
+                        : m.review.descriptionLabel}
                     </Label>
                     <span className="text-muted-foreground font-mono text-[0.65rem] tabular-nums">
-                      {(platform === 'adobe' ? row.title : (row.description ?? ''))
-                        .length}{' '}
-                      chars
+                      {m.review.chars(
+                        (platform === 'adobe'
+                          ? row.title
+                          : (row.description ?? '')
+                        ).length,
+                      )}
                     </span>
                   </div>
                   <Textarea
@@ -251,7 +265,7 @@ export function ReviewEditor({
 
                 <div className="space-y-1.5">
                   <div className="flex items-baseline justify-between">
-                    <Label>Keywords</Label>
+                    <Label>{m.review.keywords}</Label>
                     <span
                       className={`font-mono text-[0.65rem] tabular-nums ${
                         keywords.length > MAX_KEYWORDS[platform]
@@ -283,6 +297,7 @@ export function ReviewEditor({
                     ))}
 
                     <KeywordInput
+                      placeholder={m.review.keywordPlaceholder}
                       onAdd={(keyword) => {
                         if (keywords.includes(keyword)) return
                         patch(row.sourceName, {
@@ -295,7 +310,11 @@ export function ReviewEditor({
 
                 <div className="flex flex-wrap items-end gap-4">
                   <div className="space-y-1.5">
-                    <Label>{platform === 'adobe' ? 'Category' : 'Categories'}</Label>
+                    <Label>
+                      {platform === 'adobe'
+                        ? m.review.category
+                        : m.review.categories}
+                    </Label>
                     {platform === 'adobe' ? (
                       <Select
                         value={row.category || '1'}
@@ -349,20 +368,26 @@ export function ReviewEditor({
 
       {visible.length === 0 ? (
         <p className="border-(--line) text-muted-foreground border border-dashed py-8 text-center font-mono text-xs">
-          nothing matches that filter
+          {m.review.noMatch}
         </p>
       ) : null}
     </div>
   )
 }
 
-function KeywordInput({ onAdd }: { onAdd: (keyword: string) => void }) {
+function KeywordInput({
+  onAdd,
+  placeholder,
+}: {
+  onAdd: (keyword: string) => void
+  placeholder: string
+}) {
   const [value, setValue] = useState('')
 
   return (
     <input
       value={value}
-      placeholder="+ keyword"
+      placeholder={placeholder}
       onChange={(event) => setValue(event.target.value)}
       onKeyDown={(event) => {
         if (event.key !== 'Enter' && event.key !== ',') return
@@ -384,26 +409,28 @@ function splitKeywords(value: string): string[] {
 }
 
 /** What each platform will actually complain about, checked as you type. */
-function issuesOf(row: MetadataRow, platform: RunOptions['platform']): string[] {
+function issuesOf(
+  row: MetadataRow,
+  platform: RunOptions['platform'],
+  copy: Messages['review']['issues'],
+): string[] {
   const issues: string[] = []
   const text = platform === 'adobe' ? row.title : (row.description ?? '')
   const keywords = splitKeywords(row.keywords)
   // Shutterstock rejects these outright and Adobe silently mangles them.
   const badFilename = /[\n\r\t/\\]/
 
-  if (!row.filename.trim()) issues.push('no filename')
-  if (badFilename.test(row.filename)) {
-    issues.push('filename has a slash or a line break')
-  }
-  if (!text.trim()) issues.push('no title yet')
-  if (keywords.length === 0) issues.push('no keywords')
+  if (!row.filename.trim()) issues.push(copy.noFilename)
+  if (badFilename.test(row.filename)) issues.push(copy.badFilename)
+  if (!text.trim()) issues.push(copy.noTitle)
+  if (keywords.length === 0) issues.push(copy.noKeywords)
   if (keywords.length > MAX_KEYWORDS[platform]) {
-    issues.push(`${keywords.length - MAX_KEYWORDS[platform]} keyword(s) over the limit`)
+    issues.push(copy.overLimit(keywords.length - MAX_KEYWORDS[platform]))
   }
   if (platform === 'adobe' && /["',]/.test(row.title)) {
-    issues.push('Adobe titles cannot contain a comma or quote')
+    issues.push(copy.adobeComma)
   }
-  if (!row.category.trim()) issues.push('no category')
+  if (!row.category.trim()) issues.push(copy.noCategory)
 
   return issues
 }

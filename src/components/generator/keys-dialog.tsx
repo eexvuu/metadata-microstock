@@ -29,6 +29,7 @@ import {
   deleteGeminiKey,
   setGeminiKeyStatus,
 } from '#/lib/server/gemini-keys'
+import { useLocale, useMessages } from '#/lib/i18n'
 
 export interface KeySummary {
   id: string
@@ -53,6 +54,8 @@ export function KeysDialog({
   keys: KeySummary[]
   children: React.ReactNode
 }) {
+  const m = useMessages()
+  const { tag } = useLocale()
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [raw, setRaw] = useState('')
@@ -67,7 +70,7 @@ export function KeysDialog({
       })
 
       if (result.added > 0) {
-        toast.success(`${result.added} key${result.added === 1 ? '' : 's'} added`)
+        toast.success(m.keys.added(result.added))
         setRaw('')
         setLabel('')
       }
@@ -89,7 +92,7 @@ export function KeysDialog({
 
   const remove = async (id: string, preview: string) => {
     await deleteGeminiKey({ data: { id } })
-    toast.success(`${preview} removed`)
+    toast.success(m.keys.removed(preview))
     await router.invalidate()
   }
 
@@ -99,21 +102,8 @@ export function KeysDialog({
 
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Your Gemini keys</DialogTitle>
-          <DialogDescription>
-            Free from{' '}
-            <a
-              href="https://aistudio.google.com/apikey"
-              target="_blank"
-              rel="noreferrer"
-              className="underline underline-offset-4"
-            >
-              aistudio.google.com/apikey
-            </a>
-            . Every key adds about 15 requests a minute, so two keys is twice as
-            fast. They are encrypted before they are stored, and the only time a
-            full key leaves our server is when this tab needs it to call Google.
-          </DialogDescription>
+          <DialogTitle>{m.keys.dialogTitle}</DialogTitle>
+          <DialogDescription>{m.keys.dialogDescription}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
@@ -128,13 +118,13 @@ export function KeysDialog({
           />
           <div className="flex flex-wrap items-end gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="key-label">Label (optional)</Label>
+              <Label htmlFor="key-label">{m.keys.labelOptional}</Label>
               <Input
                 id="key-label"
                 value={label}
                 onChange={(event) => setLabel(event.target.value)}
                 disabled={busy}
-                placeholder="Personal account"
+                placeholder={m.keys.labelPlaceholder}
                 className="w-56"
               />
             </div>
@@ -147,16 +137,11 @@ export function KeysDialog({
               ) : (
                 <Plus className="size-4" />
               )}
-              Add and verify
+              {m.keys.addAndVerify}
             </Button>
           </div>
           <p className="text-muted-foreground text-xs text-pretty">
-            One per line — paste your{' '}
-            <code className="border-(--line) text-foreground border px-1 font-mono text-[0.7rem]">
-              gemini-key.txt
-            </code>{' '}
-            as-is, comments and blank lines included. Each key is checked against
-            Google before it is saved.
+            {m.keys.pasteHint}
           </p>
         </div>
 
@@ -165,11 +150,13 @@ export function KeysDialog({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Label</TableHead>
-                  <TableHead className="w-40">Key</TableHead>
-                  <TableHead className="w-24">Status</TableHead>
-                  <TableHead className="w-32">Last used</TableHead>
-                  <TableHead className="w-32 text-right">Actions</TableHead>
+                  <TableHead>{m.keys.columnLabel}</TableHead>
+                  <TableHead className="w-40">{m.keys.columnKey}</TableHead>
+                  <TableHead className="w-24">{m.keys.columnStatus}</TableHead>
+                  <TableHead className="w-32">{m.keys.columnLastUsed}</TableHead>
+                  <TableHead className="w-32 text-right">
+                    {m.keys.columnActions}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -183,13 +170,15 @@ export function KeysDialog({
                       <Badge
                         variant={key.status === 'active' ? 'default' : 'secondary'}
                       >
-                        {key.status}
+                        {key.status === 'active'
+                          ? m.keys.status.active
+                          : m.keys.status.disabled}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground font-mono text-xs">
                       {key.lastUsedAt
-                        ? new Date(key.lastUsedAt).toLocaleDateString()
-                        : 'never'}
+                        ? new Date(key.lastUsedAt).toLocaleDateString(tag)
+                        : m.keys.never}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button
@@ -197,12 +186,12 @@ export function KeysDialog({
                         size="xs"
                         onClick={() => void toggle(key.id, key.status)}
                       >
-                        {key.status === 'active' ? 'Disable' : 'Enable'}
+                        {key.status === 'active' ? m.keys.disable : m.keys.enable}
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon-xs"
-                        aria-label={`Remove ${key.preview}`}
+                        aria-label={m.keys.removeAria(key.preview)}
                         onClick={() => void remove(key.id, key.preview)}
                       >
                         <Trash2 className="size-3.5" />
@@ -215,7 +204,7 @@ export function KeysDialog({
           </div>
         ) : (
           <p className="border-(--line) text-muted-foreground border border-dashed py-6 text-center font-mono text-xs">
-            no keys yet — paste one above and the tool is ready
+            {m.keys.empty}
           </p>
         )}
       </DialogContent>
@@ -225,16 +214,17 @@ export function KeysDialog({
 
 /** The empty state on the rail: the one thing standing between you and a run. */
 export function AddFirstKey({ keys }: { keys: KeySummary[] }) {
+  const m = useMessages()
+
   return (
     <div className="border-(--line) flex flex-col items-center gap-3 border border-dashed px-4 py-6 text-center">
       <p className="text-muted-foreground max-w-md text-sm text-pretty">
-        This tool runs on your own Google key, which is free and takes a minute
-        to make. Nothing else is needed.
+        {m.keys.firstBody}
       </p>
       <KeysDialog keys={keys}>
         <Button className="eyebrow">
           <KeyRound className="size-4" />
-          Add your Gemini key
+          {m.keys.firstCta}
         </Button>
       </KeysDialog>
     </div>
