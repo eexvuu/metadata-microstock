@@ -17,7 +17,6 @@ import { Route as ToolsRouteRouteImport } from './routes/tools/route'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as DashboardResourceRouteImport } from './routes/dashboard/$resource'
 import { Route as DashboardHistoryRouteImport } from './routes/dashboard/history'
-import { Route as DashboardKeysRouteImport } from './routes/dashboard/keys'
 import { Route as ToolsMetadataRouteImport } from './routes/tools/metadata'
 import { Route as DashboardAdminIndexRouteImport } from './routes/dashboard/admin/index'
 import { Route as DashboardAdminUsersUserIdRouteImport } from './routes/dashboard/admin/users.$userId'
@@ -62,11 +61,6 @@ const DashboardHistoryRoute = DashboardHistoryRouteImport.update({
   path: '/history',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
-const DashboardKeysRoute = DashboardKeysRouteImport.update({
-  id: '/keys',
-  path: '/keys',
-  getParentRoute: () => DashboardRouteRoute,
-} as any)
 const ToolsMetadataRoute = ToolsMetadataRouteImport.update({
   id: '/metadata',
   path: '/metadata',
@@ -92,7 +86,6 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/dashboard/$resource': typeof DashboardResourceRoute
   '/dashboard/history': typeof DashboardHistoryRoute
-  '/dashboard/keys': typeof DashboardKeysRoute
   '/tools/metadata': typeof ToolsMetadataRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/dashboard/admin/': typeof DashboardAdminIndexRoute
@@ -105,7 +98,6 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/dashboard/$resource': typeof DashboardResourceRoute
   '/dashboard/history': typeof DashboardHistoryRoute
-  '/dashboard/keys': typeof DashboardKeysRoute
   '/tools/metadata': typeof ToolsMetadataRoute
   '/dashboard': typeof DashboardIndexRoute
   '/dashboard/admin': typeof DashboardAdminIndexRoute
@@ -120,7 +112,6 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/dashboard/$resource': typeof DashboardResourceRoute
   '/dashboard/history': typeof DashboardHistoryRoute
-  '/dashboard/keys': typeof DashboardKeysRoute
   '/tools/metadata': typeof ToolsMetadataRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/dashboard/admin/': typeof DashboardAdminIndexRoute
@@ -136,7 +127,6 @@ export interface FileRouteTypes {
     | '/signup'
     | '/dashboard/$resource'
     | '/dashboard/history'
-    | '/dashboard/keys'
     | '/tools/metadata'
     | '/dashboard/'
     | '/dashboard/admin/'
@@ -149,7 +139,6 @@ export interface FileRouteTypes {
     | '/signup'
     | '/dashboard/$resource'
     | '/dashboard/history'
-    | '/dashboard/keys'
     | '/tools/metadata'
     | '/dashboard'
     | '/dashboard/admin'
@@ -163,7 +152,6 @@ export interface FileRouteTypes {
     | '/signup'
     | '/dashboard/$resource'
     | '/dashboard/history'
-    | '/dashboard/keys'
     | '/tools/metadata'
     | '/dashboard/'
     | '/dashboard/admin/'
@@ -236,13 +224,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardHistoryRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
-    '/dashboard/keys': {
-      id: '/dashboard/keys'
-      path: '/keys'
-      fullPath: '/dashboard/keys'
-      preLoaderRoute: typeof DashboardKeysRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
     '/tools/metadata': {
       id: '/tools/metadata'
       path: '/metadata'
@@ -270,7 +251,6 @@ declare module '@tanstack/react-router' {
 interface DashboardRouteRouteChildren {
   DashboardResourceRoute: typeof DashboardResourceRoute
   DashboardHistoryRoute: typeof DashboardHistoryRoute
-  DashboardKeysRoute: typeof DashboardKeysRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
   DashboardAdminIndexRoute: typeof DashboardAdminIndexRoute
   DashboardAdminUsersUserIdRoute: typeof DashboardAdminUsersUserIdRoute
@@ -279,7 +259,6 @@ interface DashboardRouteRouteChildren {
 const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardResourceRoute: DashboardResourceRoute,
   DashboardHistoryRoute: DashboardHistoryRoute,
-  DashboardKeysRoute: DashboardKeysRoute,
   DashboardIndexRoute: DashboardIndexRoute,
   DashboardAdminIndexRoute: DashboardAdminIndexRoute,
   DashboardAdminUsersUserIdRoute: DashboardAdminUsersUserIdRoute,

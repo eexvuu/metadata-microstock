@@ -1,5 +1,5 @@
 import { Link, Outlet, createFileRoute } from '@tanstack/react-router'
-import { Gauge, KeyRound, LayoutGrid, ShieldCheck, Sparkles } from 'lucide-react'
+import { Gauge, LayoutGrid, ShieldCheck, Sparkles } from 'lucide-react'
 
 import { PanelIcon } from '#/components/panel/panel-icon'
 import { PanelSearch } from '#/components/panel/panel-search'
@@ -65,15 +65,6 @@ function DashboardLayout() {
               <p className="eyebrow text-muted-foreground/60 mb-2 pl-3">
                 Account
               </p>
-
-              <Link
-                to="/dashboard/keys"
-                activeProps={{ className: LINK_ACTIVE }}
-                className={LINK_CLASS}
-              >
-                <KeyRound className="size-4" strokeWidth={1.5} />
-                API keys
-              </Link>
 
               <Link
                 to="/dashboard/history"

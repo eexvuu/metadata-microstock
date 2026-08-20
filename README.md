@@ -67,8 +67,9 @@ bun run dev                      # http://localhost:3000
 
 ```
 
-Sign up at `/signup`, add your keys under **API keys**, then open **Metadata**
-from the catalog. To reach the admin screens, promote your account once:
+Sign up at `/signup`, open **Metadata** from the catalog, and add your Gemini
+key from the tool itself — no separate screen, because no other tool needs
+one. To reach the admin screens, promote your account once:
 
 ```bash
 bunx wrangler d1 execute stockflow-db --local --command "UPDATE user SET role='admin' WHERE email='you@example.com'"
@@ -115,7 +116,7 @@ src/lib/image/           how vectors become pictures: svg-raster.ts | pdf-raster
 src/lib/generator/       React glue: run preferences in localStorage, the run hook
 src/lib/server/          crypto.ts (AES-GCM), gemini-keys.ts, runs.ts — server functions
 src/routes/tools/        metadata.tsx — the tool, on its own full-width page
-src/routes/dashboard/    the catalog, keys, history and the admin screens
+src/routes/dashboard/    the catalog, history and the admin screens
 test/e2e-local.ts        hits the real API against a folder on disk; run by hand
 ```
 

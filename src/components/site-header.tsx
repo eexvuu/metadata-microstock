@@ -18,7 +18,7 @@ import { signOut, useSession } from '#/lib/auth-client'
 const NAV = [
   { to: '/', label: 'Overview' },
   { to: '/dashboard', label: 'Tools' },
-  { to: '/dashboard/keys', label: 'Keys' },
+  { to: '/dashboard/history', label: 'History' },
 ] as const
 
 const NAV_LINK =

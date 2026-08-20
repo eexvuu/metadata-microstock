@@ -4,6 +4,7 @@ import { ArrowLeft, Check, KeyRound, Loader2, Play, RotateCcw, Square } from 'lu
 import { toast } from 'sonner'
 
 import { KeyRail } from '#/components/generator/key-rail'
+import { AddFirstKey, KeysDialog } from '#/components/generator/keys-dialog'
 import { MediaGrid } from '#/components/generator/media-thumb'
 import {
   MediaPicker,
@@ -249,13 +250,15 @@ function MetadataTool() {
             {activeKeys.length} key{activeKeys.length === 1 ? '' : 's'} ·{' '}
             {workersFor(activeKeys.length)} parallel
           </span>
-          <Link
-            to="/dashboard/keys"
-            className="hover:text-foreground inline-flex items-center gap-1.5 transition-colors"
-          >
-            <KeyRound className="size-3" />
-            Manage
-          </Link>
+          <KeysDialog keys={keys}>
+            <button
+              type="button"
+              className="hover:text-foreground inline-flex items-center gap-1.5 transition-colors"
+            >
+              <KeyRound className="size-3" />
+              Keys
+            </button>
+          </KeysDialog>
         </div>
       </header>
 
@@ -454,13 +457,34 @@ function MetadataTool() {
               ) : null}
 
               <div className="space-y-2">
-                <p className="eyebrow text-muted-foreground">Keys in rotation</p>
-                <KeyRail keys={activeKeys} live={state.keys} />
-                <p className="text-muted-foreground text-xs text-pretty">
-                  Each key works at ~15 requests a minute. One that hits a limit
-                  cools down while the others carry on, so more keys is simply
-                  faster.
-                </p>
+                <div className="flex items-baseline justify-between">
+                  <p className="eyebrow text-muted-foreground">
+                    Keys in rotation
+                  </p>
+                  {activeKeys.length > 0 ? (
+                    <KeysDialog keys={keys}>
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-foreground eyebrow transition-colors"
+                      >
+                        Manage
+                      </button>
+                    </KeysDialog>
+                  ) : null}
+                </div>
+
+                {activeKeys.length === 0 ? (
+                  <AddFirstKey keys={keys} />
+                ) : (
+                  <>
+                    <KeyRail keys={activeKeys} live={state.keys} />
+                    <p className="text-muted-foreground text-xs text-pretty">
+                      Each key works at ~15 requests a minute. One that hits a
+                      limit cools down while the others carry on, so more keys is
+                      simply faster.
+                    </p>
+                  </>
+                )}
               </div>
             </section>
           </div>

@@ -73,12 +73,10 @@ function CatalogPage() {
               </Link>
             </Button>
             {activeKeys === 0 ? (
-              <Button asChild variant="outline" size="sm">
-                <Link to="/dashboard/keys" className="eyebrow">
-                  <KeyRound className="size-3.5" />
-                  Add a key first
-                </Link>
-              </Button>
+              <span className="text-muted-foreground inline-flex items-center gap-1.5 font-mono text-xs">
+                <KeyRound className="size-3.5" />
+                add a free Gemini key inside the tool
+              </span>
             ) : null}
           </div>
         </article>

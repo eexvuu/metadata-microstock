@@ -3,7 +3,7 @@ import { Link } from '@tanstack/react-router'
 const LINKS = [
   { to: '/dashboard', label: 'Tools' },
   { to: '/tools/metadata', label: 'Metadata' },
-  { to: '/dashboard/keys', label: 'API keys' },
+  { to: '/dashboard/history', label: 'History' },
 ] as const
 
 /** The colophon — printed small at the bottom of the sheet, like a lab stamp. */

@@ -275,8 +275,9 @@ breaks real runs:
 ## Accounts and keys
 
 The app is signed-in only. `/` is marketing; `/dashboard` is the tool catalog,
-the metadata tool lives at `/dashboard/generate`, keys at `/dashboard/keys` and
-run history at `/dashboard/history`. None of them is a panel resource — the
+the metadata tool lives at `/tools/metadata` and run history at
+`/dashboard/history`. Keys have no screen of their own: only this tool needs
+one, so `KeysDialog` lives inside it. None of these is a panel resource — the
 panel serves the admin screens (`/dashboard/admin`, `/dashboard/users`,
 `/dashboard/runs`):
 
