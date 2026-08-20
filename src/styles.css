@@ -140,6 +140,13 @@
 
   html {
     scroll-behavior: smooth;
+    /*
+     * Reserve the scrollbar's width whether or not the page scrolls. Without
+     * it a tall page (the catalog) and a short one (History) are laid out in
+     * viewports ~15px apart, and every centred thing on the page — the header,
+     * the container, the footer — slides sideways as you navigate.
+     */
+    scrollbar-gutter: stable;
   }
 
   /* Fraunces ships optical-size and softness axes; dial them once, globally. */
