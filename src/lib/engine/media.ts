@@ -1,6 +1,6 @@
 import type { MediaKind } from './types'
 
-export const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']
+export const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg']
 export const VIDEO_EXTENSIONS = ['.mp4', '.avi', '.mov', '.mkv', '.wmv', '.flv', '.webm', '.m4v']
 export const SUPPORTED_EXTENSIONS = [...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS]
 
@@ -11,6 +11,8 @@ const MIME_TYPES: Record<string, string> = {
   '.gif': 'image/gif',
   '.bmp': 'image/bmp',
   '.webp': 'image/webp',
+  // Rasterised before it is sent — see src/lib/image/svg-raster.ts.
+  '.svg': 'image/svg+xml',
   '.mp4': 'video/mp4',
   '.avi': 'video/x-msvideo',
   '.mov': 'video/quicktime',

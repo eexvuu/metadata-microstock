@@ -6,6 +6,7 @@ import { shutterstockProfile } from '#/lib/engine/profiles/shutterstock'
 import type { PlatformProfile } from '#/lib/engine/profiles/types'
 import { runFolder } from '#/lib/engine/runner'
 import type { EngineEvent, MetadataRow, RunOptions } from '#/lib/engine/types'
+import { svgRasterPreprocessor } from '#/lib/image/svg-raster'
 import type { FileSource } from '#/lib/sources/types'
 import type { VideoPreprocessor } from '#/lib/video/types'
 
@@ -218,6 +219,9 @@ export function useGenerator() {
           keys: new KeyPool(keys, handle),
           profile: PROFILES[options.platform],
           video,
+          // Always the tab's own rasteriser: it is a no-op for anything that
+          // is already a JPEG or a PNG.
+          image: svgRasterPreprocessor,
           options,
           emit: handle,
           signal: controller.signal,

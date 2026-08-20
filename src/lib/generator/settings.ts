@@ -31,7 +31,6 @@ export interface StoredSettings {
   editorial: boolean
   mature: boolean
   illustration: 'auto' | 'yes' | 'no'
-  renameBrackets: boolean
 }
 
 export const DEFAULT_SETTINGS: StoredSettings = {
@@ -41,10 +40,6 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   editorial: false,
   mature: false,
   illustration: 'auto',
-  // On, matching the CLI: the CSV filename and the file on disk have to agree,
-  // and stock platforms do not want brackets. Turning it off leaves the
-  // brackets in both places rather than pointing the CSV at a missing file.
-  renameBrackets: true,
 }
 
 /**
@@ -91,6 +86,12 @@ export function toRunOptions(
     editorial: settings.editorial,
     mature: settings.mature,
     illustration: settings.illustration === 'auto' ? null : settings.illustration === 'yes',
-    renameBrackets: settings.renameBrackets,
+    /*
+     * The web app never renames anything on disk. `[keywords]` in a filename
+     * are still forced into the title and the keyword list — that part is the
+     * profile's job — but the file keeps its name, so the CSV always points at
+     * a file that is really there. The engine keeps the flag for the CLI.
+     */
+    renameBrackets: false,
   }
 }

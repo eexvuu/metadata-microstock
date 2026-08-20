@@ -4,11 +4,16 @@ import { FolderOpen, HardDriveDownload, Upload } from 'lucide-react'
 import { Button } from '#/components/ui/button'
 import {
   BrowserDirectorySource,
-  directoryFromDrop,
+  directoryFromHandle,
   isSupported,
   pickDirectory,
 } from '#/lib/sources/browser-directory'
-import { DroppedFilesSource, filesFromDrop } from '#/lib/sources/dropped-files'
+import {
+  DroppedFilesSource,
+  captureDrop,
+  filesFromCapture,
+  type DropCapture,
+} from '#/lib/sources/dropped-files'
 import type { FileSource } from '#/lib/sources/types'
 import { mp4boxPreprocessor } from '#/lib/video/mp4box-strip'
 import type { VideoPreprocessor } from '#/lib/video/types'
@@ -62,25 +67,33 @@ export function MediaPicker({
     })
   }
 
-  const onDrop = async (event: React.DragEvent) => {
+  /**
+   * Synchronous on purpose. `event.dataTransfer` is only readable while the
+   * drop event is being dispatched, so the whole drop is captured first and
+   * resolved afterwards — awaiting inside the handler used to leave an empty
+   * item list and reject a perfectly good JPG.
+   */
+  const onDrop = (event: React.DragEvent) => {
     event.preventDefault()
     setOver(false)
     setError(null)
     if (disabled) return
 
+    void resolveDrop(captureDrop(event.dataTransfer))
+  }
+
+  const resolveDrop = async (capture: DropCapture) => {
     try {
-      // A folder handle keeps every advantage, so it is tried first and the
-      // file list is the fallback rather than the other way round.
-      for (const item of event.dataTransfer.items) {
-        if (item.kind !== 'file') continue
-        const directory = await directoryFromDrop(item)
+      // A folder handle keeps every advantage, so it wins when there is one.
+      for (const pending of capture.handles) {
+        const directory = await directoryFromHandle(await pending.catch(() => null))
         if (directory) {
           takeDirectory(directory)
           return
         }
       }
 
-      takeFiles(await filesFromDrop(event.dataTransfer))
+      takeFiles(await filesFromCapture(capture))
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught))
     }
@@ -104,7 +117,7 @@ export function MediaPicker({
           if (!disabled) setOver(true)
         }}
         onDragLeave={() => setOver(false)}
-        onDrop={(event) => void onDrop(event)}
+        onDrop={onDrop}
         data-over={over ? '' : undefined}
         data-disabled={disabled ? '' : undefined}
         className="border-(--line) data-over:border-primary data-over:bg-accent/40 data-disabled:opacity-60 flex flex-col items-center justify-center gap-4 border border-dashed px-6 py-12 text-center transition-colors"
@@ -151,7 +164,7 @@ export function MediaPicker({
             ref={fileInput}
             type="file"
             multiple
-            accept="image/*,video/*"
+            accept="image/*,video/*,.svg"
             className="hidden"
             onChange={(event) => {
               takeFiles([...(event.target.files ?? [])])

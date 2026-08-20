@@ -71,24 +71,51 @@ export class DroppedFilesSource implements FileSource {
   }
 }
 
-/** Pulls every file out of a drop, including the contents of dropped folders. */
-export async function filesFromDrop(transfer: DataTransfer): Promise<File[]> {
+/**
+ * What a drop is worth, grabbed while it is still worth anything.
+ *
+ * The drag data store is only readable during the `drop` event: the moment the
+ * handler awaits, `dataTransfer.items` is empty and `getAsFile()` returns null.
+ * So everything is taken synchronously here — the handle promises are *started*
+ * rather than awaited — and the slow half happens afterwards on objects that
+ * outlive the event.
+ */
+export interface DropCapture {
+  /** One per item: a File System Access handle where the browser offers it. */
+  handles: Promise<{ kind: string } | null>[]
+  entries: (FileSystemEntry | null)[]
+  files: File[]
+}
+
+export function captureDrop(transfer: DataTransfer): DropCapture {
   const items = [...transfer.items].filter((item) => item.kind === 'file')
+
+  return {
+    handles: items.map((item) => {
+      const withHandle = item as DataTransferItem & {
+        getAsFileSystemHandle?: () => Promise<{ kind: string } | null>
+      }
+      return typeof withHandle.getAsFileSystemHandle === 'function'
+        ? withHandle.getAsFileSystemHandle()
+        : Promise.resolve(null)
+    }),
+    entries: items.map((item) => item.webkitGetAsEntry?.() ?? null),
+    files: items.map((item) => item.getAsFile()).filter((file): file is File => Boolean(file)),
+  }
+}
+
+/** Every file in the drop, walking into folders the entry API can still read. */
+export async function filesFromCapture(capture: DropCapture): Promise<File[]> {
   const files: File[] = []
 
-  await Promise.all(
-    items.map(async (item) => {
-      const entry = item.webkitGetAsEntry?.()
+  for (const entry of capture.entries) {
+    if (!entry?.isDirectory) continue
+    files.push(...(await readDirectoryEntry(entry as FileSystemDirectoryEntry)))
+  }
 
-      if (entry?.isDirectory) {
-        files.push(...(await readDirectoryEntry(entry as FileSystemDirectoryEntry)))
-        return
-      }
-
-      const file = item.getAsFile()
-      if (file) files.push(file)
-    }),
-  )
+  // Loose files come from the synchronous capture; a dropped folder yields no
+  // usable File there, which is why the directory walk runs first.
+  files.push(...capture.files.filter((file) => file.size > 0))
 
   return files
 }

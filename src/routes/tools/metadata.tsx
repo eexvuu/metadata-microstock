@@ -310,8 +310,8 @@ function MetadataTool() {
 
               {selected && !scanning && entries.length === 0 ? (
                 <p className="text-destructive text-sm text-pretty">
-                  No images or videos in there. JPG, PNG, WEBP, MP4, MOV and M4V
-                  are the ones this tool can read.
+                  No images or videos in there. JPG, PNG, WEBP, SVG, MP4, MOV
+                  and M4V are the ones this tool can read.
                 </p>
               ) : null}
             </section>

@@ -47,20 +47,16 @@ export function isSupported(): boolean {
 }
 
 /**
- * A folder dropped on the page. Chrome and Edge expose the same handle the
+ * A folder dropped on the page. Chrome and Edge hand back the same handle the
  * picker returns, so a dropped folder is fully writable — that is why the drop
- * zone accepts folders as the happy path rather than a pile of files.
+ * zone tries for a handle before falling back to a list of files.
+ *
+ * Takes an already-resolved handle rather than the DataTransferItem: the item
+ * is dead by the time anything can be awaited (see `captureDrop`).
  */
-export async function directoryFromDrop(
-  item: DataTransferItem,
+export async function directoryFromHandle(
+  handle: { kind: string } | null,
 ): Promise<DirectoryHandle | null> {
-  const withHandle = item as DataTransferItem & {
-    getAsFileSystemHandle?: () => Promise<{ kind: string } | null>
-  }
-
-  if (typeof withHandle.getAsFileSystemHandle !== 'function') return null
-
-  const handle = await withHandle.getAsFileSystemHandle()
   if (!handle || handle.kind !== 'directory') return null
 
   const directory = handle as unknown as DirectoryHandle
@@ -141,8 +137,8 @@ export class BrowserDirectorySource implements FileSource {
 
   /**
    * The File System Access API has no rename. Copy-then-delete is the only
-   * option, which is why the bracket rename is opt-in in the UI: on a folder of
-   * 4K videos it rewrites every file.
+   * option — on a folder of 4K videos that rewrites every file, which is why
+   * the app never renames and only the CLI path sets `renameBrackets`.
    */
   async rename(entry: MediaEntry, newName: string): Promise<void> {
     const source = entry.ref as FileHandle

@@ -111,6 +111,7 @@ src/lib/engine/          the port of gemma/index.js — no DOM, no node:*, no bi
   runner.ts              the worker pool, resume, rename — and exportRun()
 src/lib/sources/         where the files are: browser-directory.ts | dropped-files.ts
 src/lib/video/           how audio is stripped: mp4box-strip.ts | passthrough
+src/lib/image/           how vectors become pictures: svg-raster.ts | passthrough
 src/lib/generator/       React glue: run preferences in localStorage, the run hook
 src/lib/server/          crypto.ts (AES-GCM), gemini-keys.ts, runs.ts — server functions
 src/routes/tools/        metadata.tsx — the tool, on its own full-width page

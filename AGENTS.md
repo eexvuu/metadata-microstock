@@ -170,8 +170,9 @@ plays by different rules, and they matter.
 **`src/lib/engine/` is runtime-agnostic.** No `node:*`, no DOM, no Cloudflare
 binding, no React. It is pure logic over bytes so the same code runs in a
 browser tab, under Bun and in principle on workerd. The two seams are
-`FileSource` (`src/lib/sources/`) and `VideoPreprocessor` (`src/lib/video/`) —
-new target, new adapter, engine untouched.
+`FileSource` (`src/lib/sources/`) and the two preprocessors —
+`VideoPreprocessor` (`src/lib/video/`) and `ImagePreprocessor`
+(`src/lib/image/`) — new target, new adapter, engine untouched.
 
 **The engine runs in the browser, never on the Worker.** Media is read from the
 user's disk and posted straight to `generativelanguage.googleapis.com` with
@@ -197,6 +198,18 @@ endings is a breaking change to someone's upload queue.
 (`src/lib/engine/progress.ts` maps to and from it), so a run can move between
 the terminal and the browser. Do not "clean up" those field names.
 
+**Vector art is rasterised in the tab, never sent as-is.** Gemini refuses
+`image/svg+xml`, so `svgRasterPreprocessor` draws the SVG onto a canvas (white
+first — JPEG has no alpha) and sends a JPEG. EPS and AI are NOT supported:
+PostScript needs a ghostscript build nobody should download, and the workflow
+that already exists is vector mode — analyse the raster preview sitting next to
+the vector, write the vector's filename into the CSV.
+
+**The app never renames a file.** `renameBrackets` stays in `RunOptions` for the
+CLI, but the web path always passes `false`: `[keywords]` are still forced into
+the title and the keyword list, and the file on disk keeps its name so the CSV
+can never point at something that is not there.
+
 **A partial run writes no CSV and renames nothing.** Half a CSV is worse than
 none, and renaming before the run finishes desyncs the progress file from disk.
 
@@ -214,6 +227,7 @@ download and is never renamed or asked for a progress file.
 | A new place files can live | `src/lib/sources/<name>.ts` implementing `FileSource` |
 | The review screen, the drop zone | `src/components/generator/` |
 | A new way to strip audio | `src/lib/video/` implementing `VideoPreprocessor` |
+| A new format the model cannot read | `src/lib/image/` implementing `ImagePreprocessor` |
 | Prompt wording, keyword rules | the profile — never the runner |
 | Retry, rate limit, resume, worker pool | `src/lib/engine/runner.ts` and `keys.ts` |
 

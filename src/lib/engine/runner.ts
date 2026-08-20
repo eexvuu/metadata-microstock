@@ -1,3 +1,4 @@
+import type { ImagePreprocessor } from '#/lib/image/types'
 import type { FileSource, ProgressFile } from '#/lib/sources/types'
 import type { VideoPreprocessor } from '#/lib/video/types'
 import { csvFileName, toCsv } from './csv'
@@ -19,6 +20,8 @@ export interface RunnerDeps {
   keys: KeyPool
   profile: PlatformProfile
   video: VideoPreprocessor
+  /** Turns vector art into a raster the model can read. Optional for the CLI. */
+  image?: ImagePreprocessor
   options: RunOptions
   emit: Emit
   signal?: AbortSignal
@@ -58,12 +61,25 @@ async function generateWithKey(
   keyIndex: number,
   modelOverride?: string,
 ): Promise<MetadataRow> {
-  const { keys, profile, options, emit, source, video, signal } = deps
+  const { keys, profile, options, emit, source, video, image, signal } = deps
   const ctx = contextFor(entry)
   const prompt = profile.buildPrompt(ctx)
 
   let bytes = await source.readBytes(entry)
   let mimeType = mimeTypeOf(entry.name)
+
+  if (entry.kind === 'image' && image) {
+    const raster = await image.toRaster(bytes, entry.name, mimeType)
+    bytes = raster.bytes
+    mimeType = raster.mimeType
+    if (raster.changed) {
+      emit({
+        type: 'log',
+        level: 'info',
+        message: `Rendered ${entry.name} to a ${(bytes.length / 1024).toFixed(0)} KB JPEG for the model`,
+      })
+    }
+  }
 
   if (entry.kind === 'video') {
     const before = bytes.length

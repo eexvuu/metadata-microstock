@@ -23,8 +23,8 @@ interface AdvancedOptionsProps {
  *
  * Folded away by default: the model, the worker count and the retry policy are
  * decided by the app now, and what is left here is genuinely per-batch — a
- * vector export, an editorial shoot, bracketed filenames. A first-time run
- * should be pick folder → pick platform → go.
+ * vector export, an editorial shoot. A first-time run should be drop files →
+ * pick platform → go.
  */
 export function AdvancedOptions({
   settings,
@@ -48,7 +48,6 @@ export function AdvancedOptions({
 
   const changed =
     settings.vectorExtension !== '' ||
-    !settings.renameBrackets ||
     settings.editorial ||
     settings.mature ||
     settings.illustration !== 'auto'
@@ -69,7 +68,7 @@ export function AdvancedOptions({
           <span className="bg-primary size-1.5" aria-label="changed from defaults" />
         ) : null}
         <span className="text-muted-foreground/60 ml-auto font-mono text-[0.65rem]">
-          vector · brackets{settings.platform === 'shutterstock' ? ' · columns' : ''}
+          vector{settings.platform === 'shutterstock' ? ' · columns' : ''}
         </span>
       </button>
 
@@ -141,20 +140,6 @@ export function AdvancedOptions({
             </div>
           ) : null}
 
-          <div className="space-y-2">
-            <CheckRow
-              id="rename"
-              label="Strip [brackets] from filenames"
-              checked={settings.renameBrackets}
-              disabled={disabled}
-              onChange={(checked) => set('renameBrackets', checked)}
-            />
-            <p className="text-muted-foreground text-xs text-pretty">
-              Renames the file and writes the clean name to the CSV, like the CLI
-              does. Off leaves the brackets in both, so the CSV still matches
-              what is on disk.
-            </p>
-          </div>
         </div>
       ) : null}
     </div>
