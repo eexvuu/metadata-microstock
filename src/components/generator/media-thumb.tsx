@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Film, Image as ImageIcon } from 'lucide-react'
 
 import type { MediaEntry } from '#/lib/engine/types'
+import { isPdfBacked, rasterizePdf } from '#/lib/image/pdf-raster'
 import type { FileSource } from '#/lib/sources/types'
 
 /**
@@ -34,7 +35,12 @@ export function MediaThumb({
       if (!entries.some((item) => item.isIntersecting)) return
       observer.disconnect()
 
-      const resolved = await source.previewUrl!(entry)
+      // An .ai or a .pdf means nothing to an <img>, so page one is rendered
+      // here too — small, because this is a tile.
+      const resolved = isPdfBacked(entry.name)
+        ? await thumbnailFromPdf(source, entry)
+        : await source.previewUrl!(entry)
+
       if (cancelled) {
         if (resolved) URL.revokeObjectURL(resolved)
         return
@@ -86,6 +92,22 @@ export function MediaThumb({
       ) : null}
     </div>
   )
+}
+
+async function thumbnailFromPdf(
+  source: FileSource,
+  entry: MediaEntry,
+): Promise<string | null> {
+  try {
+    const jpeg = await rasterizePdf(await source.readBytes(entry), 512)
+    return URL.createObjectURL(new Blob([jpeg.slice().buffer as ArrayBuffer], { type: 'image/jpeg' }))
+  } catch (error) {
+    // A vector that will not open still belongs in the queue — the run reports
+    // the reason properly, so the tile stays blank and the console carries the
+    // detail for whoever is debugging a stubborn file.
+    console.warn(`[stockflow] no thumbnail for ${entry.name}:`, error)
+    return null
+  }
 }
 
 /** The pre-run view: what the tool is about to work through. */

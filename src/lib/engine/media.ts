@@ -1,6 +1,21 @@
 import type { MediaKind } from './types'
 
-export const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg']
+/*
+ * `.svg`, `.ai` and `.pdf` are images as far as this app is concerned: the tab
+ * renders them to a JPEG before anything is sent (src/lib/image/). The model
+ * never sees a vector.
+ */
+export const IMAGE_EXTENSIONS = [
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.gif',
+  '.bmp',
+  '.webp',
+  '.svg',
+  '.ai',
+  '.pdf',
+]
 export const VIDEO_EXTENSIONS = ['.mp4', '.avi', '.mov', '.mkv', '.wmv', '.flv', '.webm', '.m4v']
 export const SUPPORTED_EXTENSIONS = [...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS]
 
@@ -11,8 +26,10 @@ const MIME_TYPES: Record<string, string> = {
   '.gif': 'image/gif',
   '.bmp': 'image/bmp',
   '.webp': 'image/webp',
-  // Rasterised before it is sent — see src/lib/image/svg-raster.ts.
+  // Rasterised before they are sent — see src/lib/image/.
   '.svg': 'image/svg+xml',
+  '.ai': 'application/pdf',
+  '.pdf': 'application/pdf',
   '.mp4': 'video/mp4',
   '.avi': 'video/x-msvideo',
   '.mov': 'video/quicktime',

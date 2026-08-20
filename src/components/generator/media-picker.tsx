@@ -134,8 +134,9 @@ export function MediaPicker({
             Drag a folder of photos here
           </p>
           <p className="text-muted-foreground mx-auto mt-1.5 max-w-md text-sm text-pretty">
-            Or drop loose files. Nothing is uploaded — the page reads them off
-            your disk and sends each one straight to Google with your own key.
+            Photos, videos, SVG, and Illustrator files — nothing is uploaded.
+            The page reads them off your disk and sends each one straight to
+            Google with your own key.
           </p>
         </div>
 
@@ -164,7 +165,7 @@ export function MediaPicker({
             ref={fileInput}
             type="file"
             multiple
-            accept="image/*,video/*,.svg"
+            accept="image/*,video/*,.svg,.ai,.pdf"
             className="hidden"
             onChange={(event) => {
               takeFiles([...(event.target.files ?? [])])

@@ -199,11 +199,17 @@ endings is a breaking change to someone's upload queue.
 the terminal and the browser. Do not "clean up" those field names.
 
 **Vector art is rasterised in the tab, never sent as-is.** Gemini refuses
-`image/svg+xml`, so `svgRasterPreprocessor` draws the SVG onto a canvas (white
-first — JPEG has no alpha) and sends a JPEG. EPS and AI are deliberately NOT
-readable here: PostScript needs a ghostscript build nobody should download, and
-a .ai only opens if it was saved PDF-compatible. The supported workflow is to
-upload the raster you exported and set the CSV filename afterwards.
+`image/svg+xml` and PDFs, so `src/lib/image/` renders them first: SVG through a
+canvas, `.ai`/`.pdf` through pdf.js — an `.ai` saved with "Create PDF Compatible
+File" (the default since Illustrator 9) *is* a PDF. White is painted under both,
+because JPEG has no alpha. pdf.js is behind a dynamic import and one shared
+worker, so a run of photographs never downloads it.
+
+**EPS stays unsupported, deliberately.** It is real PostScript: the only browser
+answers are a multi-megabyte ghostscript build or the low-resolution TIFF
+preview Illustrator sometimes embeds, and "works for some files" is worse than
+"export a JPEG". Adobe and Shutterstock can preview EPS because they rasterise
+it on their own servers.
 
 **The filename in the CSV is the contributor's, not the engine's.** The web
 path always runs with `vectorExtension: undefined`, so rows carry the real

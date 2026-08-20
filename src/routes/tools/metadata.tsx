@@ -106,7 +106,9 @@ function MetadataTool() {
   const activeKeys = keys.filter((key) => key.status === 'active')
   const running = state.status === 'running'
   const profile = settings.platform === 'adobe' ? adobeProfile : shutterstockProfile
-  const reviewing = rows.length > 0 && !running
+  // `selected` guards the render: clearing the drop empties it one render
+  // before the effect empties `entries`, and a null source crashes the grid.
+  const reviewing = Boolean(selected) && rows.length > 0 && !running
   /*
    * A half-finished run keeps its progress file and writes no CSV — the CLI
    * rule, and the reason "Continue" replaces "Export" here rather than handing
@@ -294,7 +296,7 @@ function MetadataTool() {
                 </p>
               ) : null}
 
-              {entries.length > 0 ? (
+              {selected && entries.length > 0 ? (
                 <>
                   <p className="text-muted-foreground font-mono text-xs">
                     {entries.length} file{entries.length === 1 ? '' : 's'} ·{' '}
@@ -304,14 +306,14 @@ function MetadataTool() {
                       ? ` · ${skipped} skipped (AVI, MKV and WEBM cannot be read here — MP4, MOV and M4V can)`
                       : ''}
                   </p>
-                  <MediaGrid source={selected!.source} entries={entries} />
+                  <MediaGrid source={selected.source} entries={entries} />
                 </>
               ) : null}
 
               {selected && !scanning && entries.length === 0 ? (
                 <p className="text-destructive text-sm text-pretty">
-                  No images or videos in there. JPG, PNG, WEBP, SVG, MP4, MOV
-                  and M4V are the ones this tool can read.
+                  Nothing readable in there. JPG, PNG, WEBP, SVG, AI, PDF, MP4,
+                  MOV and M4V are the formats this tool can open.
                 </p>
               ) : null}
             </section>
