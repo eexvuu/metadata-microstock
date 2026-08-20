@@ -1,5 +1,7 @@
 import { Outlet, createFileRoute } from '@tanstack/react-router'
 
+import { CONTAINER } from '#/components/shell'
+
 /**
  * The tool shell.
  *
@@ -13,7 +15,7 @@ export const Route = createFileRoute('/tools')({
 
 function ToolsLayout() {
   return (
-    <div className="mx-auto w-full max-w-[100rem] px-4 py-6 sm:px-8">
+    <div className={`${CONTAINER} py-6`}>
       <Outlet />
     </div>
   )

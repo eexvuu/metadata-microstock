@@ -1,6 +1,7 @@
 import { Link, useNavigate } from '@tanstack/react-router'
 import { LogOut } from 'lucide-react'
 
+import { CONTAINER } from '#/components/shell'
 import { ThemeToggle } from '#/components/theme-toggle'
 import { Avatar, AvatarFallback } from '#/components/ui/avatar'
 import { Button } from '#/components/ui/button'
@@ -30,7 +31,7 @@ export function SiteHeader() {
       {/* The safelight strip: the one saturated line on every screen. */}
       <div className="from-primary/0 via-primary to-primary/0 h-px w-full bg-gradient-to-r" />
 
-      <div className="border-(--line) mx-auto flex h-16 w-full max-w-[100rem] items-center gap-8 border-b px-4 sm:px-8">
+      <div className={`${CONTAINER} border-(--line) flex h-16 items-center gap-8 border-b`}>
         <Link to="/" className="group flex items-center gap-2.5">
           <span className="border-foreground/70 group-hover:border-primary relative flex size-6 items-center justify-center border transition-colors">
             <span className="bg-primary size-2" />

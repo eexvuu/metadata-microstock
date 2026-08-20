@@ -3,125 +3,113 @@ import { Gauge, LayoutGrid, ShieldCheck, Sparkles } from 'lucide-react'
 
 import { PanelIcon } from '#/components/panel/panel-icon'
 import { PanelSearch } from '#/components/panel/panel-search'
+import { CONTAINER } from '#/components/shell'
 import { getPanelNav } from '#/lib/server/panel'
 
 /**
- * The app shell.
+ * The dashboard shell.
  *
- * The sidebar is server-driven: `getPanelNav` returns only the resources this
+ * Sections run across the top rather than down a rail: with the tool on its
+ * own page there are only a handful of them, and a sidebar would inset this
+ * content while `/tools/*` starts at the header's edge — the two would never
+ * line up. Everything here shares `CONTAINER` with the header and the footer.
+ *
+ * The nav is server-driven: `getPanelNav` returns only the resources this
  * session's role may view, and every panel resource is admin-gated — so the
- * Admin group is absent, not disabled, for an ordinary account, and the bundle
- * never mentions it. Global search is scoped the same way.
+ * admin links are absent, not disabled, for an ordinary account, and the
+ * bundle never mentions them. Global search is scoped the same way.
  */
 export const Route = createFileRoute('/dashboard')({
   loader: () => getPanelNav(),
   component: DashboardLayout,
 })
 
-/*
- * Nav items are index entries, not buttons: no pill, no rounding. The active
- * one is marked with a rule in the margin, the way a contact sheet is marked.
- */
 const LINK_CLASS =
-  'text-muted-foreground hover:text-foreground hover:border-(--line-strong) border-l border-transparent flex items-center gap-2.5 py-1.5 pl-3 text-sm transition-colors'
+  'eyebrow text-muted-foreground hover:text-foreground relative py-1 transition-colors after:absolute after:-bottom-1 after:left-0 after:h-px after:w-0 after:bg-primary after:transition-[width] after:duration-300 hover:after:w-full'
 
-const LINK_ACTIVE = 'text-foreground border-primary font-medium'
+const LINK_ACTIVE = 'text-foreground after:w-full'
 
 function DashboardLayout() {
   const nav = Route.useLoaderData()
   const isAdmin = nav.length > 0
 
   return (
-    <div className="mx-auto flex w-full max-w-[100rem] gap-12 px-4 py-8 sm:px-8">
-      <aside className="hidden w-48 shrink-0 lg:block">
-        <div className="sticky top-24 space-y-6">
-          {isAdmin ? <PanelSearch /> : null}
+    <>
+      <div className="border-(--line) border-b">
+        <div
+          className={`${CONTAINER} flex flex-wrap items-center gap-x-6 gap-y-3 py-3`}
+        >
+          <Link
+            to="/dashboard"
+            activeOptions={{ exact: true }}
+            activeProps={{ className: LINK_ACTIVE }}
+            className={LINK_CLASS}
+          >
+            <LayoutGrid className="mr-1.5 inline size-3.5" strokeWidth={1.5} />
+            Catalog
+          </Link>
 
-          <nav className="space-y-6">
-            <div className="space-y-0.5">
-              <p className="eyebrow text-muted-foreground/60 mb-2 pl-3">Tools</p>
+          <Link
+            to="/tools/metadata"
+            activeProps={{ className: LINK_ACTIVE }}
+            className={LINK_CLASS}
+          >
+            <Sparkles className="mr-1.5 inline size-3.5" strokeWidth={1.5} />
+            Metadata
+          </Link>
+
+          <Link
+            to="/dashboard/history"
+            activeProps={{ className: LINK_ACTIVE }}
+            className={LINK_CLASS}
+          >
+            <Gauge className="mr-1.5 inline size-3.5" strokeWidth={1.5} />
+            History
+          </Link>
+
+          {isAdmin ? (
+            <>
+              <span className="bg-(--line) hidden h-4 w-px sm:block" aria-hidden />
 
               <Link
-                to="/dashboard"
+                to="/dashboard/admin"
                 activeOptions={{ exact: true }}
                 activeProps={{ className: LINK_ACTIVE }}
                 className={LINK_CLASS}
               >
-                <LayoutGrid className="size-4" strokeWidth={1.5} />
-                Catalog
+                <ShieldCheck className="mr-1.5 inline size-3.5" strokeWidth={1.5} />
+                Monitoring
               </Link>
 
-              <Link
-                to="/tools/metadata"
-                activeProps={{ className: LINK_ACTIVE }}
-                className={LINK_CLASS}
-              >
-                <Sparkles className="size-4" strokeWidth={1.5} />
-                Metadata
-              </Link>
-            </div>
-
-            <div className="space-y-0.5">
-              <p className="eyebrow text-muted-foreground/60 mb-2 pl-3">
-                Account
-              </p>
-
-              <Link
-                to="/dashboard/history"
-                activeProps={{ className: LINK_ACTIVE }}
-                className={LINK_CLASS}
-              >
-                <Gauge className="size-4" strokeWidth={1.5} />
-                History
-              </Link>
-            </div>
-
-            {/*
-              Present only for admins — `getPanelNav` returns an empty list for
-              everyone else, so there is nothing to render and nothing to leak.
-            */}
-            {isAdmin ? (
-              <div className="space-y-0.5">
-                <p className="eyebrow text-muted-foreground/60 mb-2 pl-3">
-                  Admin
-                </p>
-
+              {nav.map((item) => (
                 <Link
-                  to="/dashboard/admin"
-                  activeOptions={{ exact: true }}
+                  key={item.name}
+                  to="/dashboard/$resource"
+                  params={{ resource: item.name }}
                   activeProps={{ className: LINK_ACTIVE }}
                   className={LINK_CLASS}
                 >
-                  <ShieldCheck className="size-4" strokeWidth={1.5} />
-                  Monitoring
+                  <PanelIcon name={item.icon} className="mr-1.5 inline size-3.5" />
+                  {item.label}
+                  {item.badge === undefined ? null : (
+                    <span className="text-muted-foreground/70 ml-1.5">
+                      {item.badge}
+                    </span>
+                  )}
                 </Link>
+              ))}
 
-                {nav.map((item) => (
-                  <Link
-                    key={item.name}
-                    to="/dashboard/$resource"
-                    params={{ resource: item.name }}
-                    activeProps={{ className: LINK_ACTIVE }}
-                    className={LINK_CLASS}
-                  >
-                    <PanelIcon name={item.icon} className="size-4" />
-                    {item.label}
-                    {item.badge === undefined ? null : (
-                      <span className="border-(--line) text-muted-foreground ml-auto border px-1 font-mono text-[0.6rem] tabular-nums">
-                        {item.badge}
-                      </span>
-                    )}
-                  </Link>
-                ))}
+              <div className="ml-auto w-full sm:w-56">
+                <PanelSearch />
               </div>
-            ) : null}
-          </nav>
+            </>
+          ) : null}
         </div>
-      </aside>
+      </div>
 
-      <main className="min-w-0 flex-1">
+      <main className={`${CONTAINER} py-8`}>
         <Outlet />
       </main>
-    </div>
+    </>
   )
 }

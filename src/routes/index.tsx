@@ -10,6 +10,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 
+import { CONTAINER } from '#/components/shell'
 import { Button } from '#/components/ui/button'
 export const Route = createFileRoute('/')({
   component: LandingPage,
@@ -105,7 +106,7 @@ function LandingPage() {
 function Hero() {
   return (
     <section className="safelight sheet-grid border-(--line) relative overflow-hidden border-b">
-      <div className="relative mx-auto grid w-full max-w-7xl gap-14 px-4 py-20 sm:px-8 sm:py-28 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+      <div className={`${CONTAINER} relative grid gap-14 py-20 sm:py-28 lg:grid-cols-[1.15fr_0.85fr] lg:items-center`}>
         <div className="stagger">
           <p className="eyebrow text-primary reveal flex items-center gap-2">
             <span className="bg-primary size-1.5" />
@@ -216,7 +217,7 @@ function ContactSheet() {
 
 function Catalog() {
   return (
-    <section className="mx-auto w-full max-w-7xl px-4 py-20 sm:px-8">
+    <section className={`${CONTAINER} py-20`}>
       <SectionHead index="01" title="On the shelf" />
       <p className="text-muted-foreground mt-5 max-w-2xl text-pretty">
         One account, one set of keys, and a tool for each job. Everything a tool
@@ -269,7 +270,7 @@ function Catalog() {
 
 function Process() {
   return (
-    <section className="mx-auto w-full max-w-7xl px-4 py-20 sm:px-8">
+    <section className={`${CONTAINER} py-20`}>
       <SectionHead index="02" title="How it works" />
 
       <ol className="mt-10 grid gap-px sm:grid-cols-3">
@@ -295,7 +296,7 @@ function Process() {
 function Specimen() {
   return (
     <section className="border-(--line) border-y">
-      <div className="mx-auto w-full max-w-7xl px-4 py-20 sm:px-8">
+      <div className={`${CONTAINER} py-20`}>
         <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
           <div>
             <SectionHead index="03" title="What lands in the folder" />
@@ -338,7 +339,7 @@ function Specimen() {
 
 function Features() {
   return (
-    <section className="mx-auto w-full max-w-7xl px-4 py-20 sm:px-8">
+    <section className={`${CONTAINER} py-20`}>
       <SectionHead index="04" title="What you get" />
 
       <div className="border-(--line) mt-10 grid border-t border-l sm:grid-cols-2 lg:grid-cols-3">
@@ -370,7 +371,7 @@ function Features() {
 function Close() {
   return (
     <section className="safelight border-(--line) relative overflow-hidden border-t">
-      <div className="relative mx-auto w-full max-w-4xl px-4 py-24 text-center sm:px-8">
+      <div className={`${CONTAINER} relative py-24 text-center`}>
         <h2 className="font-display text-4xl leading-[1.05] font-light tracking-tight text-balance sm:text-6xl">
           Stop writing keywords{' '}
           <em className="text-primary font-normal italic">by hand</em>.

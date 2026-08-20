@@ -1,5 +1,7 @@
 import { Link } from '@tanstack/react-router'
 
+import { CONTAINER } from '#/components/shell'
+
 const LINKS = [
   { to: '/dashboard', label: 'Tools' },
   { to: '/tools/metadata', label: 'Metadata' },
@@ -10,7 +12,7 @@ const LINKS = [
 export function SiteFooter() {
   return (
     <footer className="border-(--line) mt-24 border-t">
-      <div className="mx-auto w-full max-w-[100rem] px-4 py-10 sm:px-8">
+      <div className={`${CONTAINER} py-10`}>
         <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-2">
             <p className="eyebrow text-muted-foreground">Stockflow</p>
