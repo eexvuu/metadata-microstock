@@ -1,0 +1,28 @@
+# Copy to `.dev.vars` for local development.
+# In production these are secrets, not vars:
+#   bunx wrangler secret put BETTER_AUTH_SECRET
+#
+# Nothing here needs a paid plan. The defaults below let the app run with no
+# third-party accounts at all — email is printed to the console.
+
+# Required. Generate one with:  openssl rand -base64 32
+BETTER_AUTH_SECRET="dev-only-secret-change-me-before-deploying"
+# Required. Encrypts users' Gemini API keys at rest in D1. Generate with:
+#   openssl rand -base64 32
+# In production this is a secret, not a var:
+#   bunx wrangler secret put ENCRYPTION_SECRET
+# Rotating it makes every stored key undecryptable — users have to re-add theirs.
+ENCRYPTION_SECRET="dev-only-encryption-secret-change-me"
+
+
+# --- Email -------------------------------------------------------------------
+# console    = print to the Worker log (default, zero setup)
+# resend     = the $0 production path (free tier: 3,000/mo, 100/day)
+# cloudflare = the $5 path (needs Workers Paid + `send_email` binding)
+# EMAIL_PROVIDER="resend"
+# RESEND_API_KEY=""
+
+# --- Billing -----------------------------------------------------------------
+# Only needed once you wire up checkout. Get these from the Polar dashboard.
+# POLAR_ACCESS_TOKEN=""
+# POLAR_WEBHOOK_SECRET=""

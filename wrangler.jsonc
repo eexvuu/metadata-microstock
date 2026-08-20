@@ -1,0 +1,58 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "stockflow",
+  "main": "./src/server.ts",
+  "compatibility_date": "2026-08-11",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+
+  // Runtime vars. NOTE: APP_TIER here only switches *runtime* behaviour
+  // (which email provider to use). Whether the app server-renders is decided
+  // at BUILD time by `bun run build:free` vs `build:paid` — see vite.config.ts.
+  "vars": {
+    "APP_TIER": "free",
+    "APP_URL": "http://localhost:3000",
+    "EMAIL_PROVIDER": "console",
+    "EMAIL_FROM": "noreply@example.com",
+    "EMAIL_FROM_NAME": "Stockflow"
+  },
+
+  // --- Free plan: everything below works on the $0 Workers Free plan -------
+  // Local dev works with these placeholder IDs. You only need real IDs to
+  // deploy — see README "Setup".
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "stockflow-db",
+      "database_id": "REPLACE_WITH_YOUR_D1_ID",
+      "migrations_dir": "drizzle"
+    }
+  ],
+  "kv_namespaces": [{ "binding": "KV", "id": "REPLACE_WITH_YOUR_KV_ID" }],
+  "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "stockflow-files" }],
+  "queues": {
+    "producers": [{ "binding": "QUEUE", "queue": "stockflow-jobs" }],
+    "consumers": [{ "queue": "stockflow-jobs", "max_batch_size": 10 }]
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "ORG_ROOM", "class_name": "OrgRoom" }]
+  },
+  // new_sqlite_classes (NOT new_classes): the key-value DO backend is paid-only,
+  // the SQLite backend is available on the Free plan and is the recommended one.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["OrgRoom"] }],
+  "workflows": [
+    {
+      "binding": "ONBOARDING",
+      "name": "onboarding",
+      "class_name": "OnboardingWorkflow"
+    }
+  ],
+  "triggers": { "crons": ["0 2 * * *"] }
+
+  // --- Paid extras ---------------------------------------------------------
+  // Uncomment once you are on Workers Paid ($5/mo) AND have onboarded a domain
+  // with `wrangler email sending enable yourdomain.com`.
+  // Then set EMAIL_PROVIDER=cloudflare in vars above.
+  //
+  // "send_email": [{ "name": "EMAIL" }]
+}

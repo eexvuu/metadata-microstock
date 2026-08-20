@@ -1,0 +1,193 @@
+import { useState } from 'react'
+import { ChevronDown } from 'lucide-react'
+
+import { Checkbox } from '#/components/ui/checkbox'
+import { Label } from '#/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '#/components/ui/select'
+import type { StoredSettings } from '#/lib/generator/settings'
+
+interface AdvancedOptionsProps {
+  settings: StoredSettings
+  onChange: (settings: StoredSettings) => void
+  disabled: boolean
+}
+
+/**
+ * Everything that is not "which platform".
+ *
+ * Folded away by default: the model, the worker count and the retry policy are
+ * decided by the app now, and what is left here is genuinely per-batch — a
+ * vector export, an editorial shoot, bracketed filenames. A first-time run
+ * should be pick folder → pick platform → go.
+ */
+export function AdvancedOptions({
+  settings,
+  onChange,
+  disabled,
+}: AdvancedOptionsProps) {
+  const [open, setOpen] = useState(false)
+
+  const set = <K extends keyof StoredSettings>(key: K, value: StoredSettings[K]) =>
+    onChange({ ...settings, [key]: value })
+
+  // Shutterstock only accepts EPS for vectors, so -vector and -eps are the same
+  // thing there; Adobe takes either.
+  const vectorChoices =
+    settings.platform === 'shutterstock'
+      ? [{ value: '.eps', label: '.eps' }]
+      : [
+          { value: '.ai', label: '.ai' },
+          { value: '.eps', label: '.eps' },
+        ]
+
+  const changed =
+    settings.vectorExtension !== '' ||
+    !settings.renameBrackets ||
+    settings.editorial ||
+    settings.mature ||
+    settings.illustration !== 'auto'
+
+  return (
+    <div className="border-(--line) border-t">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        className="text-muted-foreground hover:text-foreground flex w-full items-center gap-2 py-3 transition-colors"
+      >
+        <ChevronDown
+          className={`size-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
+        />
+        <span className="eyebrow">Advanced</span>
+        {changed && !open ? (
+          <span className="bg-primary size-1.5" aria-label="changed from defaults" />
+        ) : null}
+        <span className="text-muted-foreground/60 ml-auto font-mono text-[0.65rem]">
+          vector · brackets{settings.platform === 'shutterstock' ? ' · columns' : ''}
+        </span>
+      </button>
+
+      {open ? (
+        <div className="grid gap-5 pb-5 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Vector mode</Label>
+            <Select
+              value={settings.vectorExtension || 'off'}
+              disabled={disabled}
+              onValueChange={(value) =>
+                set('vectorExtension', value === 'off' ? '' : value)
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="off">Off — keep real extensions</SelectItem>
+                {vectorChoices.map((choice) => (
+                  <SelectItem key={choice.value} value={choice.value}>
+                    Analyse the image, write {choice.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-muted-foreground text-xs text-pretty">
+              For vector uploads: the raster preview is what the model sees, the
+              CSV points at the vector file next to it.
+            </p>
+          </div>
+
+          {settings.platform === 'shutterstock' ? (
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label>Illustration column</Label>
+                <Select
+                  value={settings.illustration}
+                  disabled={disabled}
+                  onValueChange={(value) =>
+                    set('illustration', value as StoredSettings['illustration'])
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto — the model decides</SelectItem>
+                    <SelectItem value="yes">Force yes</SelectItem>
+                    <SelectItem value="no">Force no</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <CheckRow
+                id="editorial"
+                label="Editorial = yes"
+                checked={settings.editorial}
+                disabled={disabled}
+                onChange={(checked) => set('editorial', checked)}
+              />
+              <CheckRow
+                id="mature"
+                label="Mature content = yes"
+                checked={settings.mature}
+                disabled={disabled}
+                onChange={(checked) => set('mature', checked)}
+              />
+            </div>
+          ) : null}
+
+          <div className="space-y-2">
+            <CheckRow
+              id="rename"
+              label="Strip [brackets] from filenames"
+              checked={settings.renameBrackets}
+              disabled={disabled}
+              onChange={(checked) => set('renameBrackets', checked)}
+            />
+            <p className="text-muted-foreground text-xs text-pretty">
+              Renames the file and writes the clean name to the CSV, like the CLI
+              does. Off leaves the brackets in both, so the CSV still matches
+              what is on disk.
+            </p>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function CheckRow({
+  id,
+  label,
+  checked,
+  disabled,
+  onChange,
+}: {
+  id: string
+  label: string
+  checked: boolean
+  disabled: boolean
+  onChange: (checked: boolean) => void
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <Checkbox
+        id={id}
+        checked={checked}
+        disabled={disabled}
+        onCheckedChange={(value) => onChange(value === true)}
+      />
+      <Label
+        htmlFor={id}
+        className="text-foreground font-sans text-sm font-normal tracking-normal normal-case"
+      >
+        {label}
+      </Label>
+    </div>
+  )
+}
