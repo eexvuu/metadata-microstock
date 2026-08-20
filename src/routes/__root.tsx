@@ -5,6 +5,7 @@ import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { SiteFooter } from '#/components/site-footer'
 import { SiteHeader } from '#/components/site-header'
 import { Toaster } from '#/components/ui/sonner'
+import { LocaleProvider } from '#/lib/i18n'
 
 import appCss from '../styles.css?url'
 
@@ -52,11 +53,13 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body className="grain min-h-svh font-sans antialiased">
-        <div className="relative flex min-h-svh flex-col">
-          <SiteHeader />
-          <div className="flex-1">{children}</div>
-          <SiteFooter />
-        </div>
+        <LocaleProvider>
+          <div className="relative flex min-h-svh flex-col">
+            <SiteHeader />
+            <div className="flex-1">{children}</div>
+            <SiteFooter />
+          </div>
+        </LocaleProvider>
 
         <Toaster />
 

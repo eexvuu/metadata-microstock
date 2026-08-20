@@ -1,6 +1,7 @@
 import { Link, useNavigate } from '@tanstack/react-router'
 import { LogOut } from 'lucide-react'
 
+import { LanguageToggle } from '#/components/language-toggle'
 import { CONTAINER } from '#/components/shell'
 import { ThemeToggle } from '#/components/theme-toggle'
 import { Avatar, AvatarFallback } from '#/components/ui/avatar'
@@ -15,17 +16,20 @@ import {
 } from '#/components/ui/dropdown-menu'
 import { Skeleton } from '#/components/ui/skeleton'
 import { signOut, useSession } from '#/lib/auth-client'
+import { useMessages } from '#/lib/i18n'
 
 const NAV = [
-  { to: '/', label: 'Overview' },
-  { to: '/dashboard', label: 'Tools' },
-  { to: '/dashboard/history', label: 'History' },
+  { to: '/', key: 'overview' },
+  { to: '/dashboard', key: 'tools' },
+  { to: '/dashboard/history', key: 'history' },
 ] as const
 
 const NAV_LINK =
   'eyebrow text-muted-foreground hover:text-foreground relative py-1 transition-colors after:absolute after:-bottom-0.5 after:left-0 after:h-px after:w-0 after:bg-primary after:transition-[width] after:duration-300 hover:after:w-full'
 
 export function SiteHeader() {
+  const m = useMessages()
+
   return (
     <header className="bg-background/85 sticky top-0 z-50 w-full backdrop-blur-md">
       {/* The safelight strip: the one saturated line on every screen. */}
@@ -55,12 +59,13 @@ export function SiteHeader() {
               activeProps={{ className: 'text-foreground after:w-full' }}
               activeOptions={{ exact: item.to === '/' }}
             >
-              {item.label}
+              {m.nav[item.key]}
             </Link>
           ))}
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
+          <LanguageToggle />
           <ThemeToggle />
           <AccountMenu />
         </div>
@@ -70,6 +75,7 @@ export function SiteHeader() {
 }
 
 function AccountMenu() {
+  const m = useMessages()
   const navigate = useNavigate()
   const { data: session, isPending } = useSession()
 
@@ -82,12 +88,12 @@ function AccountMenu() {
       <>
         <Button asChild variant="ghost" size="sm" className="hidden sm:flex">
           <Link to="/login" className="eyebrow">
-            Sign in
+            {m.header.signIn}
           </Link>
         </Button>
         <Button asChild size="sm">
           <Link to="/signup" className="eyebrow">
-            Start
+            {m.header.start}
           </Link>
         </Button>
       </>
@@ -105,7 +111,7 @@ function AccountMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Account menu">
+        <Button variant="ghost" size="icon" aria-label={m.header.accountMenu}>
           <Avatar className="border-foreground/25 size-7 rounded-xs border">
             <AvatarFallback className="rounded-xs font-mono text-[0.65rem] tracking-wider">
               {initials}
@@ -131,7 +137,7 @@ function AccountMenu() {
           }}
         >
           <LogOut className="size-4" />
-          Sign out
+          {m.header.signOut}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -4,6 +4,7 @@ import { Gauge, LayoutGrid, ShieldCheck, Sparkles } from 'lucide-react'
 import { PanelIcon } from '#/components/panel/panel-icon'
 import { PanelSearch } from '#/components/panel/panel-search'
 import { CONTAINER } from '#/components/shell'
+import { useMessages } from '#/lib/i18n'
 import { getPanelNav } from '#/lib/server/panel'
 
 /**
@@ -30,6 +31,7 @@ const LINK_CLASS =
 const LINK_ACTIVE = 'text-foreground after:w-full'
 
 function DashboardLayout() {
+  const m = useMessages()
   const nav = Route.useLoaderData()
   const isAdmin = nav.length > 0
 
@@ -46,7 +48,7 @@ function DashboardLayout() {
             className={LINK_CLASS}
           >
             <LayoutGrid className="mr-1.5 inline size-3.5" strokeWidth={1.5} />
-            Catalog
+            {m.nav.catalog}
           </Link>
 
           <Link
@@ -55,7 +57,7 @@ function DashboardLayout() {
             className={LINK_CLASS}
           >
             <Sparkles className="mr-1.5 inline size-3.5" strokeWidth={1.5} />
-            Metadata
+            {m.nav.metadata}
           </Link>
 
           <Link
@@ -64,7 +66,7 @@ function DashboardLayout() {
             className={LINK_CLASS}
           >
             <Gauge className="mr-1.5 inline size-3.5" strokeWidth={1.5} />
-            History
+            {m.nav.history}
           </Link>
 
           {isAdmin ? (
@@ -78,7 +80,7 @@ function DashboardLayout() {
                 className={LINK_CLASS}
               >
                 <ShieldCheck className="mr-1.5 inline size-3.5" strokeWidth={1.5} />
-                Monitoring
+                {m.nav.monitoring}
               </Link>
 
               {nav.map((item) => (

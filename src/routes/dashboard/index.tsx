@@ -3,6 +3,7 @@ import { ArrowRight, KeyRound, Sparkles } from 'lucide-react'
 
 import { PageHead } from '#/components/page-head'
 import { Button } from '#/components/ui/button'
+import { useLocale, useMessages } from '#/lib/i18n'
 import { listGeminiKeys } from '#/lib/server/gemini-keys'
 import { listRuns } from '#/lib/server/runs'
 
@@ -22,16 +23,16 @@ export const Route = createFileRoute('/dashboard/')({
 })
 
 function CatalogPage() {
+  const m = useMessages()
+  const { tag } = useLocale()
   const { keys, runs } = Route.useLoaderData()
   const activeKeys = keys.filter((key) => key.status === 'active').length
   const files = runs.reduce((total, run) => total + run.filesDone, 0)
 
   return (
     <div className="space-y-8">
-      <PageHead index="Catalog" title="Your tools">
-        Everything here runs on your own Gemini keys, in your own browser. The
-        metadata tool is free and always will be — anything paid will say so on
-        its card.
+      <PageHead index={m.catalog.index} title={m.catalog.title}>
+        {m.catalog.lead}
       </PageHead>
 
       <div className="grid gap-px sm:grid-cols-2">
@@ -39,28 +40,28 @@ function CatalogPage() {
           <div className="flex items-center justify-between">
             <Sparkles className="text-primary size-5" strokeWidth={1.5} />
             <span className="border-primary/40 text-primary border px-1.5 py-0.5 font-mono text-[0.6rem] tracking-[0.1em] uppercase">
-              free
+              {m.catalog.free}
             </span>
           </div>
 
-          <h2 className="font-display mt-5 text-2xl font-medium">Metadata</h2>
+          <h2 className="font-display mt-5 text-2xl font-medium">
+            {m.nav.metadata}
+          </h2>
           <p className="text-muted-foreground mt-2 text-sm text-pretty">
-            Titles, 49 keywords and the right category for a whole folder of
-            images and videos, written into the CSV Adobe Stock and Shutterstock
-            ask for.
+            {m.catalog.metadataBody}
           </p>
 
           <dl className="text-muted-foreground mt-5 flex flex-wrap gap-x-5 gap-y-1 font-mono text-[0.7rem]">
             <div className="flex gap-1.5">
-              <dt>runs</dt>
+              <dt>{m.catalog.statRuns}</dt>
               <dd className="text-foreground tabular-nums">{runs.length}</dd>
             </div>
             <div className="flex gap-1.5">
-              <dt>files</dt>
+              <dt>{m.catalog.statFiles}</dt>
               <dd className="text-foreground tabular-nums">{files}</dd>
             </div>
             <div className="flex gap-1.5">
-              <dt>keys</dt>
+              <dt>{m.catalog.statKeys}</dt>
               <dd className="text-foreground tabular-nums">{activeKeys}</dd>
             </div>
           </dl>
@@ -68,14 +69,14 @@ function CatalogPage() {
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <Button asChild className="eyebrow">
               <Link to="/tools/metadata">
-                Open tool
+                {m.catalog.open}
                 <ArrowRight className="size-4" />
               </Link>
             </Button>
             {activeKeys === 0 ? (
               <span className="text-muted-foreground inline-flex items-center gap-1.5 font-mono text-xs">
                 <KeyRound className="size-3.5" />
-                add a free Gemini key inside the tool
+                {m.catalog.needKey}
               </span>
             ) : null}
           </div>
@@ -86,17 +87,16 @@ function CatalogPage() {
             <span className="border-(--line) text-muted-foreground flex size-5 items-center justify-center border font-mono text-[0.6rem]">
               +
             </span>
-            <span className="eyebrow text-muted-foreground/60">planned</span>
+            <span className="eyebrow text-muted-foreground/60">
+              {m.catalog.planned}
+            </span>
           </div>
 
           <h2 className="font-display text-muted-foreground mt-5 text-2xl font-medium">
-            The next tool
+            {m.catalog.nextTitle}
           </h2>
           <p className="text-muted-foreground mt-2 text-sm text-pretty">
-            This shelf is built to hold more than one thing. A new tool is a
-            folder under <code className="font-mono text-xs">src/lib/</code> and
-            a card here — the account, the keys and the run history are already
-            shared.
+            {m.catalog.nextBody}
           </p>
         </article>
       </div>
@@ -105,13 +105,13 @@ function CatalogPage() {
         <section>
           <div className="flex flex-wrap items-baseline justify-between gap-3">
             <h2 className="font-display text-xl font-medium tracking-tight">
-              Last run
+              {m.catalog.lastRun}
             </h2>
             <Link
               to="/dashboard/history"
               className="text-muted-foreground hover:text-primary eyebrow inline-flex items-center gap-1.5"
             >
-              Full history
+              {m.catalog.fullHistory}
               <ArrowRight className="size-3" />
             </Link>
           </div>
@@ -124,11 +124,11 @@ function CatalogPage() {
               {runs[0].platform}
             </span>
             <span className="text-muted-foreground tabular-nums">
-              {runs[0].filesDone}/{runs[0].filesTotal} files
+              {m.catalog.files(runs[0].filesDone, runs[0].filesTotal)}
             </span>
             <span className="text-primary">{runs[0].status}</span>
             <span className="text-muted-foreground ml-auto">
-              {new Date(runs[0].startedAt).toLocaleString()}
+              {new Date(runs[0].startedAt).toLocaleString(tag)}
             </span>
           </div>
         </section>

@@ -12,6 +12,8 @@ import {
 
 import { CONTAINER } from '#/components/shell'
 import { Button } from '#/components/ui/button'
+import { useMessages } from '#/lib/i18n'
+
 export const Route = createFileRoute('/')({
   component: LandingPage,
 })
@@ -30,58 +32,16 @@ const SHEET = [
   { file: 'drone_coast.mp4', keywords: 49, angle: 250, tint: 40 },
 ]
 
-const STATS = [
-  ['49', 'keywords per file'],
-  ['14,400', 'free requests per key'],
-  ['0', 'bytes of media uploaded'],
-]
+/** Numbers and icons stay here; the words that go with them are translated. */
+const STAT_VALUES = ['49', '14,400', '0']
 
-const STEPS = [
-  [
-    'Create an account',
-    'Free, and a workspace is made for you on the way in.',
-  ],
-  [
-    'Add your Gemini keys',
-    'Pasted once, verified against Google, then encrypted on your account.',
-  ],
-  [
-    'Drag your photos in',
-    'Check the titles and keywords it wrote, fix anything you like, then take the CSV.',
-  ],
-]
-
-const FEATURES = [
-  {
-    icon: FolderOpen,
-    title: 'A whole folder at once',
-    body: 'Drag in a folder of images and videos. Every file is analysed and the CSV lands back next to your media, ready to upload.',
-  },
-  {
-    icon: FileSpreadsheet,
-    title: 'Adobe and Shutterstock',
-    body: 'Each platform gets its own prompt, its own keyword limit and its exact CSV shape — BOM where Adobe wants one, category names where Shutterstock wants those.',
-  },
-  {
-    icon: KeyRound,
-    title: 'Your keys, your quota',
-    body: 'Bring your own free Gemini keys. Each one adds about 15 requests a minute, and the run spreads work across all of them.',
-  },
-  {
-    icon: RefreshCw,
-    title: 'You get the last word',
-    body: 'Nothing is written until you say so: every title, keyword and category is editable next to the picture it came from, and only then does the CSV get made.',
-  },
-  {
-    icon: ShieldCheck,
-    title: 'Media never leaves your machine',
-    body: 'The analysis runs in your browser and talks to Google directly. Your photos and footage are never uploaded to us — we do not even have somewhere to put them.',
-  },
-  {
-    icon: Layers,
-    title: 'Vector uploads, without the fuss',
-    body: 'Upload the JPEG or SVG you exported, then set the filename the CSV should carry — .eps, .ai, anything — for one row or for all of them at once.',
-  },
+const FEATURE_ICONS = [
+  FolderOpen,
+  FileSpreadsheet,
+  KeyRound,
+  RefreshCw,
+  ShieldCheck,
+  Layers,
 ]
 
 const SPECIMEN = [
@@ -104,33 +64,29 @@ function LandingPage() {
 }
 
 function Hero() {
+  const m = useMessages()
+
   return (
     <section className="safelight sheet-grid border-(--line) relative overflow-hidden border-b">
       <div className={`${CONTAINER} relative grid gap-14 py-20 sm:py-28 lg:grid-cols-[1.15fr_0.85fr] lg:items-center`}>
         <div className="stagger">
           <p className="eyebrow text-primary reveal flex items-center gap-2">
             <span className="bg-primary size-1.5" />
-            Stockflow · first tool, free forever
+            {m.landing.eyebrow}
           </p>
 
           <h1 className="font-display reveal mt-6 text-5xl leading-[0.95] font-light tracking-tight text-balance sm:text-7xl">
-            Stock metadata for the{' '}
-            <em className="text-primary font-normal italic">whole folder</em>, in
-            one run.
+            {m.landing.headline}
           </h1>
 
           <p className="text-muted-foreground reveal mt-7 max-w-xl text-base leading-relaxed text-pretty sm:text-lg">
-            Stockflow is a shelf of tools for people who upload to microstock.
-            The first one writes titles, 49 keywords and the right category for
-            every image and video in a folder, straight into the CSV Adobe Stock
-            and Shutterstock ask for — on Google's free Gemma model and your own
-            API keys.
+            {m.landing.lead}
           </p>
 
           <div className="reveal mt-9 flex flex-wrap items-center gap-6">
             <Button asChild size="lg" className="eyebrow h-11 px-5">
               <Link to="/signup">
-                Create a free account
+                {m.landing.ctaPrimary}
                 <ArrowRight className="size-4" />
               </Link>
             </Button>
@@ -138,15 +94,15 @@ function Hero() {
               to="/login"
               className="eyebrow text-muted-foreground hover:text-foreground decoration-primary underline underline-offset-8 transition-colors"
             >
-              Sign in
+              {m.landing.ctaSecondary}
             </Link>
           </div>
 
           <dl className="border-(--line) reveal mt-12 grid max-w-lg grid-cols-3 border-t pt-6">
-            {STATS.map(([value, label]) => (
+            {m.landing.stats.map((label, index) => (
               <div key={label}>
                 <dt className="font-display text-3xl leading-none font-medium tabular-nums">
-                  {value}
+                  {STAT_VALUES[index]}
                 </dt>
                 <dd className="text-muted-foreground mt-2 pr-4 font-mono text-[0.7rem] leading-snug">
                   {label}
@@ -163,6 +119,8 @@ function Hero() {
 }
 
 function ContactSheet() {
+  const m = useMessages()
+
   return (
     <div className="relative">
       <div className="border-(--line) bg-card/60 crop-marks border p-3 backdrop-blur-sm sm:p-4">
@@ -172,7 +130,7 @@ function ContactSheet() {
           </span>
           <span className="eyebrow text-primary developing flex items-center gap-1.5">
             <span className="bg-primary size-1.5" />
-            developing
+            {m.landing.sheetStatus}
           </span>
         </div>
 
@@ -204,7 +162,7 @@ function ContactSheet() {
 
         <div className="border-(--line) mt-3 flex items-center justify-between border-t pt-2">
           <span className="eyebrow text-muted-foreground">
-            6 / 6 files · 291 keywords
+            {m.landing.sheetFooter}
           </span>
           <span className="eyebrow text-foreground">adobe-stock.csv</span>
         </div>
@@ -216,12 +174,13 @@ function ContactSheet() {
 }
 
 function Catalog() {
+  const m = useMessages()
+
   return (
     <section className={`${CONTAINER} py-20`}>
-      <SectionHead index="01" title="On the shelf" />
+      <SectionHead index="01" title={m.landing.catalogTitle} />
       <p className="text-muted-foreground mt-5 max-w-2xl text-pretty">
-        One account, one set of keys, and a tool for each job. Everything a tool
-        knows about your media stays in the tab it runs in.
+        {m.landing.catalogLead}
       </p>
 
       <div className="border-(--line) mt-10 grid border-t border-l sm:grid-cols-2">
@@ -229,20 +188,20 @@ function Catalog() {
           <div className="flex items-center justify-between">
             <Sparkles className="text-primary size-5" strokeWidth={1.5} />
             <span className="border-primary/40 text-primary border px-1.5 py-0.5 font-mono text-[0.6rem] tracking-[0.1em] uppercase">
-              free
+              {m.landing.catalogFree}
             </span>
           </div>
-          <h3 className="font-display mt-5 text-2xl font-medium">Metadata</h3>
+          <h3 className="font-display mt-5 text-2xl font-medium">
+            {m.nav.metadata}
+          </h3>
           <p className="text-muted-foreground mt-2 text-sm leading-relaxed text-pretty">
-            A folder of images and videos in, an Adobe Stock or Shutterstock CSV
-            out. Resumable, multi-key, and free for as long as Google's free tier
-            exists.
+            {m.landing.catalogMetadata}
           </p>
           <Link
             to="/signup"
             className="text-primary eyebrow mt-6 inline-flex items-center gap-1.5 hover:underline"
           >
-            Start with this one
+            {m.landing.catalogMetadataCta}
             <ArrowRight className="size-3" />
           </Link>
         </article>
@@ -252,15 +211,15 @@ function Catalog() {
             <span className="border-(--line) text-muted-foreground flex size-5 items-center justify-center border font-mono text-[0.6rem]">
               +
             </span>
-            <span className="eyebrow text-muted-foreground/60">planned</span>
+            <span className="eyebrow text-muted-foreground/60">
+              {m.landing.catalogPlanned}
+            </span>
           </div>
           <h3 className="font-display text-muted-foreground mt-5 text-2xl font-medium">
-            The next tool
+            {m.landing.catalogNextTitle}
           </h3>
           <p className="text-muted-foreground mt-2 text-sm leading-relaxed text-pretty">
-            More of the upload routine belongs here. Whatever lands next shares
-            the same account, the same keys and the same rule: your files never
-            reach our server.
+            {m.landing.catalogNext}
           </p>
         </article>
       </div>
@@ -269,22 +228,26 @@ function Catalog() {
 }
 
 function Process() {
+  const m = useMessages()
+
   return (
     <section className={`${CONTAINER} py-20`}>
-      <SectionHead index="02" title="How it works" />
+      <SectionHead index="02" title={m.landing.processTitle} />
 
       <ol className="mt-10 grid gap-px sm:grid-cols-3">
-        {STEPS.map(([title, body], index) => (
+        {m.landing.steps.map((step, index) => (
           <li
-            key={title}
+            key={step.title}
             className="border-(--line) group relative border-t pt-6 sm:border-r sm:pr-6 sm:last:border-r-0"
           >
             <span className="font-display text-muted-foreground/35 group-hover:text-primary/70 text-6xl leading-none font-light transition-colors">
               {index + 1}
             </span>
-            <h3 className="font-display mt-4 text-xl font-medium">{title}</h3>
+            <h3 className="font-display mt-4 text-xl font-medium">
+              {step.title}
+            </h3>
             <p className="text-muted-foreground mt-2 max-w-xs text-sm leading-relaxed text-pretty">
-              {body}
+              {step.body}
             </p>
           </li>
         ))}
@@ -294,16 +257,16 @@ function Process() {
 }
 
 function Specimen() {
+  const m = useMessages()
+
   return (
     <section className="border-(--line) border-y">
       <div className={`${CONTAINER} py-20`}>
         <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
           <div>
-            <SectionHead index="03" title="What lands in the folder" />
+            <SectionHead index="03" title={m.landing.specimenTitle} />
             <p className="text-muted-foreground mt-5 max-w-md text-pretty">
-              One CSV, byte-for-byte the shape each platform accepts — the BOM,
-              the quoting, the line endings. Drop it into the upload queue
-              without opening a spreadsheet.
+              {m.landing.specimenLead}
             </p>
           </div>
 
@@ -338,51 +301,57 @@ function Specimen() {
 }
 
 function Features() {
+  const m = useMessages()
+
   return (
     <section className={`${CONTAINER} py-20`}>
-      <SectionHead index="04" title="What you get" />
+      <SectionHead index="04" title={m.landing.featuresTitle} />
 
       <div className="border-(--line) mt-10 grid border-t border-l sm:grid-cols-2 lg:grid-cols-3">
-        {FEATURES.map((feature, index) => (
-          <article
-            key={feature.title}
-            className="border-(--line) hover:bg-accent/40 group relative border-r border-b p-6 transition-colors sm:p-7"
-          >
-            <div className="flex items-center justify-between">
-              <feature.icon className="text-primary size-5" strokeWidth={1.5} />
-              <span className="eyebrow text-muted-foreground/50">
-                {String(index + 1).padStart(2, '0')}
-              </span>
-            </div>
-            <h3 className="font-display mt-5 text-xl font-medium text-balance">
-              {feature.title}
-            </h3>
-            <p className="text-muted-foreground mt-2 text-sm leading-relaxed text-pretty">
-              {feature.body}
-            </p>
-            <span className="border-primary absolute top-0 left-0 size-0 border-t-2 border-l-2 transition-all duration-300 group-hover:size-4" />
-          </article>
-        ))}
+        {m.landing.features.map((feature, index) => {
+          const Icon = FEATURE_ICONS[index]
+
+          return (
+            <article
+              key={feature.title}
+              className="border-(--line) hover:bg-accent/40 group relative border-r border-b p-6 transition-colors sm:p-7"
+            >
+              <div className="flex items-center justify-between">
+                <Icon className="text-primary size-5" strokeWidth={1.5} />
+                <span className="eyebrow text-muted-foreground/50">
+                  {String(index + 1).padStart(2, '0')}
+                </span>
+              </div>
+              <h3 className="font-display mt-5 text-xl font-medium text-balance">
+                {feature.title}
+              </h3>
+              <p className="text-muted-foreground mt-2 text-sm leading-relaxed text-pretty">
+                {feature.body}
+              </p>
+              <span className="border-primary absolute top-0 left-0 size-0 border-t-2 border-l-2 transition-all duration-300 group-hover:size-4" />
+            </article>
+          )
+        })}
       </div>
     </section>
   )
 }
 
 function Close() {
+  const m = useMessages()
+
   return (
     <section className="safelight border-(--line) relative overflow-hidden border-t">
       <div className={`${CONTAINER} relative py-24 text-center`}>
         <h2 className="font-display text-4xl leading-[1.05] font-light tracking-tight text-balance sm:text-6xl">
-          Stop writing keywords{' '}
-          <em className="text-primary font-normal italic">by hand</em>.
+          {m.landing.closeHeadline}
         </h2>
         <p className="text-muted-foreground mx-auto mt-6 max-w-lg text-pretty">
-          Add your keys once and every upload batch after that is one click and a
-          coffee.
+          {m.landing.closeLead}
         </p>
         <Button asChild size="lg" className="eyebrow mt-9 h-11 px-6">
           <Link to="/signup">
-            Get started
+            {m.landing.closeCta}
             <ArrowRight className="size-4" />
           </Link>
         </Button>

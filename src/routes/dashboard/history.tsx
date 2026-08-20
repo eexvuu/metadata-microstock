@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/ui/table'
+import { useLocale, useMessages } from '#/lib/i18n'
 import { listRuns } from '#/lib/server/runs'
 
 /**
@@ -34,26 +35,28 @@ const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive'> = 
 }
 
 function HistoryPage() {
+  const m = useMessages()
+  const { tag } = useLocale()
   const runs = Route.useLoaderData()
   const files = runs.reduce((total, run) => total + run.filesDone, 0)
 
   return (
     <div className="space-y-8">
-      <PageHead index="Account" title="History">
+      <PageHead index={m.history.index} title={m.history.title}>
         {runs.length === 0
-          ? 'Nothing yet — add a Gemini key and point the metadata tool at a folder.'
-          : `${files} file${files === 1 ? '' : 's'} across your last ${runs.length} run${runs.length === 1 ? '' : 's'}, reported by the browser that did the work.`}
+          ? m.history.empty
+          : m.history.summary(files, runs.length)}
       </PageHead>
 
       {runs.length === 0 ? (
         <div className="border-(--line) flex flex-col items-center gap-4 border border-dashed py-14">
           <p className="text-muted-foreground font-mono text-xs">
-            no runs recorded
+            {m.history.noRuns}
           </p>
           <Button asChild size="sm">
             <Link to="/tools/metadata" className="eyebrow">
               <Sparkles className="size-4" />
-              Open the metadata tool
+              {m.history.openTool}
             </Link>
           </Button>
         </div>
@@ -62,11 +65,17 @@ function HistoryPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Folder</TableHead>
-                <TableHead className="w-32">Platform</TableHead>
-                <TableHead className="w-28">Files</TableHead>
-                <TableHead className="w-28">Status</TableHead>
-                <TableHead className="w-44">Started</TableHead>
+                <TableHead>{m.history.columns.folder}</TableHead>
+                <TableHead className="w-32">
+                  {m.history.columns.platform}
+                </TableHead>
+                <TableHead className="w-28">{m.history.columns.files}</TableHead>
+                <TableHead className="w-28">
+                  {m.history.columns.status}
+                </TableHead>
+                <TableHead className="w-44">
+                  {m.history.columns.started}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -82,7 +91,7 @@ function HistoryPage() {
                     {run.filesDone}/{run.filesTotal}
                     {run.fallbacks > 0 ? (
                       <span className="text-destructive ml-1">
-                        ({run.fallbacks} fallback)
+                        {m.history.fallbacks(run.fallbacks)}
                       </span>
                     ) : null}
                   </TableCell>
@@ -92,7 +101,7 @@ function HistoryPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-muted-foreground font-mono text-xs">
-                    {new Date(run.startedAt).toLocaleString()}
+                    {new Date(run.startedAt).toLocaleString(tag)}
                   </TableCell>
                 </TableRow>
               ))}

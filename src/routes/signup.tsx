@@ -7,12 +7,14 @@ import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
 import { signUp } from '#/lib/auth-client'
+import { useMessages } from '#/lib/i18n'
 
 export const Route = createFileRoute('/signup')({
   component: SignupPage,
 })
 
 function SignupPage() {
+  const m = useMessages()
   const navigate = useNavigate()
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -32,7 +34,7 @@ function SignupPage() {
 
     if (signUpError) {
       setPending(false)
-      setError(signUpError.message ?? 'Could not create the account.')
+      setError(signUpError.message ?? m.auth.signUpFailed)
       return
     }
 
@@ -41,44 +43,44 @@ function SignupPage() {
 
   return (
     <AuthShell
-      title="Create an account"
-      description="One account for every tool on the shelf. No card, no trial."
+      title={m.auth.signUpTitle}
+      description={m.auth.signUpDescription}
       error={error}
       footer={
         <span>
-          Already have an account?{' '}
+          {m.auth.haveAccount}{' '}
           <Link to="/login" className="text-foreground font-medium underline-offset-4 hover:underline">
-            Sign in
+            {m.auth.signInLink}
           </Link>
         </span>
       }
     >
       <form onSubmit={onSubmit} className="grid gap-4">
         <div className="grid gap-2">
-          <Label htmlFor="name">Name</Label>
+          <Label htmlFor="name">{m.auth.name}</Label>
           <Input
             id="name"
             name="name"
             autoComplete="name"
-            placeholder="Ada Lovelace"
+            placeholder={m.auth.namePlaceholder}
             required
           />
         </div>
 
         <div className="grid gap-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">{m.auth.email}</Label>
           <Input
             id="email"
             name="email"
             type="email"
             autoComplete="email"
-            placeholder="you@company.com"
+            placeholder={m.auth.emailPlaceholder}
             required
           />
         </div>
 
         <div className="grid gap-2">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password">{m.auth.password}</Label>
           <Input
             id="password"
             name="password"
@@ -87,12 +89,12 @@ function SignupPage() {
             minLength={8}
             required
           />
-          <p className="text-muted-foreground text-xs">At least 8 characters.</p>
+          <p className="text-muted-foreground text-xs">{m.auth.passwordHint}</p>
         </div>
 
         <Button type="submit" disabled={pending} className="mt-1 w-full">
           {pending ? <Loader2 className="size-4 animate-spin" /> : null}
-          {pending ? 'Creating…' : 'Create account'}
+          {pending ? m.auth.signUpPending : m.auth.signUpSubmit}
         </Button>
       </form>
     </AuthShell>

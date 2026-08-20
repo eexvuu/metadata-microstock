@@ -2,6 +2,7 @@ import { Monitor, Moon, Sun } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { Button } from '#/components/ui/button'
+import { useMessages } from '#/lib/i18n'
 
 type ThemeMode = 'light' | 'dark' | 'auto'
 
@@ -32,6 +33,8 @@ function applyTheme(mode: ThemeMode) {
 }
 
 export function ThemeToggle() {
+  const m = useMessages()
+
   // Starts as null so the server and the first client render agree — the real
   // mode is only known once localStorage is readable.
   const [mode, setMode] = useState<ThemeMode | null>(null)
@@ -52,14 +55,15 @@ export function ThemeToggle() {
   }
 
   const Icon = ICONS[mode ?? 'auto']
+  const label = `${m.header.theme}: ${m.header.themeModes[mode ?? 'auto']}`
 
   return (
     <Button
       variant="ghost"
       size="icon"
       onClick={cycle}
-      aria-label={`Theme: ${mode ?? 'auto'}. Click to change.`}
-      title={`Theme: ${mode ?? 'auto'}`}
+      aria-label={label}
+      title={label}
     >
       <Icon className="size-4" />
     </Button>

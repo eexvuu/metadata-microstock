@@ -7,12 +7,14 @@ import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { Label } from '#/components/ui/label'
 import { signIn } from '#/lib/auth-client'
+import { useMessages } from '#/lib/i18n'
 
 export const Route = createFileRoute('/login')({
   component: LoginPage,
 })
 
 function LoginPage() {
+  const m = useMessages()
   const navigate = useNavigate()
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -31,7 +33,7 @@ function LoginPage() {
 
     if (signInError) {
       setPending(false)
-      setError(signInError.message ?? 'Could not sign in.')
+      setError(signInError.message ?? m.auth.signInFailed)
       return
     }
 
@@ -40,33 +42,33 @@ function LoginPage() {
 
   return (
     <AuthShell
-      title="Sign in"
-      description="Welcome back. Use the account you signed up with."
+      title={m.auth.signInTitle}
+      description={m.auth.signInDescription}
       error={error}
       footer={
         <span>
-          Need an account?{' '}
+          {m.auth.needAccount}{' '}
           <Link to="/signup" className="text-foreground font-medium underline-offset-4 hover:underline">
-            Sign up
+            {m.auth.signUpLink}
           </Link>
         </span>
       }
     >
       <form onSubmit={onSubmit} className="grid gap-4">
         <div className="grid gap-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">{m.auth.email}</Label>
           <Input
             id="email"
             name="email"
             type="email"
             autoComplete="email"
-            placeholder="you@company.com"
+            placeholder={m.auth.emailPlaceholder}
             required
           />
         </div>
 
         <div className="grid gap-2">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password">{m.auth.password}</Label>
           <Input
             id="password"
             name="password"
@@ -78,7 +80,7 @@ function LoginPage() {
 
         <Button type="submit" disabled={pending} className="mt-1 w-full">
           {pending ? <Loader2 className="size-4 animate-spin" /> : null}
-          {pending ? 'Signing in…' : 'Sign in'}
+          {pending ? m.auth.signInPending : m.auth.signInSubmit}
         </Button>
       </form>
     </AuthShell>
