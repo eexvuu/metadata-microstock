@@ -200,10 +200,16 @@ the terminal and the browser. Do not "clean up" those field names.
 
 **Vector art is rasterised in the tab, never sent as-is.** Gemini refuses
 `image/svg+xml`, so `svgRasterPreprocessor` draws the SVG onto a canvas (white
-first — JPEG has no alpha) and sends a JPEG. EPS and AI are NOT supported:
-PostScript needs a ghostscript build nobody should download, and the workflow
-that already exists is vector mode — analyse the raster preview sitting next to
-the vector, write the vector's filename into the CSV.
+first — JPEG has no alpha) and sends a JPEG. EPS and AI are deliberately NOT
+readable here: PostScript needs a ghostscript build nobody should download, and
+a .ai only opens if it was saved PDF-compatible. The supported workflow is to
+upload the raster you exported and set the CSV filename afterwards.
+
+**The filename in the CSV is the contributor's, not the engine's.** The web
+path always runs with `vectorExtension: undefined`, so rows carry the real
+filename; the review screen edits `row.filename` per row, or swaps the
+extension on every row at once. `outputFilename()` and `vectorExtension` stay in
+the engine for the CLI.
 
 **The app never renames a file.** `renameBrackets` stays in `RunOptions` for the
 CLI, but the web path always passes `false`: `[keywords]` are still forced into

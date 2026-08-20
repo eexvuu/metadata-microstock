@@ -19,12 +19,12 @@ interface AdvancedOptionsProps {
 }
 
 /**
- * Everything that is not "which platform".
+ * The three Shutterstock columns nobody else has to think about.
  *
- * Folded away by default: the model, the worker count and the retry policy are
- * decided by the app now, and what is left here is genuinely per-batch — a
- * vector export, an editorial shoot. A first-time run should be drop files →
- * pick platform → go.
+ * Everything that used to live here is decided elsewhere now: the model and the
+ * worker count by the app, the filename written into the CSV by the person on
+ * the review screen. An Adobe run needs nothing from this panel, so on Adobe it
+ * does not render at all.
  */
 export function AdvancedOptions({
   settings,
@@ -33,24 +33,13 @@ export function AdvancedOptions({
 }: AdvancedOptionsProps) {
   const [open, setOpen] = useState(false)
 
+  if (settings.platform !== 'shutterstock') return null
+
   const set = <K extends keyof StoredSettings>(key: K, value: StoredSettings[K]) =>
     onChange({ ...settings, [key]: value })
 
-  // Shutterstock only accepts EPS for vectors, so -vector and -eps are the same
-  // thing there; Adobe takes either.
-  const vectorChoices =
-    settings.platform === 'shutterstock'
-      ? [{ value: '.eps', label: '.eps' }]
-      : [
-          { value: '.ai', label: '.ai' },
-          { value: '.eps', label: '.eps' },
-        ]
-
   const changed =
-    settings.vectorExtension !== '' ||
-    settings.editorial ||
-    settings.mature ||
-    settings.illustration !== 'auto'
+    settings.editorial || settings.mature || settings.illustration !== 'auto'
 
   return (
     <div className="border-(--line) border-t">
@@ -63,83 +52,51 @@ export function AdvancedOptions({
         <ChevronDown
           className={`size-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
         />
-        <span className="eyebrow">Advanced</span>
+        <span className="eyebrow">Shutterstock columns</span>
         {changed && !open ? (
           <span className="bg-primary size-1.5" aria-label="changed from defaults" />
         ) : null}
         <span className="text-muted-foreground/60 ml-auto font-mono text-[0.65rem]">
-          vector{settings.platform === 'shutterstock' ? ' · columns' : ''}
+          editorial · mature · illustration
         </span>
       </button>
 
       {open ? (
-        <div className="grid gap-5 pb-5 sm:grid-cols-2">
+        <div className="space-y-3 pb-5">
           <div className="space-y-2">
-            <Label>Vector mode</Label>
+            <Label>Illustration column</Label>
             <Select
-              value={settings.vectorExtension || 'off'}
+              value={settings.illustration}
               disabled={disabled}
               onValueChange={(value) =>
-                set('vectorExtension', value === 'off' ? '' : value)
+                set('illustration', value as StoredSettings['illustration'])
               }
             >
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="off">Off — keep real extensions</SelectItem>
-                {vectorChoices.map((choice) => (
-                  <SelectItem key={choice.value} value={choice.value}>
-                    Analyse the image, write {choice.label}
-                  </SelectItem>
-                ))}
+                <SelectItem value="auto">Auto — the model decides</SelectItem>
+                <SelectItem value="yes">Force yes</SelectItem>
+                <SelectItem value="no">Force no</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-muted-foreground text-xs text-pretty">
-              For vector uploads: the raster preview is what the model sees, the
-              CSV points at the vector file next to it.
-            </p>
           </div>
 
-          {settings.platform === 'shutterstock' ? (
-            <div className="space-y-3">
-              <div className="space-y-2">
-                <Label>Illustration column</Label>
-                <Select
-                  value={settings.illustration}
-                  disabled={disabled}
-                  onValueChange={(value) =>
-                    set('illustration', value as StoredSettings['illustration'])
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="auto">Auto — the model decides</SelectItem>
-                    <SelectItem value="yes">Force yes</SelectItem>
-                    <SelectItem value="no">Force no</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <CheckRow
-                id="editorial"
-                label="Editorial = yes"
-                checked={settings.editorial}
-                disabled={disabled}
-                onChange={(checked) => set('editorial', checked)}
-              />
-              <CheckRow
-                id="mature"
-                label="Mature content = yes"
-                checked={settings.mature}
-                disabled={disabled}
-                onChange={(checked) => set('mature', checked)}
-              />
-            </div>
-          ) : null}
-
+          <CheckRow
+            id="editorial"
+            label="Editorial = yes"
+            checked={settings.editorial}
+            disabled={disabled}
+            onChange={(checked) => set('editorial', checked)}
+          />
+          <CheckRow
+            id="mature"
+            label="Mature content = yes"
+            checked={settings.mature}
+            disabled={disabled}
+            onChange={(checked) => set('mature', checked)}
+          />
         </div>
       ) : null}
     </div>

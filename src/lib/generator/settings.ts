@@ -27,7 +27,6 @@ export const MAX_WORKERS = 8
 
 export interface StoredSettings {
   platform: RunOptions['platform']
-  vectorExtension: string
   editorial: boolean
   mature: boolean
   illustration: 'auto' | 'yes' | 'no'
@@ -35,8 +34,6 @@ export interface StoredSettings {
 
 export const DEFAULT_SETTINGS: StoredSettings = {
   platform: 'adobe',
-  // '' means "not vector mode" — the CSV keeps the real file extension.
-  vectorExtension: '',
   editorial: false,
   mature: false,
   illustration: 'auto',
@@ -79,7 +76,13 @@ export function toRunOptions(
 ): RunOptions {
   return {
     platform: settings.platform,
-    vectorExtension: settings.vectorExtension || undefined,
+    /*
+     * The run always uses the real filename. Swapping it for a vector
+     * extension is the contributor's call and happens on the review screen,
+     * where they can see the picture they are naming — the engine keeps the
+     * option for the CLI.
+     */
+    vectorExtension: undefined,
     maxConcurrentWorkers: workersFor(keyCount),
     model: PRIMARY_MODEL,
     fallbackModel: FALLBACK_MODEL,

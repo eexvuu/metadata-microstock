@@ -23,6 +23,14 @@ const MAX_KEYWORDS: Record<RunOptions['platform'], number> = {
   shutterstock: 50,
 }
 
+/** What a contributor uploading vector art actually needs the CSV to say. */
+const EXTENSIONS = ['.eps', '.ai', '.jpg', '.png']
+
+function swapExtension(filename: string, extension: string): string {
+  const dot = filename.lastIndexOf('.')
+  return (dot > 0 ? filename.slice(0, dot) : filename) + extension
+}
+
 /**
  * The review step — the reason the CSV is no longer written the moment the run
  * ends.
@@ -71,10 +79,22 @@ export function ReviewEditor({
       )
     : rows
 
-  const patch = (filename: string, changes: Partial<MetadataRow>) =>
+  /** Keyed on the file on disk, because `filename` is one of the fields. */
+  const patch = (sourceName: string, changes: Partial<MetadataRow>) =>
     onChange(
-      rows.map((row) => (row.filename === filename ? { ...row, ...changes } : row)),
+      rows.map((row) => (row.sourceName === sourceName ? { ...row, ...changes } : row)),
     )
+
+  /**
+   * The vector answer, in one control: analyse the JPEG you exported, then tell
+   * the CSV to name the .eps you are actually uploading. Nothing on disk moves.
+   */
+  const applyExtension = (extension: string) => {
+    if (!extension) return
+    onChange(
+      rows.map((row) => ({ ...row, filename: swapExtension(row.filename, extension) })),
+    )
+  }
 
   const addToAll = () => {
     const keyword = bulkKeyword.trim().toLowerCase()
@@ -134,6 +154,21 @@ export function ReviewEditor({
           </Button>
         </div>
 
+        <div className="flex items-center gap-1.5">
+          <Select value="" onValueChange={applyExtension}>
+            <SelectTrigger className="w-52" aria-label="Extension for every row">
+              <SelectValue placeholder="Extension for all rows…" />
+            </SelectTrigger>
+            <SelectContent>
+              {EXTENSIONS.map((extension) => (
+                <SelectItem key={extension} value={extension}>
+                  rename every row to {extension}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <Button
           onClick={onExport}
           disabled={exporting || !canExport || rows.length === 0}
@@ -152,7 +187,7 @@ export function ReviewEditor({
 
           return (
             <article
-              key={row.filename}
+              key={row.sourceName}
               className="border-(--line) bg-card grid gap-4 border p-3 md:grid-cols-[8rem_1fr]"
             >
               <div className="space-y-1.5">
@@ -161,9 +196,6 @@ export function ReviewEditor({
                 ) : (
                   <div className="border-(--line) bg-muted aspect-square border" />
                 )}
-                <p className="text-muted-foreground truncate font-mono text-[0.6rem]">
-                  {row.filename}
-                </p>
                 {row.fallback ? (
                   <p className="text-destructive font-mono text-[0.6rem]">
                     {row.fallback} fallback — written by hand or re-run
@@ -173,8 +205,27 @@ export function ReviewEditor({
 
               <div className="min-w-0 space-y-3">
                 <div className="space-y-1.5">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <Label htmlFor={`file-${row.sourceName}`}>Filename in the CSV</Label>
+                    {row.filename !== row.sourceName ? (
+                      <span className="text-muted-foreground truncate font-mono text-[0.65rem]">
+                        on disk: {row.sourceName}
+                      </span>
+                    ) : null}
+                  </div>
+                  <Input
+                    id={`file-${row.sourceName}`}
+                    value={row.filename}
+                    onChange={(event) =>
+                      patch(row.sourceName, { filename: event.target.value })
+                    }
+                    className="font-mono text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
                   <div className="flex items-baseline justify-between">
-                    <Label htmlFor={`title-${row.filename}`}>
+                    <Label htmlFor={`title-${row.sourceName}`}>
                       {platform === 'adobe' ? 'Title' : 'Description'}
                     </Label>
                     <span className="text-muted-foreground font-mono text-[0.65rem] tabular-nums">
@@ -184,12 +235,12 @@ export function ReviewEditor({
                     </span>
                   </div>
                   <Textarea
-                    id={`title-${row.filename}`}
+                    id={`title-${row.sourceName}`}
                     rows={2}
                     value={platform === 'adobe' ? row.title : (row.description ?? '')}
                     onChange={(event) =>
                       patch(
-                        row.filename,
+                        row.sourceName,
                         platform === 'adobe'
                           ? { title: event.target.value }
                           : { description: event.target.value },
@@ -218,7 +269,7 @@ export function ReviewEditor({
                         key={`${keyword}-${index}`}
                         type="button"
                         onClick={() =>
-                          patch(row.filename, {
+                          patch(row.sourceName, {
                             keywords: keywords
                               .filter((_, position) => position !== index)
                               .join(', '),
@@ -234,7 +285,7 @@ export function ReviewEditor({
                     <KeywordInput
                       onAdd={(keyword) => {
                         if (keywords.includes(keyword)) return
-                        patch(row.filename, {
+                        patch(row.sourceName, {
                           keywords: [...keywords, keyword].join(', '),
                         })
                       }}
@@ -248,7 +299,9 @@ export function ReviewEditor({
                     {platform === 'adobe' ? (
                       <Select
                         value={row.category || '1'}
-                        onValueChange={(value) => patch(row.filename, { category: value })}
+                        onValueChange={(value) =>
+                          patch(row.sourceName, { category: value })
+                        }
                       >
                         <SelectTrigger className="w-64">
                           <SelectValue />
@@ -267,7 +320,7 @@ export function ReviewEditor({
                           list="shutterstock-categories"
                           value={row.category}
                           onChange={(event) =>
-                            patch(row.filename, { category: event.target.value })
+                            patch(row.sourceName, { category: event.target.value })
                           }
                           className="w-64 font-mono text-xs"
                         />
@@ -335,13 +388,19 @@ function issuesOf(row: MetadataRow, platform: RunOptions['platform']): string[] 
   const issues: string[] = []
   const text = platform === 'adobe' ? row.title : (row.description ?? '')
   const keywords = splitKeywords(row.keywords)
+  // Shutterstock rejects these outright and Adobe silently mangles them.
+  const badFilename = /[\n\r\t/\\]/
 
+  if (!row.filename.trim()) issues.push('no filename')
+  if (badFilename.test(row.filename)) {
+    issues.push('filename has a slash or a line break')
+  }
   if (!text.trim()) issues.push('no title yet')
   if (keywords.length === 0) issues.push('no keywords')
   if (keywords.length > MAX_KEYWORDS[platform]) {
     issues.push(`${keywords.length - MAX_KEYWORDS[platform]} keyword(s) over the limit`)
   }
-  if (platform === 'adobe' && /[",]/.test(row.title)) {
+  if (platform === 'adobe' && /["',]/.test(row.title)) {
     issues.push('Adobe titles cannot contain a comma or quote')
   }
   if (!row.category.trim()) issues.push('no category')

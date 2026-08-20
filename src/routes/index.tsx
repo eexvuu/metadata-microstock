@@ -78,8 +78,8 @@ const FEATURES = [
   },
   {
     icon: Layers,
-    title: 'Vector and bracket workflows',
-    body: 'Analyse the PNG but write the .eps filename. Put [keywords] in a filename and they are forced into the title and the keyword list.',
+    title: 'Vector uploads, without the fuss',
+    body: 'Upload the JPEG or SVG you exported, then set the filename the CSV should carry — .eps, .ai, anything — for one row or for all of them at once.',
   },
 ]
 

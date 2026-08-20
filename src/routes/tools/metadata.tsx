@@ -334,15 +334,7 @@ function MetadataTool() {
                       disabled={running}
                       aria-pressed={active}
                       onClick={() =>
-                        updateSettings({
-                          ...settings,
-                          platform: platform.id,
-                          // .ai on Shutterstock writes a CSV it rejects.
-                          vectorExtension:
-                            platform.id === 'shutterstock' && settings.vectorExtension
-                              ? '.eps'
-                              : settings.vectorExtension,
-                        })
+                        updateSettings({ ...settings, platform: platform.id })
                       }
                       className="border-(--line) aria-pressed:border-primary aria-pressed:bg-accent/40 hover:bg-accent/20 border p-3 text-left transition-colors disabled:opacity-60"
                     >
