@@ -51,7 +51,7 @@ function HistoryPage() {
             no runs recorded
           </p>
           <Button asChild size="sm">
-            <Link to="/dashboard/generate" className="eyebrow">
+            <Link to="/tools/metadata" className="eyebrow">
               <Sparkles className="size-4" />
               Open the metadata tool
             </Link>

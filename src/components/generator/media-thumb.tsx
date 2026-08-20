@@ -1,0 +1,124 @@
+import { useEffect, useRef, useState } from 'react'
+import { Film, Image as ImageIcon } from 'lucide-react'
+
+import type { MediaEntry } from '#/lib/engine/types'
+import type { FileSource } from '#/lib/sources/types'
+
+/**
+ * One frame of the contact sheet.
+ *
+ * The object URL is created only when the tile scrolls into view and revoked
+ * when it leaves the DOM — a folder of 500 4K videos would otherwise pin every
+ * file in memory at once just to draw a grid.
+ */
+export function MediaThumb({
+  source,
+  entry,
+  className,
+}: {
+  source: FileSource
+  entry: MediaEntry
+  className?: string
+}) {
+  const [url, setUrl] = useState<string | null>(null)
+  const holder = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const node = holder.current
+    if (!node || !source.previewUrl) return
+
+    let revoke: string | null = null
+    let cancelled = false
+
+    const observer = new IntersectionObserver(async (entries) => {
+      if (!entries.some((item) => item.isIntersecting)) return
+      observer.disconnect()
+
+      const resolved = await source.previewUrl!(entry)
+      if (cancelled) {
+        if (resolved) URL.revokeObjectURL(resolved)
+        return
+      }
+      revoke = resolved
+      setUrl(resolved)
+    })
+
+    observer.observe(node)
+
+    return () => {
+      cancelled = true
+      observer.disconnect()
+      if (revoke) URL.revokeObjectURL(revoke)
+    }
+  }, [source, entry])
+
+  return (
+    <div
+      ref={holder}
+      className={`border-(--line) bg-muted relative overflow-hidden border ${className ?? ''}`}
+    >
+      {url ? (
+        entry.kind === 'video' ? (
+          <video
+            src={url}
+            muted
+            playsInline
+            preload="metadata"
+            className="size-full object-cover"
+          />
+        ) : (
+          <img src={url} alt="" loading="lazy" className="size-full object-cover" />
+        )
+      ) : (
+        <span className="text-muted-foreground/50 flex size-full items-center justify-center">
+          {entry.kind === 'video' ? (
+            <Film className="size-5" strokeWidth={1.5} />
+          ) : (
+            <ImageIcon className="size-5" strokeWidth={1.5} />
+          )}
+        </span>
+      )}
+
+      {entry.kind === 'video' ? (
+        <span className="eyebrow bg-background/75 text-foreground absolute right-1 bottom-1 px-1 py-px text-[0.55rem]">
+          video
+        </span>
+      ) : null}
+    </div>
+  )
+}
+
+/** The pre-run view: what the tool is about to work through. */
+export function MediaGrid({
+  source,
+  entries,
+  limit = 24,
+}: {
+  source: FileSource
+  entries: MediaEntry[]
+  limit?: number
+}) {
+  const shown = entries.slice(0, limit)
+  const rest = entries.length - shown.length
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-8">
+        {shown.map((entry) => (
+          <figure key={entry.name} className="min-w-0">
+            <MediaThumb source={source} entry={entry} className="aspect-square" />
+            <figcaption className="text-muted-foreground mt-1 truncate font-mono text-[0.6rem]">
+              {entry.name}
+            </figcaption>
+          </figure>
+        ))}
+      </div>
+
+      {rest > 0 ? (
+        <p className="text-muted-foreground font-mono text-xs">
+          + {rest} more file{rest === 1 ? '' : 's'} in the queue
+        </p>
+      ) : null}
+    </div>
+  )
+}

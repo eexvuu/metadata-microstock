@@ -62,6 +62,12 @@ export interface RunOptions {
   illustration?: boolean | null
   /** Strip brackets from filenames on disk after a complete run. */
   renameBrackets: boolean
+  /**
+   * Stop after the rows are generated: no rename, no CSV, progress file kept.
+   * The browser sets this so the user can edit titles and keywords first and
+   * call `exportRun` afterwards; the CLI path leaves it off.
+   */
+  deferExport?: boolean
 }
 
 export type EngineEvent =

@@ -2,8 +2,11 @@
  * End-to-end smoke test against the real Gemini API through the local server.
  *
  * Not part of the app — run it by hand when the engine changes:
- *   bun run local            (in another terminal)
  *   bun test/e2e-local.ts <folder> <path-to-gemini-key.txt> [adobe|shutterstock]
+ *
+ * It reads the folder straight off disk, so no server and no account are
+ * involved. Videos still carry their audio track here, which Gemma refuses —
+ * point it at images, or strip the audio first with ffmpeg.
  */
 import { readFileSync } from 'node:fs'
 
@@ -12,8 +15,8 @@ import { adobeProfile } from '#/lib/engine/profiles/adobe'
 import { shutterstockProfile } from '#/lib/engine/profiles/shutterstock'
 import { runFolder } from '#/lib/engine/runner'
 import type { EngineEvent } from '#/lib/engine/types'
-import { LocalServerClient, LocalServerSource } from '#/lib/sources/local-server'
 import { passthroughPreprocessor } from '#/lib/video/types'
+import { NodeDirectorySource } from './node-directory'
 
 const [folder, keyPath, platform = 'adobe'] = process.argv.slice(2)
 if (!folder || !keyPath) {
@@ -34,7 +37,7 @@ const emit = (event: EngineEvent) => {
 }
 
 const result = await runFolder({
-  source: new LocalServerSource(new LocalServerClient('http://localhost:4321'), folder),
+  source: new NodeDirectorySource(folder),
   keys: new KeyPool(keys, emit),
   profile: platform === 'shutterstock' ? shutterstockProfile : adobeProfile,
   video: passthroughPreprocessor,
@@ -42,6 +45,7 @@ const result = await runFolder({
     platform: platform as 'adobe' | 'shutterstock',
     maxConcurrentWorkers: 2,
     model: process.env.GEMMA_MODEL ?? 'gemma-4-26b-a4b-it',
+    fallbackModel: 'gemini-flash-latest',
     renameBrackets: false,
   },
   emit,

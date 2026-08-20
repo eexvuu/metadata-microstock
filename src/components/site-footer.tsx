@@ -2,7 +2,7 @@ import { Link } from '@tanstack/react-router'
 
 const LINKS = [
   { to: '/dashboard', label: 'Tools' },
-  { to: '/dashboard/generate', label: 'Metadata' },
+  { to: '/tools/metadata', label: 'Metadata' },
   { to: '/dashboard/keys', label: 'API keys' },
 ] as const
 
@@ -10,7 +10,7 @@ const LINKS = [
 export function SiteFooter() {
   return (
     <footer className="border-(--line) mt-24 border-t">
-      <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6">
+      <div className="mx-auto w-full max-w-[100rem] px-4 py-10 sm:px-8">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-2">
             <p className="eyebrow text-muted-foreground">Stockflow</p>

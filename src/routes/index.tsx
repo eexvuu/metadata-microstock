@@ -11,15 +11,6 @@ import {
 } from 'lucide-react'
 
 import { Button } from '#/components/ui/button'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
-
 export const Route = createFileRoute('/')({
   component: LandingPage,
 })
@@ -54,8 +45,8 @@ const STEPS = [
     'Pasted once, verified against Google, then encrypted on your account.',
   ],
   [
-    'Point it at a folder',
-    'Watch it work, then collect the CSV from the folder when it finishes.',
+    'Drag your photos in',
+    'Check the titles and keywords it wrote, fix anything you like, then take the CSV.',
   ],
 ]
 
@@ -63,7 +54,7 @@ const FEATURES = [
   {
     icon: FolderOpen,
     title: 'A whole folder at once',
-    body: 'Point it at a folder of images and videos. Every file is analysed and the CSV lands back next to your media, ready to upload.',
+    body: 'Drag in a folder of images and videos. Every file is analysed and the CSV lands back next to your media, ready to upload.',
   },
   {
     icon: FileSpreadsheet,
@@ -77,8 +68,8 @@ const FEATURES = [
   },
   {
     icon: RefreshCw,
-    title: 'Interrupted runs resume',
-    body: 'Progress is saved into the folder after every single file. Close the tab, run out of quota, come back tomorrow — it picks up where it stopped.',
+    title: 'You get the last word',
+    body: 'Nothing is written until you say so: every title, keyword and category is editable next to the picture it came from, and only then does the CSV get made.',
   },
   {
     icon: ShieldCheck,
@@ -106,7 +97,6 @@ function LandingPage() {
       <Process />
       <Specimen />
       <Features />
-      <Modes />
       <Close />
     </main>
   )
@@ -115,7 +105,7 @@ function LandingPage() {
 function Hero() {
   return (
     <section className="safelight sheet-grid border-(--line) relative overflow-hidden border-b">
-      <div className="relative mx-auto grid w-full max-w-6xl gap-14 px-4 py-20 sm:px-6 sm:py-28 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+      <div className="relative mx-auto grid w-full max-w-7xl gap-14 px-4 py-20 sm:px-8 sm:py-28 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
         <div className="stagger">
           <p className="eyebrow text-primary reveal flex items-center gap-2">
             <span className="bg-primary size-1.5" />
@@ -226,7 +216,7 @@ function ContactSheet() {
 
 function Catalog() {
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
+    <section className="mx-auto w-full max-w-7xl px-4 py-20 sm:px-8">
       <SectionHead index="01" title="On the shelf" />
       <p className="text-muted-foreground mt-5 max-w-2xl text-pretty">
         One account, one set of keys, and a tool for each job. Everything a tool
@@ -279,7 +269,7 @@ function Catalog() {
 
 function Process() {
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
+    <section className="mx-auto w-full max-w-7xl px-4 py-20 sm:px-8">
       <SectionHead index="02" title="How it works" />
 
       <ol className="mt-10 grid gap-px sm:grid-cols-3">
@@ -305,7 +295,7 @@ function Process() {
 function Specimen() {
   return (
     <section className="border-(--line) border-y">
-      <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
+      <div className="mx-auto w-full max-w-7xl px-4 py-20 sm:px-8">
         <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
           <div>
             <SectionHead index="03" title="What lands in the folder" />
@@ -348,7 +338,7 @@ function Specimen() {
 
 function Features() {
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
+    <section className="mx-auto w-full max-w-7xl px-4 py-20 sm:px-8">
       <SectionHead index="04" title="What you get" />
 
       <div className="border-(--line) mt-10 grid border-t border-l sm:grid-cols-2 lg:grid-cols-3">
@@ -377,65 +367,10 @@ function Features() {
   )
 }
 
-function Modes() {
-  return (
-    <section className="border-(--line) border-t">
-      <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
-        <SectionHead index="05" title="Two ways to run it" />
-        <p className="text-muted-foreground mt-5 max-w-2xl text-pretty">
-          Both do the same work with the same engine. The difference is how the
-          folder is reached, and what can strip the audio track off a video —
-          which the model refuses to accept.
-        </p>
-
-        <div className="border-(--line) mt-10 overflow-x-auto border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-48" />
-                <TableHead>In the browser</TableHead>
-                <TableHead>With the local helper</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {[
-                ['Setup', 'Nothing to install', 'One command on your own machine'],
-                [
-                  'Choosing a folder',
-                  "Your browser's folder picker",
-                  'Browse every drive from the app',
-                ],
-                [
-                  'Video formats',
-                  'MP4, M4V, MOV',
-                  'Everything, including AVI, MKV and WEBM',
-                ],
-                ['Browsers', 'Chrome, Edge', 'Chrome, Edge'],
-              ].map(([label, browser, local]) => (
-                <TableRow key={label}>
-                  <TableCell className="eyebrow text-muted-foreground">
-                    {label}
-                  </TableCell>
-                  <TableCell className="text-sm whitespace-normal">
-                    {browser}
-                  </TableCell>
-                  <TableCell className="text-sm whitespace-normal">
-                    {local}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
-    </section>
-  )
-}
-
 function Close() {
   return (
     <section className="safelight border-(--line) relative overflow-hidden border-t">
-      <div className="relative mx-auto w-full max-w-4xl px-4 py-24 text-center sm:px-6">
+      <div className="relative mx-auto w-full max-w-4xl px-4 py-24 text-center sm:px-8">
         <h2 className="font-display text-4xl leading-[1.05] font-light tracking-tight text-balance sm:text-6xl">
           Stop writing keywords{' '}
           <em className="text-primary font-normal italic">by hand</em>.

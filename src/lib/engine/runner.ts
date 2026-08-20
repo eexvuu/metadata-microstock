@@ -356,7 +356,39 @@ export async function runFolder(deps: RunnerDeps): Promise<RunResult> {
     return { rows, partial: true }
   }
 
-  if (options.renameBrackets) {
+  // The browser defers this so the rows can be edited first; the CLI does not.
+  if (options.deferExport) return { rows, partial: false }
+
+  const { csvName } = await exportRun({ source, profile, options, emit, media }, rows)
+
+  return { rows, partial: false, csvName }
+}
+
+export interface ExportDeps {
+  source: FileSource
+  profile: PlatformProfile
+  options: RunOptions
+  emit: Emit
+  /** Needed for the bracket rename; skip it and only the CSV is produced. */
+  media?: MediaEntry[]
+}
+
+/**
+ * Turn finished rows into the CSV — the last step of a run, split out so the
+ * browser can put a review screen in front of it.
+ *
+ * A source that cannot write back (loose files) gets the text returned and
+ * nothing else touched: no rename, no progress file to clear. Same bytes
+ * either way, because the CSV is a contract both platforms have accepted for a
+ * year — see `csv.ts`.
+ */
+export async function exportRun(
+  deps: ExportDeps,
+  rows: MetadataRow[],
+): Promise<{ csvName: string; text: string }> {
+  const { source, profile, options, emit, media } = deps
+
+  if (options.renameBrackets && source.writable && media) {
     for (const row of rows) {
       const cleaned = cleanFilenameForExport(row.filename)
       if (cleaned === row.filename) continue
@@ -377,9 +409,13 @@ export async function runFolder(deps: RunnerDeps): Promise<RunResult> {
 
   const table = profile.toCsv(rows, options)
   const csvName = csvFileName(profile.csvPrefix, source.folderName)
-  await source.writeText(csvName, toCsv(table.headers, table.rows, { bom: table.bom }))
-  await source.remove(profile.progressFile)
+  const text = toCsv(table.headers, table.rows, { bom: table.bom })
+
+  if (source.writable) {
+    await source.writeText(csvName, text)
+    await source.remove(profile.progressFile)
+  }
 
   emit({ type: 'finished', csvName, rows: rows.length })
-  return { rows, partial: false, csvName }
+  return { csvName, text }
 }

@@ -32,8 +32,8 @@ function DashboardLayout() {
   const isAdmin = nav.length > 0
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl gap-10 px-4 py-10 sm:px-6">
-      <aside className="hidden w-52 shrink-0 md:block">
+    <div className="mx-auto flex w-full max-w-[100rem] gap-12 px-4 py-8 sm:px-8">
+      <aside className="hidden w-48 shrink-0 lg:block">
         <div className="sticky top-24 space-y-6">
           {isAdmin ? <PanelSearch /> : null}
 
@@ -52,7 +52,7 @@ function DashboardLayout() {
               </Link>
 
               <Link
-                to="/dashboard/generate"
+                to="/tools/metadata"
                 activeProps={{ className: LINK_ACTIVE }}
                 className={LINK_CLASS}
               >

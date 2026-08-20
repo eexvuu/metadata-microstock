@@ -112,7 +112,7 @@ export const generationRun = sqliteTable(
     platform: text('platform').notNull(),
     model: text('model').notNull(),
     folderName: text('folder_name').notNull(),
-    // browser | local
+    // folder (a directory handle) | files (a dropped selection)
     sourceMode: text('source_mode').notNull(),
     filesTotal: integer('files_total').notNull().default(0),
     filesDone: integer('files_done').notNull().default(0),

@@ -45,6 +45,32 @@ export function isSupported(): boolean {
   return typeof window !== 'undefined' && typeof window.showDirectoryPicker === 'function'
 }
 
+/**
+ * A folder dropped on the page. Chrome and Edge expose the same handle the
+ * picker returns, so a dropped folder is fully writable — that is why the drop
+ * zone accepts folders as the happy path rather than a pile of files.
+ */
+export async function directoryFromDrop(
+  item: DataTransferItem,
+): Promise<DirectoryHandle | null> {
+  const withHandle = item as DataTransferItem & {
+    getAsFileSystemHandle?: () => Promise<{ kind: string } | null>
+  }
+
+  if (typeof withHandle.getAsFileSystemHandle !== 'function') return null
+
+  const handle = await withHandle.getAsFileSystemHandle()
+  if (!handle || handle.kind !== 'directory') return null
+
+  const directory = handle as unknown as DirectoryHandle
+  // Dropped handles start read-only; the CSV write needs the upgrade.
+  if (directory.requestPermission) {
+    await directory.requestPermission({ mode: 'readwrite' })
+  }
+
+  return directory
+}
+
 export async function pickDirectory(): Promise<DirectoryHandle | null> {
   if (!isSupported()) throw new Error('This browser has no File System Access API')
   try {
@@ -60,6 +86,9 @@ export async function pickDirectory(): Promise<DirectoryHandle | null> {
 
 export class BrowserDirectorySource implements FileSource {
   private handles = new Map<string, FileHandle>()
+
+  /** A real folder: the CSV, the progress file and renames all land in it. */
+  readonly writable = true
 
   constructor(private directory: DirectoryHandle) {}
 
@@ -135,6 +164,11 @@ export class BrowserDirectorySource implements FileSource {
 
   async writeJson(name: string, data: unknown): Promise<void> {
     await this.writeText(name, JSON.stringify(data, null, 2))
+  }
+
+  async previewUrl(entry: MediaEntry): Promise<string | null> {
+    const file = await (entry.ref as FileHandle).getFile()
+    return URL.createObjectURL(file)
   }
 
   async remove(name: string): Promise<void> {

@@ -36,28 +36,27 @@ to any third party. Nobody else can see or spend them: `gemini_key` is scoped
 to `user.id`, and the admin screens count keys without ever selecting the
 ciphertext.
 
-## Two targets, one codebase
+## How the media reaches the tool
 
-Both targets run the identical engine and the identical UI. The only things that
-differ are where the files come from and what strips the audio off a video.
+Everything happens in the tab. Two ways in, and the difference is what the tool
+can give back:
 
-|  | Browser mode | Local mode |
+|  | A dropped folder | Dropped files |
 |---|---|---|
-| Folder access | File System Access API — one folder per picker prompt | Browse every drive from the UI |
-| Browsers | Chrome, Edge | any (the helper supplies the folder) |
-| Video audio strip | mp4box.js in the tab, MP4/M4V/MOV only | real ffmpeg — every container |
-| Needs a local process | no | `bun run local` |
+| How | drag a folder, or **Choose folder** | drag files, or **Choose files** |
+| Browsers | Chrome, Edge (File System Access API) | any |
+| The CSV | written next to your media | downloaded |
+| Interrupted run | resumes from the progress file | starts over |
+| `[bracket]` rename | yes | no |
 
-Local mode is not a separate build. The app is always the signed-in page — in
-dev on `:3000`, or wherever it is deployed. `bun run local` starts a small
-**helper** on `:4321` that the page CORS-fetches for filesystem access and
-ffmpeg. Chrome exempts `http://localhost` from mixed-content blocking, so a
-deployed HTTPS page can talk to a helper running on the user's own machine.
+There is no companion server any more: the app is a hosted page, and both paths
+above work on a deployed HTTPS origin with nothing installed.
 
 Gemma rejects any media carrying an audio track (`400: Audio input modality is
 not enabled`), which is why the audio strip exists at all. Browser mode remuxes
-with mp4box — a stream copy, no re-encode, ~80 ms for a 10 MB clip. AVI, MKV,
-WEBM, WMV and FLV have to go through local mode.
+with mp4box — a stream copy, no re-encode, ~80 ms for a 10 MB clip. MP4, M4V and
+MOV are covered; AVI, MKV, WEBM, WMV and FLV are not, so strip their audio (or
+transcode) before dropping them in.
 
 ```bash
 bun install --network-concurrency 8
@@ -65,7 +64,6 @@ cp .dev.vars.example .dev.vars   # then set BETTER_AUTH_SECRET and ENCRYPTION_SE
 bun run db:migrate               # local D1: auth tables + gemini_key + generation_run
 bun run dev                      # http://localhost:3000
 
-bun run local                    # optional helper on :4321, for local mode
 ```
 
 Sign up at `/signup`, add your keys under **API keys**, then open **Metadata**
@@ -109,14 +107,14 @@ src/lib/engine/          the port of gemma/index.js — no DOM, no node:*, no bi
   keys.ts                key rotation, 429 cooldown, RPM pacing
   prompt via profiles/   adobe.ts and shutterstock.ts: prompt + parse + CSV shape
   parse.ts               chain-of-thought JSON extraction, keyword repair
-  runner.ts              the worker pool, resume, rename, CSV write
-src/lib/sources/         where the files are: browser-directory.ts | local-server.ts
+  runner.ts              the worker pool, resume, rename — and exportRun()
+src/lib/sources/         where the files are: browser-directory.ts | dropped-files.ts
 src/lib/video/           how audio is stripped: mp4box-strip.ts | passthrough
 src/lib/generator/       React glue: run preferences in localStorage, the run hook
 src/lib/server/          crypto.ts (AES-GCM), gemini-keys.ts, runs.ts — server functions
-src/routes/dashboard/    generate.tsx (the tool), keys.tsx (BYOK management)
-local/server.ts          the local helper: filesystem API + ffmpeg
-test/e2e-local.ts        hits the real API through the helper; run it by hand
+src/routes/tools/        metadata.tsx — the tool, on its own full-width page
+src/routes/dashboard/    the catalog, keys, history and the admin screens
+test/e2e-local.ts        hits the real API against a folder on disk; run by hand
 ```
 
 Adding a third platform is one file in `src/lib/engine/profiles/` plus one entry
@@ -140,12 +138,10 @@ users have to re-add their keys.
 
 ## Known limits
 
-- Firefox and Safari have no File System Access API, so **browser mode** is
-  Chrome and Edge only. Local mode does not need it — the helper hands the
-  folder over — so it works anywhere, though that is untested.
-- The local helper has no auth and takes an absolute path from the client. It is
-  a localhost tool the user starts themselves — it must never be bound to a
-  public interface.
+- Firefox and Safari have no File System Access API, so **dropping a folder**
+  is Chrome and Edge only. Everywhere else the tool falls back to dropped
+  files: same metadata, but the CSV is downloaded and an interrupted run cannot
+  resume.
 - Run history (`generation_run`) is **reported by the browser that did the
   work**, because that is where the engine runs. It is honest history for the
   person looking at their own dashboard; it is not a number you could bill or

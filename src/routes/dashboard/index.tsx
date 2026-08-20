@@ -67,7 +67,7 @@ function CatalogPage() {
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <Button asChild className="eyebrow">
-              <Link to="/dashboard/generate">
+              <Link to="/tools/metadata">
                 Open tool
                 <ArrowRight className="size-4" />
               </Link>

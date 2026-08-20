@@ -12,8 +12,34 @@ import type { CsvTable, ParseOutcome, PlatformProfile } from './types'
 
 const MAX_KEYWORDS = 49
 
-const CATEGORY_REFERENCE =
-  '1=Animals, 2=Buildings and Architecture, 3=Business, 4=Drinks, 5=The Environment, 6=States of Mind, 7=Food, 8=Graphic Resources, 9=Hobbies and Leisure, 10=Industry, 11=Landscapes, 12=Lifestyle, 13=People, 14=Plants and Flowers, 15=Culture and Religion, 16=Science, 17=Social Issues, 18=Sports, 19=Technology, 20=Transport, 21=Travel'
+/** Adobe's fixed list. Exported because the review screen offers it as a menu. */
+export const ADOBE_CATEGORIES: [string, string][] = [
+  ['1', 'Animals'],
+  ['2', 'Buildings and Architecture'],
+  ['3', 'Business'],
+  ['4', 'Drinks'],
+  ['5', 'The Environment'],
+  ['6', 'States of Mind'],
+  ['7', 'Food'],
+  ['8', 'Graphic Resources'],
+  ['9', 'Hobbies and Leisure'],
+  ['10', 'Industry'],
+  ['11', 'Landscapes'],
+  ['12', 'Lifestyle'],
+  ['13', 'People'],
+  ['14', 'Plants and Flowers'],
+  ['15', 'Culture and Religion'],
+  ['16', 'Science'],
+  ['17', 'Social Issues'],
+  ['18', 'Sports'],
+  ['19', 'Technology'],
+  ['20', 'Transport'],
+  ['21', 'Travel'],
+]
+
+const CATEGORY_REFERENCE = ADOBE_CATEGORIES.map(
+  ([id, label]) => `${id}=${label}`,
+).join(', ')
 
 const UNIVERSAL_RULES = `CRITICAL RULES — read carefully:
 1. KEYWORD FORMAT: keywords MUST be a single string with values separated by commas ONLY — like "word1, word2, phrase with spaces, word4". NEVER use dashes ("word1- word2-") or spaces alone ("word1 word2 word3") as separators.

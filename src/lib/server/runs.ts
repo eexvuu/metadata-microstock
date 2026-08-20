@@ -37,7 +37,7 @@ export const startRun = createServerFn({ method: 'POST' })
       platform: z.enum(['adobe', 'shutterstock']),
       model: z.string().max(120),
       folderName: z.string().max(400),
-      sourceMode: z.enum(['browser', 'local']),
+      sourceMode: z.enum(['folder', 'files']),
       filesTotal: z.number().int().min(0).max(100000),
     }),
   )

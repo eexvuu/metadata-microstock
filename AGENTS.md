@@ -200,12 +200,19 @@ the terminal and the browser. Do not "clean up" those field names.
 **A partial run writes no CSV and renames nothing.** Half a CSV is worse than
 none, and renaming before the run finishes desyncs the progress file from disk.
 
+**The CSV is written by `exportRun`, not by the run.** The browser passes
+`deferExport: true`, edits the rows on the review screen and calls `exportRun`
+afterwards; the CLI path leaves the flag off and gets the old behaviour. A
+source with `writable: false` (loose dropped files) gets the CSV text back for
+download and is never renamed or asked for a progress file.
+
 ## Where things go
 
 | Change | File |
 |---|---|
 | A new stock platform | `src/lib/engine/profiles/<name>.ts` + the `PROFILES` map in `use-generator.ts` |
 | A new place files can live | `src/lib/sources/<name>.ts` implementing `FileSource` |
+| The review screen, the drop zone | `src/components/generator/` |
 | A new way to strip audio | `src/lib/video/` implementing `VideoPreprocessor` |
 | Prompt wording, keyword rules | the profile — never the runner |
 | Retry, rate limit, resume, worker pool | `src/lib/engine/runner.ts` and `keys.ts` |
@@ -264,9 +271,12 @@ through the real API, bypassing accounts entirely (it reads keys from a file),
 so it stays the fastest way to test a prompt or parser change:
 
 ```bash
-bun run local                                              # terminal 1
-bun test/e2e-local.ts <folder> <gemini-key.txt> [platform] # terminal 2
+bun test/e2e-local.ts <folder> <gemini-key.txt> [platform]
 ```
+
+It reads the folder with `test/node-directory.ts` — a `FileSource` over
+`node:fs` that lives in `test/` precisely because `node:*` has no business in
+`src/`.
 
 Use a throwaway copy of a couple of files: the run writes a CSV and a progress
 file into the folder it is given.
