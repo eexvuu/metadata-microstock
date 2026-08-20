@@ -13,3 +13,6 @@ worker-configuration.d.ts
 .vinxi
 __unconfig*
 todos.json
+
+# Scratch media for manual testing — and gemini-key.txt lives in there.
+sample/
