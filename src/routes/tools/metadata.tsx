@@ -13,6 +13,7 @@ import { AdvancedOptions } from '#/components/generator/options-panel'
 import { ReviewEditor } from '#/components/generator/review-editor'
 import { RunLog } from '#/components/generator/run-log'
 import { Button } from '#/components/ui/button'
+import { SUPPORTED_EXTENSIONS, extname } from '#/lib/engine/media'
 import { adobeProfile } from '#/lib/engine/profiles/adobe'
 import { shutterstockProfile } from '#/lib/engine/profiles/shutterstock'
 import { exportRun } from '#/lib/engine/runner'
@@ -53,6 +54,7 @@ function MetadataTool() {
   const [settings, setSettings] = useState<StoredSettings>(DEFAULT_SETTINGS)
   const [selected, setSelected] = useState<SelectedSource | null>(null)
   const [entries, setEntries] = useState<MediaEntry[]>([])
+  const [skipped, setSkipped] = useState(0)
   const [scanning, setScanning] = useState(false)
   const [rows, setRows] = useState<MetadataRow[]>([])
   const [exported, setExported] = useState<string | null>(null)
@@ -69,16 +71,23 @@ function MetadataTool() {
   useEffect(() => {
     if (!selected) {
       setEntries([])
+      setSkipped(0)
       return
     }
 
     let cancelled = false
     setScanning(true)
 
-    selected.source
-      .listMedia()
-      .then((media) => {
-        if (!cancelled) setEntries(media)
+    Promise.all([selected.source.listMedia(), selected.source.listAllNames()])
+      .then(([media, names]) => {
+        if (cancelled) return
+        setEntries(media)
+        // Anything that looks like media but never made the queue: AVI, MKV and
+        // friends, which cannot have their audio stripped in a tab.
+        setSkipped(
+          names.filter((name) => SUPPORTED_EXTENSIONS.includes(extname(name)))
+            .length - media.length,
+        )
       })
       .catch((error: unknown) => {
         if (!cancelled) {
@@ -184,6 +193,9 @@ function MetadataTool() {
     setRows([])
     setExported(null)
     reset()
+    // A finished run may have renamed bracketed files, so the cached entries
+    // are stale. New object identity = the scan effect runs again.
+    if (selected) setSelected({ ...selected })
   }
 
   const percent = state.total > 0 ? Math.round((state.done / state.total) * 100) : 0
@@ -232,7 +244,7 @@ function MetadataTool() {
               </p>
               <p className="text-muted-foreground mt-1 max-w-2xl text-sm text-pretty">
                 {partial
-                  ? `${state.done} of ${state.total} files got through before the keys ran out. Run it again — it picks up where it stopped — and the CSV is written once every file is done.`
+                  ? `${rows.length} of ${entries.length} files got through before the keys ran out. Run it again — it picks up where it stopped — and the CSV is written once every file is done.`
                   : exported
                     ? `${exported} is done. Edit and export again if you change your mind.`
                     : 'Nothing has been written yet. Fix anything that looks wrong, then export.'}
@@ -288,6 +300,9 @@ function MetadataTool() {
                     {entries.length} file{entries.length === 1 ? '' : 's'} ·{' '}
                     {entries.filter((entry) => entry.kind === 'image').length} images ·{' '}
                     {entries.filter((entry) => entry.kind === 'video').length} videos
+                    {skipped > 0
+                      ? ` · ${skipped} skipped (AVI, MKV and WEBM cannot be read here — MP4, MOV and M4V can)`
+                      : ''}
                   </p>
                   <MediaGrid source={selected!.source} entries={entries} />
                 </>

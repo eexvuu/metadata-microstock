@@ -1,5 +1,6 @@
 import { kindOf, SUPPORTED_EXTENSIONS, extname } from '#/lib/engine/media'
 import type { MediaEntry } from '#/lib/engine/types'
+import { canStrip } from '#/lib/video/mp4box-strip'
 import type { FileSource } from './types'
 
 /**
@@ -39,6 +40,7 @@ export class DroppedFilesSource implements FileSource {
       if (!SUPPORTED_EXTENSIONS.includes(extname(file.name))) continue
       const kind = kindOf(file.name)
       if (!kind) continue
+      if (kind === 'video' && !canStrip(file.name)) continue
       entries.push({ name: file.name, ref: file, size: file.size, kind })
     }
 

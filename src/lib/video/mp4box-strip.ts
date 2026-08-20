@@ -8,11 +8,12 @@ import type { StripResult, VideoPreprocessor } from './types'
  * second.
  *
  * MP4/MOV only. Everything else (avi, mkv, webm, wmv, flv) has no ISOBMFF
- * structure to walk, and those files have to go through local mode, where the
- * real ffmpeg is available.
+ * structure to walk, and there is no companion ffmpeg any more — so the file
+ * sources drop those containers at scan time rather than letting Gemma refuse
+ * them one upload at a time.
  */
 
-const MP4BOX_CONTAINERS = ['.mp4', '.m4v', '.mov']
+export const MP4BOX_CONTAINERS = ['.mp4', '.m4v', '.mov']
 
 export function canStrip(name: string): boolean {
   return MP4BOX_CONTAINERS.includes(extname(name))

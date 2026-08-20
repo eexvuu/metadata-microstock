@@ -235,8 +235,9 @@ These are ported from the CLI and are not optional. Removing any one of them
 breaks real runs:
 
 1. **Audio strip.** Gemma returns `400: Audio input modality is not enabled` for
-   any media with an audio track. Browser mode remuxes with mp4box (MP4/M4V/MOV
-   only); local mode uses `ffmpeg -an -c:v copy`.
+   any media with an audio track. The tab remuxes with mp4box, which only walks
+   ISOBMFF — so `canStrip()` decides, and both file sources skip AVI, MKV, WEBM,
+   WMV and FLV at scan time rather than uploading a file Gemma will refuse.
 2. **Chain-of-thought JSON.** Gemma writes reasoning around the JSON no matter
    what the prompt demands, and the reasoning contains its own brace blocks.
    `parse.ts` walks candidates and rejects schema echoes (`"string — …"`) and

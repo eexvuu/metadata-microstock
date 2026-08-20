@@ -1,5 +1,6 @@
 import { kindOf, SUPPORTED_EXTENSIONS, extname } from '#/lib/engine/media'
 import type { MediaEntry } from '#/lib/engine/types'
+import { canStrip } from '#/lib/video/mp4box-strip'
 import type { FileSource } from './types'
 
 /**
@@ -116,6 +117,9 @@ export class BrowserDirectorySource implements FileSource {
       if (!SUPPORTED_EXTENSIONS.includes(extname(name))) continue
       const kind = kindOf(name)
       if (!kind) continue
+      // Gemma refuses any audio track and only MP4/M4V/MOV can be remuxed in
+      // the tab, so the rest never enter the queue.
+      if (kind === 'video' && !canStrip(name)) continue
       const file = await handle.getFile()
       entries.push({ name, ref: handle, size: file.size, kind })
     }

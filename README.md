@@ -55,8 +55,9 @@ above work on a deployed HTTPS origin with nothing installed.
 Gemma rejects any media carrying an audio track (`400: Audio input modality is
 not enabled`), which is why the audio strip exists at all. Browser mode remuxes
 with mp4box — a stream copy, no re-encode, ~80 ms for a 10 MB clip. MP4, M4V and
-MOV are covered; AVI, MKV, WEBM, WMV and FLV are not, so strip their audio (or
-transcode) before dropping them in.
+MOV are covered. AVI, MKV, WEBM, WMV and FLV have no ISOBMFF structure to walk,
+so they are skipped at scan time and the picker says how many were dropped;
+convert them to MP4 first.
 
 ```bash
 bun install --network-concurrency 8
