@@ -117,6 +117,15 @@ export function isPdfBacked(name: string): boolean {
 }
 
 /**
+ * Cheap enough to run over every dropped Illustrator file at scan time: an
+ * `.ai` saved with PDF compatibility switched off is not a PDF, and telling
+ * someone that before the run beats failing the file a minute into it.
+ */
+export function looksLikePdf(head: Uint8Array): boolean {
+  return new TextDecoder().decode(head.slice(0, 1024)).includes('%PDF-')
+}
+
+/**
  * An `.ai` saved with PDF compatibility switched off is not a PDF at all, and
  * pdf.js fails on it with something unreadable. The magic bytes are cheaper to
  * check than the error is to explain.

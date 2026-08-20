@@ -1,5 +1,6 @@
 import { kindOf, SUPPORTED_EXTENSIONS, extname } from '#/lib/engine/media'
 import type { MediaEntry } from '#/lib/engine/types'
+import { isPdfBacked, looksLikePdf } from '#/lib/image/pdf-raster'
 import { canStrip } from '#/lib/video/mp4box-strip'
 import type { FileSource } from './types'
 
@@ -117,6 +118,12 @@ export class BrowserDirectorySource implements FileSource {
       // the tab, so the rest never enter the queue.
       if (kind === 'video' && !canStrip(name)) continue
       const file = await handle.getFile()
+      if (
+        isPdfBacked(name) &&
+        !looksLikePdf(new Uint8Array(await file.slice(0, 1024).arrayBuffer()))
+      ) {
+        continue
+      }
       entries.push({ name, ref: handle, size: file.size, kind })
     }
 

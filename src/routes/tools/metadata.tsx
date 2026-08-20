@@ -13,7 +13,11 @@ import { AdvancedOptions } from '#/components/generator/options-panel'
 import { ReviewEditor } from '#/components/generator/review-editor'
 import { RunLog } from '#/components/generator/run-log'
 import { Button } from '#/components/ui/button'
-import { UNSUPPORTED_MEDIA_EXTENSIONS, extname } from '#/lib/engine/media'
+import {
+  SUPPORTED_EXTENSIONS,
+  UNSUPPORTED_MEDIA_EXTENSIONS,
+  extname,
+} from '#/lib/engine/media'
 import { adobeProfile } from '#/lib/engine/profiles/adobe'
 import { shutterstockProfile } from '#/lib/engine/profiles/shutterstock'
 import { exportRun } from '#/lib/engine/runner'
@@ -55,6 +59,8 @@ function MetadataTool() {
   const [selected, setSelected] = useState<SelectedSource | null>(null)
   const [entries, setEntries] = useState<MediaEntry[]>([])
   const [skipped, setSkipped] = useState<string[]>([])
+  /** Files with a supported extension that the source still refused. */
+  const [unreadable, setUnreadable] = useState<string[]>([])
   const [scanning, setScanning] = useState(false)
   const [rows, setRows] = useState<MetadataRow[]>([])
   const [exported, setExported] = useState<string | null>(null)
@@ -72,6 +78,7 @@ function MetadataTool() {
     if (!selected) {
       setEntries([])
       setSkipped([])
+      setUnreadable([])
       return
     }
 
@@ -93,6 +100,16 @@ function MetadataTool() {
               ),
           ),
         ])
+
+        // A format we do support that still would not open — in practice an
+        // .ai saved without PDF compatibility.
+        const kept = new Set(media.map((entry) => entry.name))
+        setUnreadable(
+          names.filter(
+            (name) =>
+              !kept.has(name) && SUPPORTED_EXTENSIONS.includes(extname(name)),
+          ),
+        )
       })
       .catch((error: unknown) => {
         if (!cancelled) {
@@ -308,21 +325,34 @@ function MetadataTool() {
                     {entries.filter((entry) => entry.kind === 'image').length} images ·{' '}
                     {entries.filter((entry) => entry.kind === 'video').length} videos
                   </p>
-
-                  {skipped.length > 0 ? (
-                    <p className="text-primary font-mono text-xs text-pretty">
-                      {skipped.join(', ')} skipped — this tool cannot open those.
-                      Export a JPEG, PNG or MP4 of them and drop that instead;
-                      you can still name the CSV rows{' '}
-                      {skipped[0] ?? '.eps'} on the review screen.
-                    </p>
-                  ) : null}
                   <MediaGrid source={selected.source} entries={entries} />
                 </>
               ) : null}
 
+              {/*
+                Both notices sit outside the grid on purpose: the interesting
+                case is a drop where nothing survived, and that is exactly when
+                the reason matters most.
+              */}
+              {selected && !scanning && unreadable.length > 0 ? (
+                <p className="text-destructive font-mono text-xs text-pretty">
+                  {unreadable.join(', ')} could not be opened — an .ai only works
+                  when it was saved with "Create PDF Compatible File" ticked.
+                  Re-save it, or export a JPEG.
+                </p>
+              ) : null}
+
+              {selected && !scanning && skipped.length > 0 ? (
+                <p className="text-primary font-mono text-xs text-pretty">
+                  {skipped.join(', ')} skipped — this tool cannot open those.
+                  Export a JPEG, PNG or MP4 of them and drop that instead; you
+                  can still name the CSV rows {skipped[0] ?? '.eps'} on the
+                  review screen.
+                </p>
+              ) : null}
+
               {selected && !scanning && entries.length === 0 ? (
-                <p className="text-destructive text-sm text-pretty">
+                <p className="text-muted-foreground text-sm text-pretty">
                   Nothing readable in there. JPG, PNG, WEBP, SVG, AI, PDF, MP4,
                   MOV and M4V are the formats this tool can open.
                 </p>

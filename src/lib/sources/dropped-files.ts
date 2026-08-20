@@ -1,5 +1,6 @@
 import { kindOf, SUPPORTED_EXTENSIONS, extname } from '#/lib/engine/media'
 import type { MediaEntry } from '#/lib/engine/types'
+import { isPdfBacked, looksLikePdf } from '#/lib/image/pdf-raster'
 import { canStrip } from '#/lib/video/mp4box-strip'
 import type { FileSource } from './types'
 
@@ -41,6 +42,7 @@ export class DroppedFilesSource implements FileSource {
       const kind = kindOf(file.name)
       if (!kind) continue
       if (kind === 'video' && !canStrip(file.name)) continue
+      if (isPdfBacked(file.name) && !(await this.isReadablePdf(file))) continue
       entries.push({ name: file.name, ref: file, size: file.size, kind })
     }
 
@@ -49,6 +51,10 @@ export class DroppedFilesSource implements FileSource {
 
   async readBytes(entry: MediaEntry): Promise<Uint8Array> {
     return new Uint8Array(await (entry.ref as File).arrayBuffer())
+  }
+
+  private async isReadablePdf(file: File): Promise<boolean> {
+    return looksLikePdf(new Uint8Array(await file.slice(0, 1024).arrayBuffer()))
   }
 
   async previewUrl(entry: MediaEntry): Promise<string | null> {
