@@ -13,7 +13,7 @@ import { AdvancedOptions } from '#/components/generator/options-panel'
 import { ReviewEditor } from '#/components/generator/review-editor'
 import { RunLog } from '#/components/generator/run-log'
 import { Button } from '#/components/ui/button'
-import { SUPPORTED_EXTENSIONS, extname } from '#/lib/engine/media'
+import { UNSUPPORTED_MEDIA_EXTENSIONS, extname } from '#/lib/engine/media'
 import { adobeProfile } from '#/lib/engine/profiles/adobe'
 import { shutterstockProfile } from '#/lib/engine/profiles/shutterstock'
 import { exportRun } from '#/lib/engine/runner'
@@ -54,7 +54,7 @@ function MetadataTool() {
   const [settings, setSettings] = useState<StoredSettings>(DEFAULT_SETTINGS)
   const [selected, setSelected] = useState<SelectedSource | null>(null)
   const [entries, setEntries] = useState<MediaEntry[]>([])
-  const [skipped, setSkipped] = useState(0)
+  const [skipped, setSkipped] = useState<string[]>([])
   const [scanning, setScanning] = useState(false)
   const [rows, setRows] = useState<MetadataRow[]>([])
   const [exported, setExported] = useState<string | null>(null)
@@ -71,7 +71,7 @@ function MetadataTool() {
   useEffect(() => {
     if (!selected) {
       setEntries([])
-      setSkipped(0)
+      setSkipped([])
       return
     }
 
@@ -82,12 +82,17 @@ function MetadataTool() {
       .then(([media, names]) => {
         if (cancelled) return
         setEntries(media)
-        // Anything that looks like media but never made the queue: AVI, MKV and
-        // friends, which cannot have their audio stripped in a tab.
-        setSkipped(
-          names.filter((name) => SUPPORTED_EXTENSIONS.includes(extname(name)))
-            .length - media.length,
-        )
+        // Say what was left behind. Only formats someone would reasonably
+        // expect to work — a stray .csv or the progress file is not news.
+        setSkipped([
+          ...new Set(
+            names
+              .map((name) => extname(name))
+              .filter((extension) =>
+                UNSUPPORTED_MEDIA_EXTENSIONS.includes(extension),
+              ),
+          ),
+        ])
       })
       .catch((error: unknown) => {
         if (!cancelled) {
@@ -302,10 +307,16 @@ function MetadataTool() {
                     {entries.length} file{entries.length === 1 ? '' : 's'} ·{' '}
                     {entries.filter((entry) => entry.kind === 'image').length} images ·{' '}
                     {entries.filter((entry) => entry.kind === 'video').length} videos
-                    {skipped > 0
-                      ? ` · ${skipped} skipped (AVI, MKV and WEBM cannot be read here — MP4, MOV and M4V can)`
-                      : ''}
                   </p>
+
+                  {skipped.length > 0 ? (
+                    <p className="text-primary font-mono text-xs text-pretty">
+                      {skipped.join(', ')} skipped — this tool cannot open those.
+                      Export a JPEG, PNG or MP4 of them and drop that instead;
+                      you can still name the CSV rows{' '}
+                      {skipped[0] ?? '.eps'} on the review screen.
+                    </p>
+                  ) : null}
                   <MediaGrid source={selected.source} entries={entries} />
                 </>
               ) : null}

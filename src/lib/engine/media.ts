@@ -41,6 +41,28 @@ const MIME_TYPES: Record<string, string> = {
 }
 
 /** node:path's extname, minus node:path. Returns "" or ".ext" lowercased. */
+/**
+ * Formats a contributor plausibly expects to work, that this tool cannot open:
+ * PostScript needs a renderer no browser ships, and the video containers here
+ * cannot have their audio stripped in a tab. Listed so the picker can say so
+ * out loud instead of quietly dropping the file.
+ */
+export const UNSUPPORTED_MEDIA_EXTENSIONS = [
+  '.eps',
+  '.psd',
+  '.tif',
+  '.tiff',
+  '.cdr',
+  '.indd',
+  '.heic',
+  '.heif',
+  '.avi',
+  '.mkv',
+  '.webm',
+  '.wmv',
+  '.flv',
+]
+
 export function extname(name: string): string {
   const dot = name.lastIndexOf('.')
   if (dot <= 0) return ''

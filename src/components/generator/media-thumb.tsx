@@ -70,6 +70,11 @@ export function MediaThumb({
             muted
             playsInline
             preload="metadata"
+            // Metadata alone paints nothing; nudging past zero makes the
+            // browser decode one frame, which is the whole point of a tile.
+            onLoadedMetadata={(event) => {
+              event.currentTarget.currentTime = 0.1
+            }}
             className="size-full object-cover"
           />
         ) : (
