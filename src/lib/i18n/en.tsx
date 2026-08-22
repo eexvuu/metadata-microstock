@@ -201,29 +201,21 @@ export const en = {
   },
 
   auth: {
-    email: 'Email',
-    password: 'Password',
-    name: 'Name',
-    namePlaceholder: 'Ada Lovelace',
-    emailPlaceholder: 'you@company.com',
-
     signInTitle: 'Sign in',
-    signInDescription: 'Welcome back. Use the account you signed up with.',
-    signInSubmit: 'Sign in',
-    signInPending: 'Signing in…',
-    signInFailed: 'Could not sign in.',
-    needAccount: 'Need an account?',
-    signUpLink: 'Sign up',
-
-    signUpTitle: 'Create an account',
-    signUpDescription:
+    signInDescription:
       'One account for every tool on the shelf. No card, no trial.',
-    signUpSubmit: 'Create account',
-    signUpPending: 'Creating…',
-    signUpFailed: 'Could not create the account.',
-    passwordHint: 'At least 8 characters.',
-    haveAccount: 'Already have an account?',
-    signInLink: 'Sign in',
+    google: 'Continue with Google',
+    googlePending: 'Opening Google…',
+    googleFailed: 'Could not reach Google. Try again.',
+    /**
+     * Said plainly on the page rather than discovered at the button: someone
+     * arriving with a password in their manager deserves to know why there is
+     * nowhere to type it.
+     */
+    whyGoogle:
+      'Google is the only way in. Signing in creates your account the first time — there is no separate sign-up, and no password for us to lose.',
+    keysNote:
+      'This tool holds the Gemini keys you add to it, so it deliberately stores no password of yours.',
   },
 
   /**

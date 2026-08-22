@@ -197,30 +197,16 @@ export const id: Messages = {
   },
 
   auth: {
-    email: 'Email',
-    password: 'Kata sandi',
-    name: 'Nama',
-    namePlaceholder: 'Ada Lovelace',
-    emailPlaceholder: 'anda@perusahaan.com',
-
     signInTitle: 'Masuk',
     signInDescription:
-      'Selamat datang kembali. Gunakan akun yang Anda daftarkan.',
-    signInSubmit: 'Masuk',
-    signInPending: 'Sedang masuk…',
-    signInFailed: 'Tidak bisa masuk.',
-    needAccount: 'Belum punya akun?',
-    signUpLink: 'Daftar',
-
-    signUpTitle: 'Buat akun',
-    signUpDescription:
       'Satu akun untuk semua perkakas di rak. Tanpa kartu, tanpa masa coba.',
-    signUpSubmit: 'Buat akun',
-    signUpPending: 'Membuat…',
-    signUpFailed: 'Tidak bisa membuat akun.',
-    passwordHint: 'Minimal 8 karakter.',
-    haveAccount: 'Sudah punya akun?',
-    signInLink: 'Masuk',
+    google: 'Lanjut dengan Google',
+    googlePending: 'Membuka Google…',
+    googleFailed: 'Tidak bisa menghubungi Google. Coba lagi.',
+    whyGoogle:
+      'Google satu-satunya jalan masuk. Masuk pertama kali sekaligus membuat akun Anda — tidak ada pendaftaran terpisah, dan tidak ada kata sandi yang bisa kami hilangkan.',
+    keysNote:
+      'Perkakas ini menyimpan kunci Gemini yang Anda tambahkan, jadi ia sengaja tidak menyimpan kata sandi Anda.',
   },
 
   tool: {

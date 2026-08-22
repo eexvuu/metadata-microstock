@@ -5,7 +5,6 @@ import { env } from '#/lib/runtime/env'
 
 import { getDb } from '#/db/index'
 import * as schema from '#/db/schema'
-import { sendEmail } from '#/lib/email/index'
 
 /**
  * IMPORTANT: if you change the `plugins` array here, mirror it in
@@ -13,23 +12,48 @@ import { sendEmail } from '#/lib/email/index'
  * Better Auth CLI reads to emit the database schema.
  */
 function createAuth() {
+  // Same rule as ENCRYPTION_SECRET: fail loudly at construction rather than
+  // letting the sign-in button lead somewhere that 500s.
+  if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) {
+    throw new Error(
+      'GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set — sign-in is Google-only. See .env.example.',
+    )
+  }
+
   return betterAuth({
     baseURL: env.APP_URL,
     secret: env.BETTER_AUTH_SECRET,
     database: drizzleAdapter(getDb(), { provider: 'sqlite', schema }),
 
-    emailAndPassword: {
-      enabled: true,
-      // Flip to true once a real email provider is configured. Left off so a
-      // fresh clone with EMAIL_PROVIDER=console can complete signup.
-      requireEmailVerification: false,
-      sendResetPassword: async ({ user, url }) => {
-        await sendEmail({
-          to: user.email,
-          subject: 'Reset your password',
-          html: `<p>Click to reset your password: <a href="${url}">${url}</a></p>`,
-          text: `Reset your password: ${url}`,
-        })
+    /**
+     * Google, and nothing else.
+     *
+     * Passwords are gone on purpose: this app holds people's Gemini keys, and
+     * the cheapest way to stop being the weak link in that chain is to never
+     * store a credential that can be reused somewhere else. It also deletes a
+     * whole surface — reset mail, rate limiting on a login form, "was it a
+     * capital A" support — that had no product value here.
+     */
+    emailAndPassword: { enabled: false },
+
+    socialProviders: {
+      google: {
+        clientId: env.GOOGLE_CLIENT_ID,
+        clientSecret: env.GOOGLE_CLIENT_SECRET,
+      },
+    },
+
+    account: {
+      accountLinking: {
+        /**
+         * An account that already exists under an email keeps its keys, runs
+         * and role when its owner first signs in with Google. Google is
+         * trusted for this because it verifies the address itself; without the
+         * link the same person would land on a second, empty account and their
+         * keys would look like they had vanished.
+         */
+        enabled: true,
+        trustedProviders: ['google'],
       },
     },
 

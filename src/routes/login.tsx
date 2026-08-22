@@ -1,43 +1,67 @@
-import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 
 import { AuthShell } from '#/components/auth-shell'
 import { Button } from '#/components/ui/button'
-import { Input } from '#/components/ui/input'
-import { Label } from '#/components/ui/label'
 import { signIn } from '#/lib/auth-client'
 import { useMessages } from '#/lib/i18n'
 
+/**
+ * The only way in.
+ *
+ * There is no form here and no `/signup` counterpart doing anything different:
+ * a first Google sign-in creates the account, so the two pages are the same
+ * page and `/signup` renders this one.
+ */
 export const Route = createFileRoute('/login')({
   component: LoginPage,
 })
 
-function LoginPage() {
+/** Google's mark, inline. A remote asset on the sign-in page is a dependency. */
+function GoogleMark() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-4" aria-hidden="true">
+      <path
+        fill="#4285F4"
+        d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.4a5.5 5.5 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.6-5.2 3.6-8.8Z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 24c3.2 0 6-1.1 8-2.9l-3.9-3c-1.1.7-2.5 1.2-4.1 1.2-3.1 0-5.8-2.1-6.7-5H1.3v3.1A12 12 0 0 0 12 24Z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.3 14.3a7.2 7.2 0 0 1 0-4.6V6.6H1.3a12 12 0 0 0 0 10.8l4-3.1Z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 4.8c1.8 0 3.4.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.3 6.6l4 3.1c.9-2.9 3.6-4.9 6.7-4.9Z"
+      />
+    </svg>
+  )
+}
+
+export function GoogleSignIn() {
   const m = useMessages()
-  const navigate = useNavigate()
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
-  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const form = new FormData(event.currentTarget)
-
+  const start = async () => {
     setPending(true)
     setError(null)
 
-    const { error: signInError } = await signIn.email({
-      email: String(form.get('email')),
-      password: String(form.get('password')),
+    const { error: signInError } = await signIn.social({
+      provider: 'google',
+      callbackURL: '/dashboard',
     })
 
+    // On success the browser has already left for Google, so reaching here at
+    // all means it did not.
     if (signInError) {
       setPending(false)
-      setError(signInError.message ?? m.auth.signInFailed)
-      return
+      setError(signInError.message ?? m.auth.googleFailed)
     }
-
-    await navigate({ to: '/dashboard' })
   }
 
   return (
@@ -45,44 +69,28 @@ function LoginPage() {
       title={m.auth.signInTitle}
       description={m.auth.signInDescription}
       error={error}
-      footer={
-        <span>
-          {m.auth.needAccount}{' '}
-          <Link to="/signup" className="text-foreground font-medium underline-offset-4 hover:underline">
-            {m.auth.signUpLink}
-          </Link>
-        </span>
-      }
+      footer={<span>{m.auth.keysNote}</span>}
     >
-      <form onSubmit={onSubmit} className="grid gap-4">
-        <div className="grid gap-2">
-          <Label htmlFor="email">{m.auth.email}</Label>
-          <Input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            placeholder={m.auth.emailPlaceholder}
-            required
-          />
-        </div>
-
-        <div className="grid gap-2">
-          <Label htmlFor="password">{m.auth.password}</Label>
-          <Input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            required
-          />
-        </div>
-
-        <Button type="submit" disabled={pending} className="mt-1 w-full">
-          {pending ? <Loader2 className="size-4 animate-spin" /> : null}
-          {pending ? m.auth.signInPending : m.auth.signInSubmit}
+      <div className="grid gap-4">
+        <Button
+          type="button"
+          onClick={start}
+          disabled={pending}
+          variant="outline"
+          className="w-full"
+        >
+          {pending ? <Loader2 className="size-4 animate-spin" /> : <GoogleMark />}
+          {pending ? m.auth.googlePending : m.auth.google}
         </Button>
-      </form>
+
+        <p className="text-muted-foreground text-xs leading-relaxed">
+          {m.auth.whyGoogle}
+        </p>
+      </div>
     </AuthShell>
   )
+}
+
+function LoginPage() {
+  return <GoogleSignIn />
 }

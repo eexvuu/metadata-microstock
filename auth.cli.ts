@@ -17,6 +17,13 @@ import { admin } from 'better-auth/plugins/admin'
  */
 export const auth = betterAuth({
   database: drizzleAdapter({} as never, { provider: 'sqlite' }),
-  emailAndPassword: { enabled: true },
+  // Mirrors src/lib/auth.ts: Google only, no passwords. Social sign-in uses
+  // the `account` table Better Auth already emits, so this changes no schema —
+  // it is here so the generated file cannot drift from the runtime config.
+  emailAndPassword: { enabled: false },
+  socialProviders: {
+    google: { clientId: 'generate-only', clientSecret: 'generate-only' },
+  },
+  account: { accountLinking: { enabled: true, trustedProviders: ['google'] } },
   plugins: [admin()],
 })

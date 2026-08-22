@@ -1,4 +1,6 @@
 import { serve } from '@hono/node-server'
+import { serveStatic } from '@hono/node-server/serve-static'
+import { Hono } from 'hono'
 import handler, { createServerEntry } from '@tanstack/react-start/server-entry'
 
 import { migrate } from 'drizzle-orm/libsql/migrator'
@@ -68,6 +70,18 @@ if (process.argv.includes('--migrate')) {
    * out from under the dev server and pushed it to 3001, where every request
    * 500s because nothing is behind it.
    */
+  /**
+   * Somebody has to hand out `dist/client`, and on this runtime it is us.
+   *
+   * On Cloudflare the assets binding served the build output and the Worker
+   * never saw those requests; there is no such thing here, so the page came
+   * back correct and completely unstyled — every /assets/* a 404. Static first,
+   * app second, and `serveStatic` falls through when there is no such file so
+   * a real route is never shadowed by a missing one.
+   */
+  const files = new Hono()
+  files.use('*', serveStatic({ root: './dist/client' }))
+
   const port = Number(process.env.PORT ?? 3000)
 
   /**
@@ -79,8 +93,20 @@ if (process.argv.includes('--migrate')) {
    * with (request, nodeBindings) and Start's second parameter is its own
    * options object — handing one to the other typechecks as nonsense.
    */
+  const handle = async (request: Request): Promise<Response> => {
+    const url = new URL(request.url)
+
+    // /api/* belongs to Hono and never to a file, so it skips the disk.
+    if (!url.pathname.startsWith('/api/')) {
+      const hit = await files.fetch(request)
+      if (hit.status !== 404) return hit
+    }
+
+    return entry.fetch(request)
+  }
+
   serve(
-    { fetch: (request: Request) => entry.fetch(request), port, hostname: '127.0.0.1' },
+    { fetch: handle, port, hostname: '127.0.0.1' },
     (info) => {
       console.log(`[stockflow] listening on http://127.0.0.1:${info.port}`)
     },

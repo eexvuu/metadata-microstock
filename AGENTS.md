@@ -319,6 +319,13 @@ panel serves the admin screens (`/dashboard/admin`, `/dashboard/users`,
 - `generation_run` is history, not billing input. Read the comment at the top of
   `src/lib/server/runs.ts` before building anything that depends on the numbers.
 
+**Sign-in is Google-only.** `emailAndPassword` is off and there is no signup
+form: a first Google sign-in creates the account, so `/login` and `/signup` are
+the same component. `accountLinking` is on with Google trusted, which is what
+lets an account that predates the switch keep its keys, runs and role when its
+owner signs in with the same address. `GOOGLE_CLIENT_ID` and
+`GOOGLE_CLIENT_SECRET` are required — auth throws at construction without them.
+
 `ENCRYPTION_SECRET` must exist or every key operation throws at runtime — it is
 in `.env.local` for dev and `/etc/stockflow/stockflow.env` in production. It
 cannot be rotated in place: a new value orphans every stored key.

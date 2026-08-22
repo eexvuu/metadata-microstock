@@ -18,6 +18,10 @@ export interface AppEnv {
   EMAIL_FROM_NAME?: string
   RESEND_API_KEY?: string
 
+  /** Sign-in is Google-only; both are required or auth throws at startup. */
+  GOOGLE_CLIENT_ID: string
+  GOOGLE_CLIENT_SECRET: string
+
   POLAR_WEBHOOK_SECRET?: string
 
   /** libsql URL for the Node build. Ignored on workerd, which has a binding. */
