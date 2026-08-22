@@ -1,9 +1,19 @@
 import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
-import { ArrowLeft, Eye, Loader2, LogOut, Save } from 'lucide-react'
+import { ArrowLeft, Eye, Loader2, LogOut, Pause, Play, Save, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { PageHead } from '#/components/page-head'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '#/components/ui/alert-dialog'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Checkbox } from '#/components/ui/checkbox'
@@ -25,9 +35,11 @@ import {
   TableRow,
 } from '#/components/ui/table'
 import {
+  deleteUserKey,
   getUserDetail,
   revealUserKey,
   revokeUserSessions,
+  setUserKeyStatus,
   updateUserAdmin,
 } from '#/lib/server/admin'
 
@@ -57,6 +69,10 @@ function UserDetail() {
   /** Revealed plaintext, per key id. Never in the loader, never persisted. */
   const [shown, setShown] = useState<Record<string, string>>({})
   const [revealing, setRevealing] = useState<string | null>(null)
+  /** The key a delete confirmation is open for. Null when the dialog is shut. */
+  const [pendingDelete, setPendingDelete] = useState<
+    { id: string; preview: string } | null
+  >(null)
 
   const dirty =
     name !== user.name ||
@@ -94,6 +110,33 @@ function UserDetail() {
       toast.error(error instanceof Error ? error.message : String(error))
     } finally {
       setRevealing(null)
+    }
+  }
+
+  const toggleKey = async (id: string, status: 'active' | 'disabled') => {
+    setBusy(true)
+    try {
+      await setUserKeyStatus({ data: { id, status } })
+      toast.success(status === 'active' ? 'Key enabled' : 'Key disabled')
+      await router.invalidate()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const removeKey = async (id: string) => {
+    setBusy(true)
+    try {
+      await deleteUserKey({ data: { id } })
+      toast.success('Key deleted')
+      setPendingDelete(null)
+      await router.invalidate()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error))
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -229,8 +272,9 @@ function UserDetail() {
           Keys held
         </h2>
         <p className="text-muted-foreground mt-1 text-sm">
-          Revealing a key records who did it, when, and whose key it was — the
-          entry is in the audit log and cannot be removed from here.
+          Every key on the account, whether they hold one or twenty. Revealing,
+          disabling and deleting are each recorded against the admin who did it
+          — those entries are in the audit log and cannot be removed from here.
         </p>
         {keys.length === 0 ? (
           <p className="border-(--line) text-muted-foreground mt-4 border border-dashed py-8 text-center font-mono text-xs">
@@ -245,6 +289,7 @@ function UserDetail() {
                   <TableHead className="w-96">Key</TableHead>
                   <TableHead className="w-28">Status</TableHead>
                   <TableHead className="w-36">Last used</TableHead>
+                  <TableHead className="w-40 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -288,6 +333,40 @@ function UserDetail() {
                         ? new Date(key.lastUsedAt).toLocaleDateString()
                         : 'never'}
                     </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2"
+                          disabled={busy}
+                          onClick={() =>
+                            toggleKey(
+                              key.id,
+                              key.status === 'active' ? 'disabled' : 'active',
+                            )
+                          }
+                        >
+                          {key.status === 'active' ? (
+                            <Pause className="size-3" />
+                          ) : (
+                            <Play className="size-3" />
+                          )}
+                          {key.status === 'active' ? 'disable' : 'enable'}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive h-7 px-2"
+                          disabled={busy}
+                          onClick={() =>
+                            setPendingDelete({ id: key.id, preview: key.preview })
+                          }
+                        >
+                          <Trash2 className="size-3" />
+                        </Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -295,6 +374,31 @@ function UserDetail() {
           </div>
         )}
       </section>
+
+      <AlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => !open && setPendingDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {pendingDelete?.preview}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This app holds the only copy. {user.name} will have to paste the
+              key again. Disable it instead if you only want runs to skip it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => pendingDelete && removeKey(pendingDelete.id)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <section>
         <h2 className="font-display text-xl font-medium tracking-tight">

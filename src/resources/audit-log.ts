@@ -64,6 +64,8 @@ export const auditLogs = defineResource({
         'key.added': 'outline',
         'key.deleted': 'outline',
         'key.revealed': 'destructive',
+        'key.disabled': 'secondary',
+        'key.enabled': 'secondary',
       },
     },
     {

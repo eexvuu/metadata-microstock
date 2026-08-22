@@ -265,6 +265,40 @@ export const updateUserAdmin = createServerFn({ method: 'POST' })
   })
 
 /**
+ * The row all three key actions below need: the key, and the email of whoever
+ * owns it. Shared so a reveal, a disable and a delete cannot describe the same
+ * key differently in the audit log.
+ *
+ * No owner filter — that is the point of an admin screen — which is exactly why
+ * every caller records what it did.
+ */
+async function keyWithOwner(id: string) {
+  const db = getDb()
+
+  const [row] = await db
+    .select({
+      id: geminiKey.id,
+      userId: geminiKey.userId,
+      preview: geminiKey.preview,
+      status: geminiKey.status,
+      ciphertext: geminiKey.ciphertext,
+    })
+    .from(geminiKey)
+    .where(eq(geminiKey.id, id))
+    .limit(1)
+
+  if (!row) throw new Error('That key no longer exists.')
+
+  const [owner] = await db
+    .select({ email: user.email })
+    .from(user)
+    .where(eq(user.id, row.userId))
+    .limit(1)
+
+  return { ...row, ownerEmail: owner?.email ?? row.userId }
+}
+
+/**
  * The plaintext of one key, to the admin looking at the account that owns it.
  *
  * This exists because "the app does not work for me" is almost always a dead or
@@ -280,26 +314,7 @@ export const revealUserKey = createServerFn({ method: 'POST' })
   .inputValidator(z.object({ id: z.string().min(1) }))
   .handler(async ({ data }): Promise<{ key: string }> => {
     const admin = await requireAdmin()
-    const db = getDb()
-
-    const [row] = await db
-      .select({
-        id: geminiKey.id,
-        userId: geminiKey.userId,
-        preview: geminiKey.preview,
-        ciphertext: geminiKey.ciphertext,
-      })
-      .from(geminiKey)
-      .where(eq(geminiKey.id, data.id))
-      .limit(1)
-
-    if (!row) throw new Error('That key no longer exists.')
-
-    const [owner] = await db
-      .select({ email: user.email })
-      .from(user)
-      .where(eq(user.id, row.userId))
-      .limit(1)
+    const row = await keyWithOwner(data.id)
 
     // Throws on a key encrypted under a rotated ENCRYPTION_SECRET. Nothing is
     // recorded in that case, because nothing was revealed.
@@ -310,10 +325,70 @@ export const revealUserKey = createServerFn({ method: 'POST' })
       targetType: 'key',
       targetId: row.id,
       targetLabel: row.preview,
-      detail: `owner ${owner?.email ?? row.userId}`,
+      detail: `owner ${row.ownerEmail}`,
     })
 
     return { key }
+  })
+
+/**
+ * Park a key without destroying it.
+ *
+ * The usual support case: one key of several has run out of quota, and the
+ * owner's runs keep slowing down while rotation tries it. Disabling drops it
+ * out of `getDecryptedKeys`, which is what the engine asks for, and the owner
+ * can still see it in their own dialog.
+ */
+export const setUserKeyStatus = createServerFn({ method: 'POST' })
+  .inputValidator(
+    z.object({ id: z.string().min(1), status: z.enum(['active', 'disabled']) }),
+  )
+  .handler(async ({ data }) => {
+    const admin = await requireAdmin()
+    const row = await keyWithOwner(data.id)
+
+    if (row.status === data.status) return { ok: true }
+
+    await getDb()
+      .update(geminiKey)
+      .set({ status: data.status })
+      .where(eq(geminiKey.id, row.id))
+
+    await recordAudit(admin.user.id, {
+      action: data.status === 'active' ? 'key.enabled' : 'key.disabled',
+      targetType: 'key',
+      targetId: row.id,
+      targetLabel: row.preview,
+      detail: `owner ${row.ownerEmail}`,
+    })
+
+    return { ok: true }
+  })
+
+/**
+ * Remove someone else's key.
+ *
+ * Final and not recoverable: the ciphertext is the only copy this app holds,
+ * so the owner has to paste the key again afterwards. Prefer disabling unless
+ * the key is genuinely dead — the audit row cannot bring it back.
+ */
+export const deleteUserKey = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({ id: z.string().min(1) }))
+  .handler(async ({ data }) => {
+    const admin = await requireAdmin()
+    const row = await keyWithOwner(data.id)
+
+    await getDb().delete(geminiKey).where(eq(geminiKey.id, row.id))
+
+    await recordAudit(admin.user.id, {
+      action: 'key.deleted',
+      targetType: 'key',
+      targetId: row.id,
+      targetLabel: row.preview,
+      detail: `removed by an admin — owner ${row.ownerEmail}`,
+    })
+
+    return { ok: true }
   })
 
 /** Signs an account out everywhere — the blunt instrument for a stolen laptop. */
