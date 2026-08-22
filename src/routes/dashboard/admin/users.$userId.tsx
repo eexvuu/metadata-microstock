@@ -1,6 +1,6 @@
 import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
-import { ArrowLeft, Loader2, LogOut, Save } from 'lucide-react'
+import { ArrowLeft, Eye, Loader2, LogOut, Save } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { PageHead } from '#/components/page-head'
@@ -26,6 +26,7 @@ import {
 } from '#/components/ui/table'
 import {
   getUserDetail,
+  revealUserKey,
   revokeUserSessions,
   updateUserAdmin,
 } from '#/lib/server/admin'
@@ -34,8 +35,10 @@ import {
  * One account, whole: who they are, what they have run, how many keys they
  * hold — and the three things an admin can change about them.
  *
- * The key list is previews only. There is no button here, and no server
- * function anywhere, that returns someone else's key material.
+ * The key list shows previews until an admin asks for one. Revealing is a
+ * deliberate click per key, the plaintext lives in component state and nowhere
+ * else, and `revealUserKey` writes an audit row before it answers — so every
+ * reading of somebody's credential has a name and a timestamp against it.
  */
 export const Route = createFileRoute('/dashboard/admin/users/$userId')({
   loader: ({ params }) => getUserDetail({ data: { id: params.userId } }),
@@ -51,6 +54,9 @@ function UserDetail() {
   const [banned, setBanned] = useState(user.banned)
   const [banReason, setBanReason] = useState(user.banReason ?? '')
   const [busy, setBusy] = useState(false)
+  /** Revealed plaintext, per key id. Never in the loader, never persisted. */
+  const [shown, setShown] = useState<Record<string, string>>({})
+  const [revealing, setRevealing] = useState<string | null>(null)
 
   const dirty =
     name !== user.name ||
@@ -76,6 +82,18 @@ function UserDetail() {
       toast.error(error instanceof Error ? error.message : String(error))
     } finally {
       setBusy(false)
+    }
+  }
+
+  const reveal = async (id: string) => {
+    setRevealing(id)
+    try {
+      const { key } = await revealUserKey({ data: { id } })
+      setShown((previous) => ({ ...previous, [id]: key }))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error))
+    } finally {
+      setRevealing(null)
     }
   }
 
@@ -210,6 +228,10 @@ function UserDetail() {
         <h2 className="font-display text-xl font-medium tracking-tight">
           Keys held
         </h2>
+        <p className="text-muted-foreground mt-1 text-sm">
+          Revealing a key records who did it, when, and whose key it was — the
+          entry is in the audit log and cannot be removed from here.
+        </p>
         {keys.length === 0 ? (
           <p className="border-(--line) text-muted-foreground mt-4 border border-dashed py-8 text-center font-mono text-xs">
             no keys on this account
@@ -220,7 +242,7 @@ function UserDetail() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Label</TableHead>
-                  <TableHead className="w-44">Preview</TableHead>
+                  <TableHead className="w-96">Key</TableHead>
                   <TableHead className="w-28">Status</TableHead>
                   <TableHead className="w-36">Last used</TableHead>
                 </TableRow>
@@ -230,7 +252,29 @@ function UserDetail() {
                   <TableRow key={key.id}>
                     <TableCell>{key.label}</TableCell>
                     <TableCell className="font-mono text-xs">
-                      {key.preview}
+                      {shown[key.id] ? (
+                        <span className="break-all select-all">
+                          {shown[key.id]}
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-2">
+                          {key.preview}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-1.5"
+                            disabled={revealing !== null}
+                            onClick={() => reveal(key.id)}
+                          >
+                            {revealing === key.id ? (
+                              <Loader2 className="size-3 animate-spin" />
+                            ) : (
+                              <Eye className="size-3" />
+                            )}
+                            reveal
+                          </Button>
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge

@@ -291,9 +291,10 @@ export const id: Messages = {
           aistudio.google.com/apikey
         </a>
         . Tiap kunci menambah sekitar 15 permintaan per menit, jadi dua kunci
-        dua kali lebih cepat. Kunci dienkripsi sebelum disimpan, dan satu-satunya
-        saat kunci utuh keluar dari server kami adalah ketika tab ini
-        membutuhkannya untuk memanggil Google.
+        dua kali lebih cepat. Kunci dienkripsi sebelum disimpan. Kunci utuh
+        keluar dari server kami saat tab ini membutuhkannya untuk memanggil
+        Google — dan kalau Anda minta bantuan, admin bisa membukanya untuk
+        menelusuri masalahnya. Tiap pembukaan tercatat atas nama admin itu.
       </>
     ),
     labelOptional: 'Label (opsional)',

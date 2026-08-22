@@ -303,8 +303,10 @@ export const en = {
           aistudio.google.com/apikey
         </a>
         . Every key adds about 15 requests a minute, so two keys is twice as
-        fast. They are encrypted before they are stored, and the only time a
-        full key leaves our server is when this tab needs it to call Google.
+        fast. They are encrypted before they are stored. A full key leaves our
+        server when this tab needs it to call Google — and if you ask us for
+        help, an admin can reveal it to look into the problem. Every reveal is
+        recorded against the admin who did it.
       </>
     ) as ReactNode,
     labelOptional: 'Label (optional)',

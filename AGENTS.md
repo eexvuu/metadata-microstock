@@ -182,9 +182,20 @@ budget on base64 alone. Do not add a server route that proxies media.
 **Keys are held, not free-floating — and they belong to a user.** A Gemini key
 may travel to exactly two places: this app's server, where it is stored
 AES-256-GCM encrypted (`src/lib/server/crypto.ts`), and Google. Never a log,
-never an error message, never a response body other than `getDecryptedKeys` to
-its own owner. Every query in `src/lib/server/gemini-keys.ts` filters on the
-session's `userId`; `gemini_key` is deliberately NOT organization-scoped,
+never an error message, never a response body other than the two functions that
+exist to return one: `getDecryptedKeys` to its own owner, and `revealUserKey`
+to an admin looking at the account that owns it.
+
+`revealUserKey` is a deliberate 2026-08-22 decision, taken so support can
+answer "the app does not work for me" — almost always a dead key — without
+asking anyone to paste a credential into a chat. It writes a `key.revealed`
+audit row **before** it answers, and the copy in the keys dialog tells users an
+admin can do it. Those two things are what make it defensible; remove either and
+it is just a backdoor. Nothing else in the admin surface selects
+`gemini_key.ciphertext`.
+
+Every query in `src/lib/server/gemini-keys.ts` filters on the session's
+`userId`; `gemini_key` is deliberately NOT organization-scoped,
 because a workspace member must not be able to spend a colleague's quota.
 
 **The CSV bytes are a contract.** Adobe needs the UTF-8 BOM, Shutterstock must

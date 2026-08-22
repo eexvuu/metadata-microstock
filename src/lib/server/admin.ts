@@ -6,6 +6,7 @@ import { getDb } from '#/db/index'
 import { generationRun, geminiKey, session, user } from '#/db/schema'
 import type { AuditEntry } from '#/lib/server/audit'
 import { recordAudit } from '#/lib/server/audit'
+import { decryptSecret } from '#/lib/server/crypto'
 import { requireAdmin } from '#/lib/server/session'
 
 /**
@@ -15,10 +16,12 @@ import { requireAdmin } from '#/lib/server/session'
  * authorisation is re-checked on the server, applied to the hand-written
  * screens too. A non-admin session is redirected, never answered.
  *
- * One thing this module will never do: return a key. `gemini_key.ciphertext`
- * is not selected anywhere below, and the plaintext is only ever decrypted for
- * the key's own owner (`src/lib/server/gemini-keys.ts`). An admin can see that
- * someone has three keys and when they were last used; that is all.
+ * One function here does return a key: `revealUserKey`, added deliberately so
+ * support can answer "why does mine not work" without asking someone to paste a
+ * credential into a chat. It is the only place `gemini_key.ciphertext` is
+ * selected outside the owner's own path, it writes an audit row BEFORE it
+ * answers, and the copy shown to users says an admin can do this. Every other
+ * screen here sees previews and nothing more.
  */
 
 const DAY = 24 * 60 * 60 * 1000
@@ -259,6 +262,58 @@ export const updateUserAdmin = createServerFn({ method: 'POST' })
     await recordAudit(admin.user.id, entries)
 
     return { ok: true }
+  })
+
+/**
+ * The plaintext of one key, to the admin looking at the account that owns it.
+ *
+ * This exists because "the app does not work for me" is almost always a dead or
+ * exhausted Gemini key, and the alternative — asking the user to send their key
+ * over — is worse for them than an admin reading it from a screen that records
+ * the reading.
+ *
+ * The order below is the whole safety of it: decrypt, then write the audit row,
+ * then answer. If the audit write fails the key never leaves, because a reveal
+ * nobody can account for later is exactly what this must not become.
+ */
+export const revealUserKey = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({ id: z.string().min(1) }))
+  .handler(async ({ data }): Promise<{ key: string }> => {
+    const admin = await requireAdmin()
+    const db = getDb()
+
+    const [row] = await db
+      .select({
+        id: geminiKey.id,
+        userId: geminiKey.userId,
+        preview: geminiKey.preview,
+        ciphertext: geminiKey.ciphertext,
+      })
+      .from(geminiKey)
+      .where(eq(geminiKey.id, data.id))
+      .limit(1)
+
+    if (!row) throw new Error('That key no longer exists.')
+
+    const [owner] = await db
+      .select({ email: user.email })
+      .from(user)
+      .where(eq(user.id, row.userId))
+      .limit(1)
+
+    // Throws on a key encrypted under a rotated ENCRYPTION_SECRET. Nothing is
+    // recorded in that case, because nothing was revealed.
+    const key = await decryptSecret(row.ciphertext)
+
+    await recordAudit(admin.user.id, {
+      action: 'key.revealed',
+      targetType: 'key',
+      targetId: row.id,
+      targetLabel: row.preview,
+      detail: `owner ${owner?.email ?? row.userId}`,
+    })
+
+    return { key }
   })
 
 /** Signs an account out everywhere — the blunt instrument for a stolen laptop. */
