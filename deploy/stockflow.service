@@ -1,0 +1,37 @@
+# /etc/systemd/system/stockflow.service
+#
+#   systemctl daemon-reload && systemctl enable --now stockflow
+#   journalctl -u stockflow -f
+#
+# Bound to loopback by src/server.ts; nginx is what faces the internet.
+
+[Unit]
+Description=Stockflow
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=stockflow
+Group=stockflow
+WorkingDirectory=/srv/stockflow/current
+# Secrets live here, root-owned and 0600. A change needs a restart — the
+# process reads process.env once, at start.
+EnvironmentFile=/etc/stockflow/stockflow.env
+ExecStart=/usr/bin/node dist/server/server.js
+Restart=always
+RestartSec=3
+
+# The box runs a dozen other sites. This one gets no more of it than it needs.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/srv/stockflow/data
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+MemoryMax=768M
+
+[Install]
+WantedBy=multi-user.target

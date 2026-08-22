@@ -7,12 +7,17 @@ This file is the source of truth for agent guidance. `CLAUDE.md` imports it.
 
 ## The one-paragraph version
 
-**Stockflow** — a shelf of tools for microstock contributors, running on
-Cloudflare's free plan and upgrading with one build flag. TanStack Start
-(router + server functions) for the app, Hono for anything with an external
-caller, Better Auth with the **admin** plugin for accounts and roles, Drizzle
-over D1 for data, and a declarative admin panel where one file per resource
-generates a whole CRUD screen. Bun is the toolchain; the runtime is workerd.
+**Stockflow** — a shelf of tools for microstock contributors, running as one
+Node process on one Ubuntu box behind nginx. TanStack Start (router + server
+functions) for the app, Hono for anything with an external caller, Better Auth
+with the **admin** plugin for accounts and roles, Drizzle over SQLite for data,
+and a declarative admin panel where one file per resource generates a whole
+CRUD screen. Bun is the local toolchain; the server runs plain Node.
+
+**This branch left Cloudflare.** `master` is still the workerd version and is
+where to look if you need to know what something used to be. Everything below
+that mentions a Worker, D1, KV, a Queue, a Durable Object or a 10 ms budget was
+true there and is not true here.
 
 **There are no organizations.** Everything belongs to a user: keys, runs,
 subscriptions. `user.role` is `user` or `admin`, and the panel exists to serve
@@ -34,23 +39,29 @@ panel already does it and hand-writing it is a regression — see
 
 ## Hard constraints
 
-**The runtime is workerd, not Bun and not Node.** Bun runs the package manager
-and the scripts; nothing under `src/` executes on it. No `Bun.serve`,
-`bun:sqlite`, `Bun.file`, `node:fs`, `node:net`, no long-lived module state
-that assumes one process.
+**The runtime is Node, and there is one process.** Bun runs the package
+manager, the scripts and the build; the server runs `node dist/server/server.js`.
+Module-level state is now legitimate — it lives as long as the process — but it
+is also now a leak if you let it grow, and it is gone on every deploy, because
+a deploy restarts the unit.
 
-**Free tier has a 10 ms CPU budget per invocation.** `bun run dev` /
-`build:free` produce an SPA for that reason. Don't move rendering work into the
-free-mode server path.
+**There is no CPU budget and no bundle limit.** The SPA/SSR fork went away with
+the Worker: there is one build and it server-renders. A new dependency still
+wants a reason, but "it costs 40 KiB gzipped" is no longer that reason.
 
-**The Worker bundle has a hard 3 MiB gzipped limit on the free plan.** Currently
-~895 KiB. A new runtime dependency is a real cost — check it with
-`bunx wrangler deploy --dry-run` (prints `Total Upload: … / gzip: …`) and say
-the number in your summary. Prefer building on what is already here.
+**The box is shared.** Two cores and 3.7 GB, alongside MySQL, a gunicorn app and
+a dozen other nginx vhosts. `stockflow.service` caps the process at 768 MB.
+Work that would pin a core belongs in the browser, where the engine already is,
+or in the nightly job.
 
-**Never hand-edit generated files:** `src/db/auth-schema.ts`,
-`src/routeTree.gen.ts`, `worker-configuration.d.ts`. Regenerate them
-(`auth:generate`, the router plugin on dev/build, `cf-typegen`).
+**Three seams keep `src/` from caring where it runs.** `src/lib/runtime/env.ts`
+is configuration, `src/db/client.ts` is the database, `src/lib/runtime/jobs.ts`
+is background work. Reach for `process.env` or a driver anywhere else and the
+next migration has to find it.
+
+**Never hand-edit generated files:** `src/db/auth-schema.ts` and
+`src/routeTree.gen.ts`. Regenerate them (`auth:generate`, the router plugin on
+dev/build).
 
 ## Panel invariants
 
@@ -93,33 +104,41 @@ Break these and the security model is gone:
 
 ```bash
 bun install --network-concurrency 8   # plain `bun install` fails on Windows here
-bun run dev                           # free tier (SPA), localhost:3000
-bun run dev:paid                      # paid tier (SSR)
+bun run dev                           # localhost:3000
 bun run typecheck                     # tsc --noEmit
-bun run build                         # free-tier production build
+bun run build                         # production build into dist/
+bun run start                         # serve dist/ the way systemd does
+bun run cron                          # the nightly job, once, now
 bun run db:generate && bun run db:migrate
-bunx wrangler deploy --dry-run        # bundle size, no deploy
+./deploy/deploy.sh root@43.157.210.19 # build here, ship, migrate, restart
 ```
 
+`DATABASE_URL` has to be set for anything that touches the database, including
+`db:migrate`. See `.env.example`; `deploy/README.md` is the server runbook.
+
 **Definition of done for a code change:** `bun run typecheck` clean, then
-`bun run build` succeeds. Both, in that order. If the change touches a screen,
+`bun run build` succeeds, then `bun run start` boots and answers
+`/api/health`. The third step is new and it earns its place: the build
+externalises nothing, so an import that only breaks under Node breaks at
+startup, not at build time. If the change touches a screen,
 open it in the browser too — the panel's failure modes (an empty dialog, a
 button that should not be there) typecheck fine.
 
 ## Local data
 
-`bun run db:migrate` applies to a local D1 under `.wrangler/`. Inspect or fix it
-with:
+`bun run db:migrate` applies to whatever `DATABASE_URL` points at — by default
+`data/stockflow.db`, which is gitignored. Inspect or fix it with any SQLite
+client:
 
 ```bash
-bunx wrangler d1 execute stockflow-db --local --command "SELECT id,email,role FROM user"
+sqlite3 data/stockflow.db "SELECT id,email,role FROM user"
 ```
 
 Making yourself an admin is a deliberate, manual step — there is no UI for the
 first one:
 
 ```bash
-bunx wrangler d1 execute stockflow-db --local --command "UPDATE user SET role='admin' WHERE email='you@example.com'"
+sqlite3 data/stockflow.db "UPDATE user SET role='admin' WHERE email='you@example.com'"
 ```
 
 This is the developer's own data. Read freely; before writing, note what you
@@ -149,11 +168,11 @@ Don't "fix" these by accident; they are documented choices or known debt.
 - Billing is webhook-in only, user-scoped, and not surfaced anywhere: every
   tool in the catalog is free today. Checkout creation is deliberately not
   wired up.
-- The Durable Object is still called `OrgRoom` (`src/durable/org-room.ts`).
-  Nothing routes to it since organizations were removed; rename or delete it
-  before the first deploy, not after.
-- No test suite. Anything binding-dependent needs
-  `@cloudflare/vitest-pool-workers`, not `bun test`.
+- No test suite. There are no bindings to fake any more, so plain `bun test`
+  or vitest would now work — that excuse left with the Worker.
+- The Node build is the only one that is typechecked. `tsc` resolves
+  `src/db/client.ts`, which is the libsql one, so the types and the runtime
+  agree; there is no second target to drift from.
 - Panel limits (read-only joins, no relation picker, offset pagination, no
   per-row rules, actions always visible) are listed at the end of PANEL.md.
 
@@ -162,22 +181,24 @@ Don't "fix" these by accident; they are documented choices or known debt.
 # The metadata generator
 
 This repo is `starter-kit` with the Stockflow metadata tool built on top. Everything
-above still applies to the kit half (auth, panel, D1, resources). The generator
+above still applies to the kit half (auth, panel, database, resources). The generator
 plays by different rules, and they matter.
 
 ## Hard constraints
 
 **`src/lib/engine/` is runtime-agnostic.** No `node:*`, no DOM, no Cloudflare
 binding, no React. It is pure logic over bytes so the same code runs in a
-browser tab, under Bun and in principle on workerd. The two seams are
+browser tab, under Bun and under Node. The two seams are
 `FileSource` (`src/lib/sources/`) and the two preprocessors —
 `VideoPreprocessor` (`src/lib/video/`) and `ImagePreprocessor`
 (`src/lib/image/`) — new target, new adapter, engine untouched.
 
-**The engine runs in the browser, never on the Worker.** Media is read from the
+**The engine runs in the browser, never on the server.** Media is read from the
 user's disk and posted straight to `generativelanguage.googleapis.com` with
-their own key. Routing it through the Worker would blow the 10 ms free-tier CPU
-budget on base64 alone. Do not add a server route that proxies media.
+their own key. The 10 ms budget that originally forced this is gone, and the
+reason is now better rather than weaker: two shared cores would fall over long
+before a hundred contributors did, and the media never has to exist on a disk
+we own. Do not add a server route that proxies media.
 
 **Keys are held, not free-floating — and they belong to a user.** A Gemini key
 may travel to exactly two places: this app's server, where it is stored
@@ -299,8 +320,8 @@ panel serves the admin screens (`/dashboard/admin`, `/dashboard/users`,
   `src/lib/server/runs.ts` before building anything that depends on the numbers.
 
 `ENCRYPTION_SECRET` must exist or every key operation throws at runtime — it is
-in `.dev.vars` for dev and `wrangler secret put` for production. It cannot be
-rotated in place.
+in `.env.local` for dev and `/etc/stockflow/stockflow.env` in production. It
+cannot be rotated in place: a new value orphans every stored key.
 
 ## Testing it
 

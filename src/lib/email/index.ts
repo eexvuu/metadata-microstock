@@ -1,4 +1,4 @@
-import { env } from 'cloudflare:workers'
+import { env } from '#/lib/runtime/env'
 
 export type EmailMessage = {
   to: string
@@ -8,19 +8,18 @@ export type EmailMessage = {
 }
 
 /**
- * Email is the one place where the $0 and $5 paths genuinely diverge.
+ * Two ways out, and the default needs no account at all.
  *
- *   console    — logs to the Worker console. Zero API keys, zero accounts.
- *                This is the default so the kit runs immediately after clone.
- *   resend     — the $0 production path. Cloudflare Email Service cannot send
- *                to arbitrary recipients on the Free plan, so signup
- *                verification and invites need a third party. Resend's free
- *                tier is 3,000/month with a hard 100/day cap.
- *   cloudflare — the $5 path. Needs Workers Paid, plus a domain onboarded via
- *                `wrangler email sending enable yourdomain.com`, plus the
- *                `send_email` binding uncommented in wrangler.jsonc.
+ *   console — logs to stdout, which systemd puts in the journal. Zero API
+ *             keys, zero accounts, and the default so a fresh clone runs.
+ *   resend  — the production path. The free tier is 3,000 a month with a hard
+ *             100/day cap, which is the ceiling to check before signup
+ *             verification gets switched on.
+ *
+ * The Cloudflare provider left with the Worker: it was a binding, and a
+ * binding is not something a VPS has.
  */
-export type EmailProvider = 'console' | 'resend' | 'cloudflare'
+export type EmailProvider = 'console' | 'resend'
 
 export async function sendEmail(message: EmailMessage): Promise<void> {
   const provider = (env.EMAIL_PROVIDER ?? 'console') as EmailProvider
@@ -28,8 +27,6 @@ export async function sendEmail(message: EmailMessage): Promise<void> {
   switch (provider) {
     case 'resend':
       return sendViaResend(message)
-    case 'cloudflare':
-      return sendViaCloudflare(message)
     default:
       return sendViaConsole(message)
   }
@@ -66,33 +63,4 @@ async function sendViaResend(message: EmailMessage): Promise<void> {
       `Resend rejected the message (${response.status}): ${await response.text()}`,
     )
   }
-}
-
-async function sendViaCloudflare(message: EmailMessage): Promise<void> {
-  const binding = (env as unknown as { EMAIL?: EmailSendBinding }).EMAIL
-
-  if (!binding) {
-    throw new Error(
-      'EMAIL_PROVIDER=cloudflare but the `send_email` binding is missing. ' +
-        'Uncomment it in wrangler.jsonc (requires Workers Paid).',
-    )
-  }
-
-  await binding.send({
-    to: message.to,
-    from: { email: env.EMAIL_FROM, name: env.EMAIL_FROM_NAME },
-    subject: message.subject,
-    html: message.html,
-    text: message.text,
-  })
-}
-
-type EmailSendBinding = {
-  send(input: {
-    to: string
-    from: { email: string; name?: string }
-    subject: string
-    html: string
-    text: string
-  }): Promise<unknown>
 }

@@ -5,14 +5,22 @@ dist-ssr
 *.local
 .env
 .dev.vars
-worker-configuration.d.ts
+.env.local
 .nitro
 .tanstack
+# Left over from the Cloudflare era; master still uses it.
 .wrangler
 .output
 .vinxi
 __unconfig*
 todos.json
+
+# The SQLite file and the copies deploy.sh takes before migrating.
+data/
+*.db
+*.db-journal
+*.db-wal
+*.bak
 
 # Scratch media for manual testing — and gemini-key.txt lives in there.
 sample/

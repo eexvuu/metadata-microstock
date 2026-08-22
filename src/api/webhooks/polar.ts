@@ -1,7 +1,8 @@
 import { validateEvent, WebhookVerificationError } from '@polar-sh/sdk/webhooks'
 import { eq } from 'drizzle-orm'
 import { Hono } from 'hono'
-import { env } from 'cloudflare:workers'
+import { env } from '#/lib/runtime/env'
+import { enqueue } from '#/lib/runtime/jobs'
 
 import { getDb } from '#/db/index'
 import { subscription } from '#/db/schema'
@@ -90,7 +91,7 @@ polarWebhook.post('/api/webhooks/polar', async (c) => {
 
       // Provisioning happens off the request path — see src/server.ts.
       if (event.type === 'subscription.active') {
-        await env.QUEUE.send({ kind: 'provision-account', userId })
+        await enqueue({ kind: 'provision-account', userId })
       }
       break
     }

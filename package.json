@@ -6,24 +6,21 @@
     "#/*": "./src/*"
   },
   "scripts": {
-    "dev": "vite dev --mode free --port 3000",
-    "dev:paid": "vite dev --mode paid --port 3000",
-    "build": "vite build --mode free",
-    "build:free": "vite build --mode free",
-    "build:paid": "vite build --mode paid",
-    "preview": "bun run build && vite preview",
+    "dev": "vite dev --port 3000",
+    "build": "vite build",
+    "start": "node dist/server/server.js",
+    "cron": "node dist/server/server.js --cron",
+    "preview": "bun run build && bun run start",
     "typecheck": "tsc --noEmit",
     "generate-routes": "tsr generate",
-    "cf-typegen": "wrangler types",
     "auth:generate": "better-auth generate --config auth.cli.ts --output src/db/auth-schema.ts --yes",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "wrangler d1 migrations apply stockflow-db --local",
-    "db:migrate:prod": "wrangler d1 migrations apply stockflow-db --remote",
-    "db:studio": "drizzle-kit studio",
-    "deploy": "bun run build:free && wrangler deploy",
-    "deploy:paid": "bun run build:paid && wrangler deploy"
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@hono/node-server": "^2.1.1",
+    "@libsql/client": "^0.17.4",
     "@polar-sh/sdk": "^0.49.0",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-devtools": "^0.10.10",
@@ -50,8 +47,6 @@
   },
   "devDependencies": {
     "@better-auth/cli": "^1.4.21",
-    "@cloudflare/vite-plugin": "^1.51.2",
-    "@hono/node-server": "^2.1.1",
     "@tailwindcss/typography": "^0.5.20",
     "@tanstack/devtools-vite": "^0.8.3",
     "@tanstack/router-cli": "^1.167.27",
@@ -62,8 +57,7 @@
     "drizzle-kit": "^0.31.10",
     "shadcn": "^4.16.2",
     "typescript": "^6.0.3",
-    "vite": "^8.2.1",
-    "wrangler": "^4.120.1"
+    "vite": "^8.2.1"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

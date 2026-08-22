@@ -170,6 +170,22 @@ export const auditLog = sqliteTable(
   ],
 )
 
+/**
+ * One row a night, written by `src/cron.ts`.
+ *
+ * This lived in KV on Cloudflare. A VPS has no KV, and adding a store for two
+ * integers a day would be the wrong trade — SQLite is already open.
+ *
+ * The numbers come from `generation_run`, which the browser reports, so they
+ * carry the same warning: honest enough to plot, not something to bill against.
+ */
+export const usageDaily = sqliteTable('usage_daily', {
+  /** YYYY-MM-DD, so a re-run of the same night overwrites rather than doubles. */
+  day: text('day').primaryKey(),
+  runs: integer('runs').notNull().default(0),
+  files: integer('files').notNull().default(0),
+})
+
 export const subscriptionRelations = relations(subscription, ({ one }) => ({
   user: one(user, { fields: [subscription.userId], references: [user.id] }),
 }))

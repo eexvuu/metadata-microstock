@@ -1,0 +1,18 @@
+# /etc/systemd/system/stockflow-cron.timer
+#
+#   systemctl enable --now stockflow-cron.timer
+#   systemctl list-timers stockflow-cron.timer
+#
+# 02:00 local, the same hour the Worker cron used. Persistent=true so a night
+# the box was off is caught up on the next boot rather than silently skipped.
+
+[Unit]
+Description=Run the Stockflow nightly job
+
+[Timer]
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

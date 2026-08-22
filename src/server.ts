@@ -1,28 +1,23 @@
+import { serve } from '@hono/node-server'
 import handler, { createServerEntry } from '@tanstack/react-start/server-entry'
-import { count, eq, gte, lt, sum } from 'drizzle-orm'
 
 import { api } from '#/api/index'
-import { getDb } from '#/db/index'
-import { auditLog, generationRun, user } from '#/db/schema'
+import { runNightly } from '#/cron'
 
 /**
- * The single Worker entry point.
+ * The single entry point, on one box.
  *
- * HTTP, the queue consumer, cron, Durable Objects and Workflows all hang off
- * this one file. That is the structural reason this stack is worth it: one
- * `wrangler deploy`, no extra infrastructure to run alongside it.
+ * The routing is the same split it always was — `/api/*` to Hono for anything
+ * with an external caller, everything else to TanStack Start. What changed is
+ * what surrounds it: there is no queue consumer and no `scheduled()`, because
+ * a Worker's runtime handed you those and a Linux box does not. Background
+ * work runs detached (`src/lib/runtime/jobs.ts`) and the nightly job is the
+ * `--cron` branch below, fired by `stockflow-cron.timer`.
  */
 const entry = createServerEntry({
   fetch(request) {
     const url = new URL(request.url)
 
-    /**
-     * /api/*  -> Hono. Anything with an EXTERNAL caller (webhooks, the public
-     *            API, auth callbacks) belongs here: raw bodies, stable URLs,
-     *            meaningful status codes.
-     * else    -> TanStack Start. The app's own client-server calls should be
-     *            server functions instead — typed end-to-end, no URL to keep.
-     */
     if (url.pathname.startsWith('/api/')) {
       return api.fetch(request)
     }
@@ -31,88 +26,37 @@ const entry = createServerEntry({
   },
 })
 
-type QueueJob = { kind: 'provision-account'; userId: string }
-
-const AUDIT_RETENTION_DAYS = 180
-
-export default {
-  fetch: entry.fetch,
-
-  /**
-   * Background work. A request has a hard time limit; provisioning that sends
-   * mail and touches several tables does not belong on it.
-   */
-  async queue(batch: MessageBatch<QueueJob>, env: Env) {
-    for (const message of batch.messages) {
-      try {
-        switch (message.body.kind) {
-          case 'provision-account': {
-            const db = getDb()
-            const [account] = await db
-              .select({ id: user.id, name: user.name, email: user.email })
-              .from(user)
-              .where(eq(user.id, message.body.userId))
-              .limit(1)
-
-            if (account) {
-              await env.ONBOARDING.create({
-                params: {
-                  userId: account.id,
-                  name: account.name,
-                  email: account.email,
-                },
-              })
-            }
-            break
-          }
-        }
-
-        message.ack()
-      } catch (error) {
-        console.error('queue job failed', message.body, error)
-        message.retry()
-      }
-    }
-  },
+/**
+ * The nightly job rides in this bundle behind a flag rather than being a
+ * second build to keep in step with the schema. One artifact to ship, and
+ * systemd's timer is what makes it a schedule.
+ */
+if (process.argv.includes('--cron')) {
+  runNightly().then(
+    () => process.exit(0),
+    (error) => {
+      console.error('[cron] failed', error)
+      process.exit(1)
+    },
+  )
+} else {
+  const port = Number(process.env.PORT ?? 3000)
 
   /**
-   * Nightly usage rollup (cron is set in wrangler.jsonc). Free plan allows 5
-   * cron triggers per account with a 10ms CPU budget each, so this is one
-   * grouped query, not a loop over accounts.
+   * Loopback, never 0.0.0.0: nginx terminates TLS and proxies to it, and the
+   * box already has a dozen other things listening. A process that does not
+   * need to be reachable from the internet should not be.
+   *
+   * Wrapped rather than passed through, because node-server calls its handler
+   * with (request, nodeBindings) and Start's second parameter is its own
+   * options object — handing one to the other typechecks as nonsense.
    */
-  async scheduled(_event: ScheduledController, env: Env) {
-    const db = getDb()
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000)
-
-    const [today] = await db
-      .select({
-        runs: count(generationRun.id),
-        files: sum(generationRun.filesDone),
-      })
-      .from(generationRun)
-      .where(gte(generationRun.startedAt, since))
-
-    const day = new Date().toISOString().slice(0, 10)
-
-    await env.KV.put(
-      `usage:${day}`,
-      JSON.stringify({
-        runs: today?.runs ?? 0,
-        files: Number(today?.files ?? 0),
-      }),
-      { expirationTtl: 60 * 60 * 24 * 90 },
-    )
-
-    // The audit log is the one table here that only ever grows, and D1 caps at
-    // 10 GB with no way to raise it. Six months is long enough to answer "who
-    // banned this account" and short enough that the table never becomes the
-    // reason to migrate off D1.
-    await db
-      .delete(auditLog)
-      .where(lt(auditLog.createdAt, new Date(Date.now() - AUDIT_RETENTION_DAYS * 24 * 60 * 60 * 1000)))
-  },
+  serve(
+    { fetch: (request: Request) => entry.fetch(request), port, hostname: '127.0.0.1' },
+    (info) => {
+      console.log(`[stockflow] listening on http://127.0.0.1:${info.port}`)
+    },
+  )
 }
 
-// Durable Object and Workflow classes must be exported from the Worker entry.
-export { OrgRoom } from '#/durable/org-room'
-export { OnboardingWorkflow } from '#/workflows/onboarding'
+export default entry

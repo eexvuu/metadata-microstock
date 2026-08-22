@@ -1,0 +1,20 @@
+# /etc/systemd/system/stockflow-cron.service
+#
+# One-shot. Paired with stockflow-cron.timer; never enabled on its own.
+
+[Unit]
+Description=Stockflow nightly rollup and audit prune
+After=stockflow.service
+
+[Service]
+Type=oneshot
+User=stockflow
+Group=stockflow
+WorkingDirectory=/srv/stockflow/current
+EnvironmentFile=/etc/stockflow/stockflow.env
+ExecStart=/usr/bin/node dist/server/server.js --cron
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/srv/stockflow/data

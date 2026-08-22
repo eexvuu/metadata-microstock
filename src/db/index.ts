@@ -1,21 +1,14 @@
-import { drizzle } from 'drizzle-orm/d1'
-import { env } from 'cloudflare:workers'
-
-import * as schema from './schema'
+import { createDb } from './client'
 
 /**
- * Drizzle over the D1 binding.
+ * The database, whatever it happens to be underneath.
  *
- * Bindings only exist inside a request context on Workers, so this is a
- * function, not a module-level constant. Drizzle itself is cheap to construct
- * (it wraps the binding, it does not open a connection), so there is no pool
- * to manage and nothing to memoize.
- *
- * Moving to Postgres later: swap this file for `drizzle-orm/postgres-js` +
- * Hyperdrive. The schema and every query stay as they are.
+ * The engine of the swap lives in `client.ts`: it was a D1 binding on
+ * Cloudflare, it is a libsql file on the VPS, and every query in the app is
+ * written against Drizzle's SQLite dialect and did not change.
  */
 export function getDb() {
-  return drizzle(env.DB, { schema })
+  return createDb()
 }
 
 export type AppDatabase = ReturnType<typeof getDb>
