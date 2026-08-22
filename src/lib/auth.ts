@@ -47,14 +47,30 @@ function createAuth() {
       accountLinking: {
         /**
          * An account that already exists under an email keeps its keys, runs
-         * and role when its owner first signs in with Google. Google is
-         * trusted for this because it verifies the address itself; without the
-         * link the same person would land on a second, empty account and their
-         * keys would look like they had vanished.
+         * and role when its owner first signs in with Google — but ONLY if
+         * that account's `emailVerified` is already true. Measured, not
+         * assumed: with it false the callback ends at
+         * `?error=account_not_linked`, and with it true the same sign-in lands
+         * on the original row with its key, run and admin role intact.
+         *
+         * That gate is Better Auth being careful, and it is right to be: an
+         * unverified row proves only that somebody once typed the address.
+         * The catch is that this app ran with `requireEmailVerification: false`,
+         * so every account made before the switch has it false — see the
+         * cutover step in deploy/README.md.
          */
         enabled: true,
         trustedProviders: ['google'],
       },
+    },
+
+    /**
+     * A refused sign-in is a person standing in front of a door, not a stack
+     * trace. Better Auth's own error page is a bare "Error" at a /api/ URL;
+     * this sends them back to the button with something readable instead.
+     */
+    onAPIError: {
+      errorURL: '/login',
     },
 
     plugins: [

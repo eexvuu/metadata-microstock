@@ -35,6 +35,26 @@ nginx -t && systemctl reload nginx
 Builds locally, rsyncs `dist/`, copies the database aside, migrates, flips the
 `current` symlink, restarts, and checks `/api/health`. Five releases are kept.
 
+## Accounts that existed before Google sign-in
+
+Google auto-linking refuses an account whose `email_verified` is false, and
+this app ran with `requireEmailVerification: false` — so every account made
+before the cutover has it false and its owner will hit
+`?error=account_not_linked` on their first Google sign-in. Measured, not
+guessed: flip the flag and the same sign-in lands on the original row with its
+keys, runs and role intact.
+
+So, once, for accounts you recognise:
+
+```bash
+sqlite3 /srv/stockflow/data/stockflow.db   "UPDATE user SET email_verified = 1 WHERE email IN ('you@example.com')"
+```
+
+List the addresses. A bare `UPDATE user SET email_verified = 1` marks every
+account on the box as verified, which is the one thing that gate exists to
+prevent — and it is your judgement about those specific people that makes the
+flip defensible, not the statement itself.
+
 ## The first admin
 
 There is no UI for it, on purpose:

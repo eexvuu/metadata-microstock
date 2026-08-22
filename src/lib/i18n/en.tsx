@@ -208,6 +208,16 @@ export const en = {
     googlePending: 'Opening Google…',
     googleFailed: 'Could not reach Google. Try again.',
     /**
+     * Better Auth sends a refused sign-in back here with ?error=<code>. Only
+     * the one people will actually meet is spelled out; the rest get the
+     * fallback rather than a code they cannot act on.
+     */
+    errors: {
+      account_not_linked:
+        'An account already exists for that address, and it has not been verified — so we will not attach a Google login to it automatically. Ask an admin to verify it, then sign in again.',
+      fallback: 'Google turned that sign-in down. Try again.',
+    } as Record<string, string>,
+    /**
      * Said plainly on the page rather than discovered at the button: someone
      * arriving with a password in their manager deserves to know why there is
      * nowhere to type it.

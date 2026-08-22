@@ -321,9 +321,13 @@ panel serves the admin screens (`/dashboard/admin`, `/dashboard/users`,
 
 **Sign-in is Google-only.** `emailAndPassword` is off and there is no signup
 form: a first Google sign-in creates the account, so `/login` and `/signup` are
-the same component. `accountLinking` is on with Google trusted, which is what
-lets an account that predates the switch keep its keys, runs and role when its
-owner signs in with the same address. `GOOGLE_CLIENT_ID` and
+the same component. `accountLinking` is on with Google trusted, which lets an
+account that predates the switch keep its keys, runs and role when its owner
+signs in with the same address — **but only if that account's `emailVerified`
+is already true.** With it false the callback ends at
+`?error=account_not_linked`; this was measured both ways, not assumed. Since
+the app ran with `requireEmailVerification: false`, every older account needs
+the one-off flip in deploy/README.md. `GOOGLE_CLIENT_ID` and
 `GOOGLE_CLIENT_SECRET` are required — auth throws at construction without them.
 
 `ENCRYPTION_SECRET` must exist or every key operation throws at runtime — it is

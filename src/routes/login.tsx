@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useSearch } from '@tanstack/react-router'
 import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -15,6 +15,16 @@ import { useMessages } from '#/lib/i18n'
  * page and `/signup` renders this one.
  */
 export const Route = createFileRoute('/login')({
+  /**
+   * `?error=` is where Better Auth lands a refused sign-in — see `onAPIError`
+   * in src/lib/auth.ts. Validated rather than read raw, because it is a value
+   * from the URL bar and it ends up on the page.
+   */
+  validateSearch: (search: Record<string, unknown>): { error?: string } =>
+    // Built conditionally rather than `{ error: undefined }`: the key has to be
+    // genuinely optional, or every Link to /login in the app is forced to pass
+    // a search object it has no opinion about.
+    typeof search.error === 'string' ? { error: search.error } : {},
   component: LoginPage,
 })
 
@@ -42,14 +52,23 @@ function GoogleMark() {
   )
 }
 
-export function GoogleSignIn() {
+export function GoogleSignIn({ code }: { code?: string }) {
   const m = useMessages()
-  const [error, setError] = useState<string | null>(null)
+  const [failed, setFailed] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+
+  /**
+   * Resolved during render, not captured into state. First render is always
+   * English here — the stored language lands after mount, the same trade
+   * ThemeToggle makes — so a message read once at mount stays English on an
+   * Indonesian page forever.
+   */
+  const error =
+    failed ?? (code ? (m.auth.errors[code] ?? m.auth.errors.fallback) : null)
 
   const start = async () => {
     setPending(true)
-    setError(null)
+    setFailed(null)
 
     const { error: signInError } = await signIn.social({
       provider: 'google',
@@ -60,7 +79,7 @@ export function GoogleSignIn() {
     // all means it did not.
     if (signInError) {
       setPending(false)
-      setError(signInError.message ?? m.auth.googleFailed)
+      setFailed(signInError.message ?? m.auth.googleFailed)
     }
   }
 
@@ -92,5 +111,6 @@ export function GoogleSignIn() {
 }
 
 function LoginPage() {
-  return <GoogleSignIn />
+  const { error } = useSearch({ from: '/login' })
+  return <GoogleSignIn code={error} />
 }

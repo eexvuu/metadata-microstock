@@ -203,6 +203,11 @@ export const id: Messages = {
     google: 'Lanjut dengan Google',
     googlePending: 'Membuka Google…',
     googleFailed: 'Tidak bisa menghubungi Google. Coba lagi.',
+    errors: {
+      account_not_linked:
+        'Sudah ada akun dengan alamat itu dan alamatnya belum terverifikasi — jadi login Google tidak kami sambungkan otomatis. Minta admin memverifikasinya, lalu masuk lagi.',
+      fallback: 'Google menolak percobaan masuk itu. Coba lagi.',
+    } as Record<string, string>,
     whyGoogle:
       'Google satu-satunya jalan masuk. Masuk pertama kali sekaligus membuat akun Anda — tidak ada pendaftaran terpisah, dan tidak ada kata sandi yang bisa kami hilangkan.',
     keysNote:
