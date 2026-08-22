@@ -22,8 +22,10 @@ rsync -az --delete dist/ "$TARGET:$RELEASE/dist/"
 rsync -az drizzle/ "$TARGET:$RELEASE/drizzle/"
 rsync -az package.json "$TARGET:$RELEASE/package.json"
 
-echo "==> installing runtime dependencies"
-ssh "$TARGET" "cd '$RELEASE' && npm install --omit=dev --no-audit --no-fund"
+# The build bundles everything except libsql, which ships a native binary per
+# platform and so cannot come from a Windows laptop.
+echo "==> installing the one runtime dependency"
+ssh "$TARGET" "cd '$RELEASE' && npm install --omit=dev --no-audit --no-fund @libsql/client"
 
 echo "==> backing up the database before migrating"
 ssh "$TARGET" "test ! -f '$REMOTE_DIR/data/stockflow.db' || cp '$REMOTE_DIR/data/stockflow.db' '$REMOTE_DIR/data/stockflow.db.$(date -u +%Y%m%d%H%M%S).bak'"
@@ -31,7 +33,7 @@ ssh "$TARGET" "test ! -f '$REMOTE_DIR/data/stockflow.db' || cp '$REMOTE_DIR/data
 # Migrations are forward-only and there is no rollback command. The copy above
 # is the rollback.
 echo "==> migrating"
-ssh "$TARGET" "cd '$RELEASE' && set -a && . /etc/stockflow/stockflow.env && set +a && npx drizzle-kit migrate"
+ssh "$TARGET" "cd '$RELEASE' && set -a && . /etc/stockflow/stockflow.env && set +a && node dist/server/server.js --migrate"
 
 echo "==> switching over"
 ssh "$TARGET" "ln -sfn '$RELEASE' '$REMOTE_DIR/current' && systemctl restart stockflow"

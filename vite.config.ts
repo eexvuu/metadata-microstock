@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import { devtools } from '@tanstack/devtools-vite'
 
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
@@ -19,7 +19,18 @@ import tailwindcss from '@tailwindcss/vite'
  * `src/lib/runtime/env.ts` reading `process.env`, and what used to be the D1
  * binding is `src/db/client.ts` over libsql.
  */
-export default defineConfig({
+/**
+ * `.env` into `process.env`, for the dev server only.
+ *
+ * Vite's own env handling ends up in `import.meta.env`, which is the client's.
+ * `src/lib/runtime/env.ts` reads `process.env` because that is what systemd
+ * provides in production — so dev has to fill the same shelf, or every key
+ * operation throws on a missing ENCRYPTION_SECRET and the failure looks like a
+ * bug in the app rather than a missing file.
+ */
+Object.assign(process.env, loadEnv('development', process.cwd(), ''))
+
+export default defineConfig(({ command }) => ({
   resolve: { tsconfigPaths: true },
   plugins: [devtools(), tailwindcss(), tanstackStart(), viteReact()],
   /**
@@ -35,7 +46,13 @@ export default defineConfig({
    * to be installed on the target rather than bundled from a Windows laptop.
    */
   ssr: {
-    noExternal: true,
+    // Everything in the build; in dev only the packages that need it. Vite's
+    // dev module runner inlines CJS badly (`module is not defined`, from an
+    // eval three layers down), so it cannot have the whole list — but Better
+    // Auth's deep exports are not resolvable under the dev SSR conditions
+    // either, and inlining is what fixes that one.
+    noExternal:
+      command === 'build' ? true : ['better-auth', '@better-auth/core'],
     external: ['@libsql/client'],
   },
   build: {
@@ -44,4 +61,4 @@ export default defineConfig({
     // nothing on this target.
     chunkSizeWarningLimit: 2000,
   },
-})
+}))

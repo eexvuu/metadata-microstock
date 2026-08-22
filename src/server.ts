@@ -1,8 +1,11 @@
 import { serve } from '@hono/node-server'
 import handler, { createServerEntry } from '@tanstack/react-start/server-entry'
 
+import { migrate } from 'drizzle-orm/libsql/migrator'
+
 import { api } from '#/api/index'
 import { runNightly } from '#/cron'
+import { getDb } from '#/db/index'
 
 /**
  * The single entry point, on one box.
@@ -31,7 +34,26 @@ const entry = createServerEntry({
  * second build to keep in step with the schema. One artifact to ship, and
  * systemd's timer is what makes it a schedule.
  */
-if (process.argv.includes('--cron')) {
+/**
+ * Migrations run from this bundle too, for the same reason: the server has no
+ * build toolchain and drizzle-kit is a dev dependency, so `npx drizzle-kit` on
+ * the box would have to install one. `drizzle/` is rsynced next to `dist/`.
+ *
+ * Still forward-only, still no rollback. `deploy/deploy.sh` copies the
+ * database aside first, and that copy is the rollback.
+ */
+if (process.argv.includes('--migrate')) {
+  migrate(getDb(), { migrationsFolder: 'drizzle' }).then(
+    () => {
+      console.log('[migrate] applied')
+      process.exit(0)
+    },
+    (error) => {
+      console.error('[migrate] failed', error)
+      process.exit(1)
+    },
+  )
+} else if (process.argv.includes('--cron')) {
   runNightly().then(
     () => process.exit(0),
     (error) => {
@@ -39,7 +61,13 @@ if (process.argv.includes('--cron')) {
       process.exit(1)
     },
   )
-} else {
+} else if (import.meta.env.PROD) {
+  /**
+   * Only the built bundle listens. Under `vite dev` this module is imported
+   * for its handler while Vite owns the port — calling serve() there took 3000
+   * out from under the dev server and pushed it to 3001, where every request
+   * 500s because nothing is behind it.
+   */
   const port = Number(process.env.PORT ?? 3000)
 
   /**
