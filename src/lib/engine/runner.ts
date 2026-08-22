@@ -435,3 +435,24 @@ export async function exportRun(
   emit({ type: 'finished', csvName, rows: rows.length })
   return { csvName, text }
 }
+
+/**
+ * The CSV for rows that have no folder behind them any more.
+ *
+ * `exportRun` above needs a `FileSource` because it may rename files and write
+ * the CSV next to them. Reopening a saved run from history has neither — the
+ * files are back on the contributor's own disk and the tab cannot see them —
+ * so this is the same last two steps with nothing to write to.
+ */
+export function csvTextFor(
+  profile: PlatformProfile,
+  rows: MetadataRow[],
+  options: RunOptions,
+  folderName: string,
+): { csvName: string; text: string } {
+  const table = profile.toCsv(rows, options)
+  return {
+    csvName: csvFileName(profile.csvPrefix, folderName),
+    text: toCsv(table.headers, table.rows, { bom: table.bom }),
+  }
+}

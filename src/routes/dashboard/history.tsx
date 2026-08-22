@@ -21,6 +21,10 @@ import { listRuns } from '#/lib/server/runs'
  * The counts are reported by the browser that did the work — see the warning
  * at the top of `src/lib/server/runs.ts` before building anything that trusts
  * them for billing.
+ *
+ * A run whose result is still saved links to it. The rest show why they do
+ * not, rather than a dead column: seven days is short enough that someone will
+ * meet the edge, and "expired" is a better answer than an empty cell.
  */
 export const Route = createFileRoute('/dashboard/history')({
   loader: () => listRuns(),
@@ -76,6 +80,9 @@ function HistoryPage() {
                 <TableHead className="w-44">
                   {m.history.columns.started}
                 </TableHead>
+                <TableHead className="w-32 text-right">
+                  {m.history.columns.result}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -103,12 +110,41 @@ function HistoryPage() {
                   <TableCell className="text-muted-foreground font-mono text-xs">
                     {new Date(run.startedAt).toLocaleString(tag)}
                   </TableCell>
+                  <TableCell className="text-right">
+                    {run.resultExpiresAt ? (
+                      <Link
+                        to="/dashboard/history/$runId"
+                        params={{ runId: run.id }}
+                        className="text-primary eyebrow hover:underline"
+                      >
+                        {m.history.open}
+                        <span className="text-muted-foreground ml-1.5 font-mono text-[0.6rem] normal-case">
+                          {m.history.expiresIn(
+                            Math.ceil(
+                              (run.resultExpiresAt - Date.now()) /
+                                (24 * 60 * 60 * 1000),
+                            ),
+                          )}
+                        </span>
+                      </Link>
+                    ) : (
+                      <span className="text-muted-foreground/60 font-mono text-[0.65rem]">
+                        {m.history.expired}
+                      </span>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </div>
       )}
+
+      {runs.length > 0 ? (
+        <p className="text-muted-foreground max-w-2xl text-sm">
+          {m.history.resultsNote}
+        </p>
+      ) : null}
     </div>
   )
 }

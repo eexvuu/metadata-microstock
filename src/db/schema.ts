@@ -186,6 +186,53 @@ export const usageDaily = sqliteTable('usage_daily', {
   files: integer('files').notNull().default(0),
 })
 
+/**
+ * The rows a run produced, so someone can open it again, fix a title and take
+ * a fresh CSV — the reason `generation_run` on its own was never enough.
+ *
+ * One row per RUN, holding the whole result as JSON, rather than one row per
+ * file. Per-file rows would turn this into the analytics store STACK.md warns
+ * about, and nothing here ever queries inside the result — it is fetched whole
+ * or not at all.
+ *
+ * Kept out of `generation_run` deliberately: the history list selects every
+ * column of that table, and a blob per run would ride along on a screen that
+ * never shows it.
+ *
+ * `expiresAt` is stamped at first save and NOT extended by editing. Seven days
+ * is a working window, not storage — the box is shared, and the numbers in
+ * `generation_run` outlive this by design.
+ */
+export const runRows = sqliteTable(
+  'run_rows',
+  {
+    runId: text('run_id')
+      .primaryKey()
+      .references(() => generationRun.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    // adobe | shutterstock — copied so the editor knows which rules to apply
+    // without a join back to the run.
+    platform: text('platform').notNull(),
+    folderName: text('folder_name').notNull(),
+    /** A JSON array of MetadataRow. Never read into SQL, only out whole. */
+    rows: text('rows').notNull(),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index('run_rows_userId_idx').on(table.userId),
+    index('run_rows_expiresAt_idx').on(table.expiresAt),
+  ],
+)
+
 export const subscriptionRelations = relations(subscription, ({ one }) => ({
   user: one(user, { fields: [subscription.userId], references: [user.id] }),
 }))

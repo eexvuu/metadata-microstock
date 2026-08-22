@@ -176,8 +176,28 @@ export const en = {
       files: 'Files',
       status: 'Status',
       started: 'Started',
+      result: 'Result',
     },
     fallbacks: (count: number) => `(${count} fallback)`,
+
+    open: 'Open',
+    expired: 'expired',
+    expiresIn: (days: number) =>
+      days <= 0 ? 'goes today' : `${days} day${days === 1 ? '' : 's'} left`,
+    resultsNote:
+      'A finished run keeps its rows for seven days so you can open it, fix a title and take a fresh CSV. After that only the numbers above remain.',
+
+    resultTitle: 'Saved result',
+    resultGone: 'This result has expired.',
+    resultGoneBody:
+      'Rows are kept for seven days after a run. The run itself is still in your history — only the editable result is gone.',
+    backToHistory: 'Back to history',
+    resultSaved: 'Saved',
+    resultSaveFailed: 'Could not save those edits.',
+    save: 'Save edits',
+    saving: 'Saving…',
+    noThumbnails:
+      'No previews here — the files are on your own disk, and this page never had them.',
   },
 
   auth: {

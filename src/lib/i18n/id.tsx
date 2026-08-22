@@ -172,8 +172,28 @@ export const id: Messages = {
       files: 'Berkas',
       status: 'Status',
       started: 'Dimulai',
+      result: 'Hasil',
     },
     fallbacks: (count: number) => `(${count} fallback)`,
+
+    open: 'Buka',
+    expired: 'kedaluwarsa',
+    expiresIn: (days: number) =>
+      days <= 0 ? 'hilang hari ini' : `sisa ${days} hari`,
+    resultsNote:
+      'Run yang selesai menyimpan barisnya selama tujuh hari, jadi Anda bisa membukanya lagi, membetulkan judul, dan mengambil CSV baru. Setelah itu yang tersisa hanya angka di atas.',
+
+    resultTitle: 'Hasil tersimpan',
+    resultGone: 'Hasil ini sudah kedaluwarsa.',
+    resultGoneBody:
+      'Baris disimpan tujuh hari setelah run. Run-nya sendiri masih ada di riwayat Anda — yang hilang hanya hasil yang bisa diedit.',
+    backToHistory: 'Kembali ke riwayat',
+    resultSaved: 'Tersimpan',
+    resultSaveFailed: 'Tidak bisa menyimpan perubahan itu.',
+    save: 'Simpan perubahan',
+    saving: 'Menyimpan…',
+    noThumbnails:
+      'Tidak ada pratinjau di sini — file-nya ada di komputer Anda sendiri, dan halaman ini memang tidak pernah memilikinya.',
   },
 
   auth: {

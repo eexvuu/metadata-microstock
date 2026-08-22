@@ -35,7 +35,7 @@ import {
 import { useGenerator } from '#/lib/generator/use-generator'
 import { useMessages } from '#/lib/i18n'
 import { getDecryptedKeys, listGeminiKeys, markKeysUsed } from '#/lib/server/gemini-keys'
-import { finishRun, startRun } from '#/lib/server/runs'
+import { finishRun, saveRunRows, startRun } from '#/lib/server/runs'
 
 export const Route = createFileRoute('/tools/metadata')({
   loader: () => listGeminiKeys(),
@@ -177,6 +177,26 @@ function MetadataTool() {
         },
       })
       if (ids.length > 0) await markKeysUsed({ data: { ids } })
+
+      /**
+       * Keep the result so History can reopen it for a week.
+       *
+       * Its own try/catch on purpose: a run that finished is finished. If the
+       * rows are too large to store, or the request fails, the CSV is still
+       * right here in the tab and losing it to a failed convenience save would
+       * be the worse outcome by far.
+       */
+      if (result && result.rows.length > 0) {
+        try {
+          await saveRunRows({
+            data: { runId, rows: JSON.stringify(result.rows) },
+          })
+        } catch (error) {
+          toast.warning(
+            error instanceof Error ? error.message : String(error),
+          )
+        }
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error))
     }

@@ -55,7 +55,8 @@ export function ReviewEditor({
 }: {
   rows: MetadataRow[]
   entries: MediaEntry[]
-  source: FileSource
+  /** Null when the run is reopened from history: the files are long gone. */
+  source: FileSource | null
   platform: RunOptions['platform']
   onChange: (rows: MetadataRow[]) => void
   onExport: () => void
@@ -198,7 +199,7 @@ export function ReviewEditor({
               className="border-(--line) bg-card grid gap-4 border p-3 md:grid-cols-[8rem_1fr]"
             >
               <div className="space-y-1.5">
-                {entry ? (
+                {entry && source ? (
                   <MediaThumb source={source} entry={entry} className="aspect-square" />
                 ) : (
                   <div className="border-(--line) bg-muted aspect-square border" />

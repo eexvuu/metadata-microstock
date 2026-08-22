@@ -19,6 +19,7 @@ import { Route as DashboardResourceRouteImport } from './routes/dashboard/$resou
 import { Route as DashboardHistoryRouteImport } from './routes/dashboard/history'
 import { Route as ToolsMetadataRouteImport } from './routes/tools/metadata'
 import { Route as DashboardAdminIndexRouteImport } from './routes/dashboard/admin/index'
+import { Route as DashboardHistoryRunIdRouteImport } from './routes/dashboard/history_.$runId'
 import { Route as DashboardAdminUsersUserIdRouteImport } from './routes/dashboard/admin/users.$userId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -71,6 +72,11 @@ const DashboardAdminIndexRoute = DashboardAdminIndexRouteImport.update({
   path: '/admin/',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
+const DashboardHistoryRunIdRoute = DashboardHistoryRunIdRouteImport.update({
+  id: '/history_/$runId',
+  path: '/history/$runId',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
 const DashboardAdminUsersUserIdRoute =
   DashboardAdminUsersUserIdRouteImport.update({
     id: '/admin/users/$userId',
@@ -88,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/history': typeof DashboardHistoryRoute
   '/tools/metadata': typeof ToolsMetadataRoute
   '/dashboard/': typeof DashboardIndexRoute
+  '/dashboard/history/$runId': typeof DashboardHistoryRunIdRoute
   '/dashboard/admin/': typeof DashboardAdminIndexRoute
   '/dashboard/admin/users/$userId': typeof DashboardAdminUsersUserIdRoute
 }
@@ -100,6 +107,7 @@ export interface FileRoutesByTo {
   '/dashboard/history': typeof DashboardHistoryRoute
   '/tools/metadata': typeof ToolsMetadataRoute
   '/dashboard': typeof DashboardIndexRoute
+  '/dashboard/history/$runId': typeof DashboardHistoryRunIdRoute
   '/dashboard/admin': typeof DashboardAdminIndexRoute
   '/dashboard/admin/users/$userId': typeof DashboardAdminUsersUserIdRoute
 }
@@ -114,6 +122,7 @@ export interface FileRoutesById {
   '/dashboard/history': typeof DashboardHistoryRoute
   '/tools/metadata': typeof ToolsMetadataRoute
   '/dashboard/': typeof DashboardIndexRoute
+  '/dashboard/history_/$runId': typeof DashboardHistoryRunIdRoute
   '/dashboard/admin/': typeof DashboardAdminIndexRoute
   '/dashboard/admin/users/$userId': typeof DashboardAdminUsersUserIdRoute
 }
@@ -129,6 +138,7 @@ export interface FileRouteTypes {
     | '/dashboard/history'
     | '/tools/metadata'
     | '/dashboard/'
+    | '/dashboard/history/$runId'
     | '/dashboard/admin/'
     | '/dashboard/admin/users/$userId'
   fileRoutesByTo: FileRoutesByTo
@@ -141,6 +151,7 @@ export interface FileRouteTypes {
     | '/dashboard/history'
     | '/tools/metadata'
     | '/dashboard'
+    | '/dashboard/history/$runId'
     | '/dashboard/admin'
     | '/dashboard/admin/users/$userId'
   id:
@@ -154,6 +165,7 @@ export interface FileRouteTypes {
     | '/dashboard/history'
     | '/tools/metadata'
     | '/dashboard/'
+    | '/dashboard/history_/$runId'
     | '/dashboard/admin/'
     | '/dashboard/admin/users/$userId'
   fileRoutesById: FileRoutesById
@@ -238,6 +250,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardAdminIndexRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/dashboard/history_/$runId': {
+      id: '/dashboard/history_/$runId'
+      path: '/history/$runId'
+      fullPath: '/dashboard/history/$runId'
+      preLoaderRoute: typeof DashboardHistoryRunIdRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
     '/dashboard/admin/users/$userId': {
       id: '/dashboard/admin/users/$userId'
       path: '/admin/users/$userId'
@@ -252,6 +271,7 @@ interface DashboardRouteRouteChildren {
   DashboardResourceRoute: typeof DashboardResourceRoute
   DashboardHistoryRoute: typeof DashboardHistoryRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
+  DashboardHistoryRunIdRoute: typeof DashboardHistoryRunIdRoute
   DashboardAdminIndexRoute: typeof DashboardAdminIndexRoute
   DashboardAdminUsersUserIdRoute: typeof DashboardAdminUsersUserIdRoute
 }
@@ -260,6 +280,7 @@ const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardResourceRoute: DashboardResourceRoute,
   DashboardHistoryRoute: DashboardHistoryRoute,
   DashboardIndexRoute: DashboardIndexRoute,
+  DashboardHistoryRunIdRoute: DashboardHistoryRunIdRoute,
   DashboardAdminIndexRoute: DashboardAdminIndexRoute,
   DashboardAdminUsersUserIdRoute: DashboardAdminUsersUserIdRoute,
 }

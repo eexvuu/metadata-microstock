@@ -1,7 +1,7 @@
 import { count, gte, lt, sum } from 'drizzle-orm'
 
 import { getDb } from '#/db/index'
-import { auditLog, generationRun, usageDaily } from '#/db/schema'
+import { auditLog, generationRun, runRows, usageDaily } from '#/db/schema'
 
 /**
  * The nightly housekeeping, run by `stockflow-cron.timer`.
@@ -48,7 +48,17 @@ export async function runNightly() {
   const cutoff = new Date(Date.now() - AUDIT_RETENTION_DAYS * DAY)
   await db.delete(auditLog).where(lt(auditLog.createdAt, cutoff))
 
+  // Saved run results are the only thing here that grows with use rather
+  // than with time. Seven days from the save, never extended by editing —
+  // `getRunRows` already refuses an expired one, so this is reclaiming disk,
+  // not enforcing the rule.
+  const expired = await db
+    .delete(runRows)
+    .where(lt(runRows.expiresAt, new Date()))
+    .returning({ runId: runRows.runId })
+
   console.log(
-    `[cron] ${day}: ${today?.runs ?? 0} runs, ${Number(today?.files ?? 0)} files; audit pruned before ${cutoff.toISOString().slice(0, 10)}`,
+    `[cron] ${day}: ${today?.runs ?? 0} runs, ${Number(today?.files ?? 0)} files; ` +
+      `${expired.length} expired results removed; audit pruned before ${cutoff.toISOString().slice(0, 10)}`,
   )
 }
