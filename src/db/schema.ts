@@ -131,6 +131,45 @@ export const generationRun = sqliteTable(
   ],
 )
 
+/**
+ * Who did what to whom.
+ *
+ * Deliberately denormalised and deliberately free of foreign keys: an audit
+ * row a cascade can erase is not an audit row. Deleting the admin who issued a
+ * ban — or the account that was banned — has to leave the record standing, so
+ * the actor's email and the target's label are copied in at write time instead
+ * of being joined at read time.
+ *
+ * Nothing secret goes in here. A Gemini key may appear only as the
+ * `previewOf()` form, which is the one representation crypto.ts calls safe to
+ * render or log.
+ */
+export const auditLog = sqliteTable(
+  'audit_log',
+  {
+    id: text('id').primaryKey(),
+    /** The account that acted. Plain text, no reference — see above. */
+    actorId: text('actor_id').notNull(),
+    actorEmail: text('actor_email').notNull(),
+    /** One of AUDIT_ACTIONS in `src/lib/server/audit.ts`. */
+    action: text('action').notNull(),
+    // user | session | key
+    targetType: text('target_type').notNull(),
+    targetId: text('target_id'),
+    /** An email, a key preview — whatever names the target to a human. */
+    targetLabel: text('target_label'),
+    /** One sentence for the admin reading the list. Never a secret. */
+    detail: text('detail'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`),
+  },
+  (table) => [
+    index('audit_log_createdAt_idx').on(table.createdAt),
+    index('audit_log_actorId_idx').on(table.actorId),
+  ],
+)
+
 export const subscriptionRelations = relations(subscription, ({ one }) => ({
   user: one(user, { fields: [subscription.userId], references: [user.id] }),
 }))

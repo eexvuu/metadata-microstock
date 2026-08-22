@@ -4,6 +4,7 @@ import { z } from 'zod'
 
 import { getDb } from '#/db/index'
 import { geminiKey } from '#/db/schema'
+import { recordAudit } from '#/lib/server/audit'
 import { decryptSecret, encryptSecret, previewOf } from '#/lib/server/crypto'
 import { requireSession } from '#/lib/server/session'
 
@@ -112,6 +113,8 @@ export const addGeminiKeys = createServerFn({ method: 'POST' })
 
     const knownPreviews = new Set(existing.map((row) => row.preview))
     const errors: string[] = []
+    /** Previews only — the audit trail must never see a whole key. */
+    const recorded: { id: string; preview: string }[] = []
     let added = 0
 
     for (const [index, key] of parsed.entries()) {
@@ -127,8 +130,9 @@ export const addGeminiKeys = createServerFn({ method: 'POST' })
         continue
       }
 
+      const id = crypto.randomUUID()
       await db.insert(geminiKey).values({
-        id: crypto.randomUUID(),
+        id,
         userId,
         label: data.label?.trim() || `Key ${existing.length + added + 1}`,
         ciphertext: await encryptSecret(key),
@@ -136,9 +140,20 @@ export const addGeminiKeys = createServerFn({ method: 'POST' })
         status: 'active',
       })
       knownPreviews.add(preview)
+      recorded.push({ id, preview })
       added++
       void index
     }
+
+    await recordAudit(
+      userId,
+      recorded.map((entry) => ({
+        action: 'key.added' as const,
+        targetType: 'key' as const,
+        targetId: entry.id,
+        targetLabel: entry.preview,
+      })),
+    )
 
     return { added, errors }
   })
@@ -158,9 +173,30 @@ export const deleteGeminiKey = createServerFn({ method: 'POST' })
   .inputValidator(z.object({ id: z.string() }))
   .handler(async ({ data }) => {
     const userId = await ownerId()
-    await getDb()
+    const db = getDb()
+
+    // Read the preview under the owner filter first: it is the only thing the
+    // audit entry can name the key by, and a miss here means the row was never
+    // this caller's to delete — so nothing is recorded either.
+    const [existing] = await db
+      .select({ preview: geminiKey.preview })
+      .from(geminiKey)
+      .where(and(eq(geminiKey.id, data.id), eq(geminiKey.userId, userId)))
+      .limit(1)
+
+    if (!existing) return { ok: true }
+
+    await db
       .delete(geminiKey)
       .where(and(eq(geminiKey.id, data.id), eq(geminiKey.userId, userId)))
+
+    await recordAudit(userId, {
+      action: 'key.deleted',
+      targetType: 'key',
+      targetId: data.id,
+      targetLabel: existing.preview,
+    })
+
     return { ok: true }
   })
 

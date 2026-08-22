@@ -3,11 +3,26 @@ import { count, inArray } from 'drizzle-orm'
 import { getDb } from '#/db/index'
 import { session, user } from '#/db/schema'
 import { defineResource } from '#/lib/panel/define'
+import { recordAudit } from '#/lib/server/audit'
 
 export const USER_ROLES = [
   { value: 'user', label: 'User' },
   { value: 'admin', label: 'Admin' },
 ]
+
+/**
+ * The email of every id in the list, so an audit entry can name the account it
+ * is about. A row action only ever receives ids, and an id stops meaning
+ * anything the moment the account is gone.
+ */
+async function labelsFor(ids: string[]): Promise<Map<string, string>> {
+  const rows = await getDb()
+    .select({ id: user.id, email: user.email })
+    .from(user)
+    .where(inArray(user.id, ids))
+
+  return new Map(rows.map((row) => [row.id, row.email]))
+}
 
 /**
  * Every account on the platform.
@@ -107,10 +122,22 @@ export const users = defineResource({
           throw new Error('You cannot ban your own account.')
         }
         const db = getDb()
+        const labels = await labelsFor(others)
         await db.update(user).set({ banned: true }).where(inArray(user.id, others))
         // Better Auth only checks the flag at sign-in, so a live session would
         // outlive the ban. Ending them is what makes the button mean "out".
         await db.delete(session).where(inArray(session.userId, others))
+
+        await recordAudit(
+          ctx.userId,
+          others.map((id) => ({
+            action: 'user.banned' as const,
+            targetType: 'user' as const,
+            targetId: id,
+            targetLabel: labels.get(id) ?? id,
+            detail: 'banned from the users list',
+          })),
+        )
       },
     },
     {
@@ -119,11 +146,22 @@ export const users = defineResource({
       icon: 'check',
       roles: ['admin'],
       success: '{count} unbanned',
-      handler: async (ids) => {
+      handler: async (ids, ctx) => {
+        const labels = await labelsFor(ids)
         await getDb()
           .update(user)
           .set({ banned: false, banReason: null, banExpires: null })
           .where(inArray(user.id, ids))
+
+        await recordAudit(
+          ctx.userId,
+          ids.map((id) => ({
+            action: 'user.unbanned' as const,
+            targetType: 'user' as const,
+            targetId: id,
+            targetLabel: labels.get(id) ?? id,
+          })),
+        )
       },
     },
     {
@@ -137,11 +175,25 @@ export const users = defineResource({
         confirmLabel: 'Make admin',
       },
       success: '{count} promoted',
-      handler: async (ids) => {
+      handler: async (ids, ctx) => {
+        const labels = await labelsFor(ids)
         await getDb()
           .update(user)
           .set({ role: 'admin' })
           .where(inArray(user.id, ids))
+
+        await recordAudit(
+          ctx.userId,
+          ids.map((id) => ({
+            action: 'user.role' as const,
+            targetType: 'user' as const,
+            targetId: id,
+            targetLabel: labels.get(id) ?? id,
+            // 'made admin', not 'user → admin': the action never reads the
+            // prior role, and a false transition is worse here than no detail.
+            detail: 'made admin',
+          })),
+        )
       },
     },
   ],
@@ -157,5 +209,22 @@ export const users = defineResource({
     if ((total?.value ?? 0) - ids.length < 1) {
       throw new Error('There has to be one account left.')
     }
+
+    // Recorded here rather than after the delete, because the emails only
+    // exist while the rows do — and an entry that cannot name the account it
+    // erased is not worth writing. The guards above have already run, so this
+    // describes a deletion the panel is about to carry out.
+    const labels = await labelsFor(ids)
+
+    await recordAudit(
+      ctx.userId,
+      ids.map((id) => ({
+        action: 'user.deleted' as const,
+        targetType: 'user' as const,
+        targetId: id,
+        targetLabel: labels.get(id) ?? id,
+        detail: 'keys and run history cascaded',
+      })),
+    )
   },
 })

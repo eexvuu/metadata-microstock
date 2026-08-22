@@ -1,4 +1,5 @@
 import type { Resource } from '#/lib/panel/define'
+import { auditLogs } from '#/resources/audit-log'
 import { runs } from '#/resources/runs'
 import { users } from '#/resources/users'
 
@@ -14,7 +15,7 @@ import { users } from '#/resources/users'
  * these modules pull in Drizzle tables and authorisation rules, and the whole
  * point of the JSON meta layer is that none of it ships to the browser.
  */
-export const resources: Resource[] = [users, runs]
+export const resources: Resource[] = [users, runs, auditLogs]
 
 export function findResource(name: string) {
   return resources.find((resource) => resource.name === name)

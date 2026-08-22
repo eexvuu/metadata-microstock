@@ -4,6 +4,8 @@ import { z } from 'zod'
 
 import { getDb } from '#/db/index'
 import { generationRun, geminiKey, session, user } from '#/db/schema'
+import type { AuditEntry } from '#/lib/server/audit'
+import { recordAudit } from '#/lib/server/audit'
 import { requireAdmin } from '#/lib/server/session'
 
 /**
@@ -185,6 +187,21 @@ export const updateUserAdmin = createServerFn({ method: 'POST' })
 
     const db = getDb()
 
+    // Read the row before touching it. The audit entries below describe a
+    // change, and "banned: true" on its own says nothing about what it was.
+    const [before] = await db
+      .select({
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        banned: user.banned,
+      })
+      .from(user)
+      .where(eq(user.id, data.id))
+      .limit(1)
+
+    if (!before) throw new Error('That account no longer exists.')
+
     await db
       .update(user)
       .set({
@@ -202,6 +219,45 @@ export const updateUserAdmin = createServerFn({ method: 'POST' })
       await db.delete(session).where(eq(session.userId, data.id))
     }
 
+    const wasBanned = Boolean(before.banned)
+    const wasRole = before.role ?? 'user'
+    const target = {
+      targetType: 'user',
+      targetId: data.id,
+      targetLabel: before.email,
+    } as const
+
+    const entries: AuditEntry[] = []
+
+    if (before.name !== data.name) {
+      entries.push({
+        ...target,
+        action: 'user.renamed',
+        detail: `${before.name} → ${data.name}`,
+      })
+    }
+    if (wasRole !== data.role) {
+      entries.push({
+        ...target,
+        action: 'user.role',
+        detail: `${wasRole} → ${data.role}`,
+      })
+    }
+    if (!wasBanned && data.banned) {
+      entries.push({
+        ...target,
+        action: 'user.banned',
+        detail: data.banReason?.trim() || 'no reason given',
+      })
+    }
+    if (wasBanned && !data.banned) {
+      entries.push({ ...target, action: 'user.unbanned' })
+    }
+
+    // A save that changed nothing leaves no trace: an audit list padded with
+    // no-ops is a list nobody reads.
+    await recordAudit(admin.user.id, entries)
+
     return { ok: true }
   })
 
@@ -209,9 +265,33 @@ export const updateUserAdmin = createServerFn({ method: 'POST' })
 export const revokeUserSessions = createServerFn({ method: 'POST' })
   .inputValidator(z.object({ id: z.string().min(1) }))
   .handler(async ({ data }) => {
-    await requireAdmin()
+    const admin = await requireAdmin()
+    const db = getDb()
 
-    await getDb().delete(session).where(eq(session.userId, data.id))
+    const [target] = await db
+      .select({ email: user.email })
+      .from(user)
+      .where(eq(user.id, data.id))
+      .limit(1)
+
+    // Counted before the delete, because afterwards there is nothing to count
+    // and "signed them out" without a number tells an admin very little.
+    const [live] = await db
+      .select({ value: count() })
+      .from(session)
+      .where(eq(session.userId, data.id))
+
+    await db.delete(session).where(eq(session.userId, data.id))
+
+    const ended = live?.value ?? 0
+
+    await recordAudit(admin.user.id, {
+      action: 'session.revoked',
+      targetType: 'user',
+      targetId: data.id,
+      targetLabel: target?.email ?? data.id,
+      detail: `${ended} session${ended === 1 ? '' : 's'} ended`,
+    })
 
     return { ok: true }
   })

@@ -1,9 +1,9 @@
 import handler, { createServerEntry } from '@tanstack/react-start/server-entry'
-import { count, eq, gte, sum } from 'drizzle-orm'
+import { count, eq, gte, lt, sum } from 'drizzle-orm'
 
 import { api } from '#/api/index'
 import { getDb } from '#/db/index'
-import { generationRun, user } from '#/db/schema'
+import { auditLog, generationRun, user } from '#/db/schema'
 
 /**
  * The single Worker entry point.
@@ -32,6 +32,8 @@ const entry = createServerEntry({
 })
 
 type QueueJob = { kind: 'provision-account'; userId: string }
+
+const AUDIT_RETENTION_DAYS = 180
 
 export default {
   fetch: entry.fetch,
@@ -100,6 +102,14 @@ export default {
       }),
       { expirationTtl: 60 * 60 * 24 * 90 },
     )
+
+    // The audit log is the one table here that only ever grows, and D1 caps at
+    // 10 GB with no way to raise it. Six months is long enough to answer "who
+    // banned this account" and short enough that the table never becomes the
+    // reason to migrate off D1.
+    await db
+      .delete(auditLog)
+      .where(lt(auditLog.createdAt, new Date(Date.now() - AUDIT_RETENTION_DAYS * 24 * 60 * 60 * 1000)))
   },
 }
 
