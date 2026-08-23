@@ -1,0 +1,72 @@
+# Push to `vps` and it goes live at https://tools.eexvuu.eu.org.
+#
+# The job is deliberately thin: it does not reimplement the deploy, it runs
+# `deploy/deploy.sh` — the same script used by hand. One code path means a
+# green pipeline and a local deploy cannot drift into disagreeing about what
+# "deployed" means.
+#
+# Secrets it needs (Settings -> Secrets and variables -> Actions):
+#   VPS_SSH_KEY      private half of a deploy-only ed25519 key
+#   VPS_HOST         43.157.210.19
+#   VPS_KNOWN_HOSTS  ssh-keyscan output, so the host is verified not trusted
+#
+# It never sees an application secret. Those live in
+# /etc/stockflow/stockflow.env on the box, root-owned and 0600.
+
+name: Deploy
+
+on:
+  push:
+    branches: [vps]
+  # A button, for redeploying the same commit after a server-side change.
+  workflow_dispatch:
+
+# Two deploys racing would fight over the `current` symlink. The later one
+# waits rather than cancelling: a half-finished deploy is worse than a slow one.
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # The gate. There is no test suite yet — the model's output is the thing
+      # under test and that needs a real folder and a real key — so this is
+      # what CI can honestly promise: it compiles, and it builds.
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Build
+        run: bun run build
+
+      - name: Authorise against the server
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "${{ secrets.VPS_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      # deploy.sh builds again. That is a few wasted seconds and worth it:
+      # deploying something other than what CI just checked would be the bug
+      # this whole file exists to prevent.
+      - name: Deploy
+        run: bash deploy/deploy.sh root@${{ secrets.VPS_HOST }}
+
+      - name: Prove it is up
+        run: |
+          curl --fail --silent --show-error --max-time 30 \
+            https://tools.eexvuu.eu.org/api/health
+          echo

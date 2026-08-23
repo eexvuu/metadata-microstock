@@ -28,12 +28,38 @@ nginx -t && systemctl reload nginx
 
 ## Every deploy
 
+Push to `vps`. `.github/workflows/deploy.yml` typechecks, builds, and then runs
+the same script below — CI does not reimplement the deploy, so a green pipeline
+and a hand deploy cannot drift apart.
+
+By hand, when you want to watch it:
+
 ```bash
 ./deploy/deploy.sh root@43.157.210.19
 ```
 
-Builds locally, rsyncs `dist/`, copies the database aside, migrates, flips the
-`current` symlink, restarts, and checks `/api/health`. Five releases are kept.
+Builds locally, ships `dist/` and `drizzle/` over tar, installs the one runtime
+dependency, copies the database aside, migrates, hands the data directory back
+to the `stockflow` user, flips the `current` symlink, restarts, and checks
+`/api/health`. Five releases are kept.
+
+The release carries a `package.json` of its own listing only
+`@libsql/client` — the app's would make npm reconcile the whole tree on a box
+with no build toolchain, which is exactly how the first deploy failed.
+
+## Rolling back
+
+The pre-migrate copy of the database is the undo for a bad migration, and the
+previous release directory is the undo for bad code:
+
+```bash
+ls -1dt /srv/stockflow/releases/*        # newest first
+ln -sfn /srv/stockflow/releases/<older> /srv/stockflow/current
+systemctl restart stockflow
+```
+
+Migrations are forward-only. If one is the problem, stop the service, put back
+`/srv/stockflow/data/stockflow.db.<timestamp>.bak`, then switch the symlink.
 
 ## Accounts that existed before Google sign-in
 
