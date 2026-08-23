@@ -9,6 +9,7 @@
  *   bun test/resume-harness.ts <folder> finish
  *   bun test/resume-harness.ts <folder> abort      # Stop button on the last file
  *   bun test/resume-harness.ts <folder> ladder 3   # daily quota gone after 3
+ *   bun test/resume-harness.ts <folder> noschema   # a model that refuses structured output
  *
  * KEYS and WORKERS override the pool, which is how the worker setting is
  * checked: the mock reports the peak number of requests in flight at once.
@@ -42,6 +43,7 @@ let inFlight = 0
 let peak = 0
 const perModel: Record<string, number> = {}
 let demotions = 0
+let schemaAsks = 0
 
 /**
  * Google's own 429 body, captured from the live API, with the quota id changed
@@ -71,12 +73,30 @@ const DAILY_429 = JSON.stringify({
   },
 })
 
-globalThis.fetch = (async (input: string | URL | Request) => {
+globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
   calls++
   const n = calls
   const url = String(typeof input === 'object' && 'url' in input ? input.url : input)
   const model = url.match(/models\/([^:]+):/)?.[1] ?? 'unknown'
   perModel[model] = (perModel[model] ?? 0) + 1
+
+  const askedForSchema = String(init?.body ?? '').includes('responseSchema')
+  if (askedForSchema) schemaAsks++
+
+  // A model that cannot do structured output: the run must notice once and
+  // carry on asking the plain way, not fail every file.
+  if (mode === 'noschema' && askedForSchema) {
+    return new Response(
+      JSON.stringify({
+        error: {
+          code: 400,
+          message: 'Json mode is not enabled for models/deep-fake: response_mime_type is unsupported',
+          status: 'INVALID_ARGUMENT',
+        },
+      }),
+      { status: 400, headers: { 'content-type': 'application/json' } },
+    )
+  }
 
   // The fast rung's daily quota runs out; the key should walk down, not die.
   if (mode === 'ladder' && model === 'fast-fake' && perModel[model] > killAfter) {
@@ -157,7 +177,9 @@ const result = await runFolder({
 })
 
 console.log(`[harness] fetch calls: ${calls}, peak in flight: ${peak}`)
-console.log(`[harness] per model: ${JSON.stringify(perModel)}, demotions: ${demotions}`)
+console.log(
+  `[harness] per model: ${JSON.stringify(perModel)}, demotions: ${demotions}, schema asks: ${schemaAsks}`,
+)
 console.log(`[harness] partial=${result.partial} rows=${result.rows.length}`)
 console.log(`[harness] fallback rows: ${result.rows.filter((row) => row.fallback).length}`)
 console.log(`[harness] titles: ${result.rows.map((row) => row.title.split(' ').slice(0, 4).join(' ')).join(' | ')}`)
