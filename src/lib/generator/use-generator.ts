@@ -8,6 +8,7 @@ import { runFolder } from '#/lib/engine/runner'
 import type { EngineEvent, MetadataRow, RunOptions } from '#/lib/engine/types'
 import { browserImagePreprocessor } from '#/lib/image/browser'
 import { useMessages } from '#/lib/i18n'
+import { MODEL_LADDER } from './settings'
 import type { FileSource } from '#/lib/sources/types'
 import type { VideoPreprocessor } from '#/lib/video/types'
 
@@ -215,6 +216,12 @@ export function useGenerator() {
               m.log.keyCooldown(event.keyIndex + 1, event.consecutive429s),
             )
             break
+          case 'key-demoted':
+            // Not a dead key: it keeps working, one rung down. The rail keeps
+            // showing it because it is still spending quota.
+            patchKey(event.keyIndex, { cooldownUntil: 0, current: undefined })
+            append('warn', m.log.keyDemoted(event.keyIndex + 1))
+            break
           case 'key-dead':
             patchKey(event.keyIndex, { dead: true, current: undefined })
             append('error', m.log.keyDead(event.keyIndex + 1))
@@ -249,7 +256,7 @@ export function useGenerator() {
       try {
         const result = await runFolder({
           source,
-          keys: new KeyPool(keys, handle),
+          keys: new KeyPool(keys, handle, MODEL_LADDER),
           profile: PROFILES[options.platform],
           video,
           // The tab's own rasteriser: a no-op for anything already a JPEG or

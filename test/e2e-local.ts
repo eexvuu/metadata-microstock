@@ -14,6 +14,7 @@ import { KeyPool } from '#/lib/engine/keys'
 import { adobeProfile } from '#/lib/engine/profiles/adobe'
 import { shutterstockProfile } from '#/lib/engine/profiles/shutterstock'
 import { runFolder } from '#/lib/engine/runner'
+import { MODEL_LADDER } from '#/lib/generator/settings'
 import type { EngineEvent } from '#/lib/engine/types'
 import { passthroughPreprocessor } from '#/lib/video/types'
 import { NodeDirectorySource } from './node-directory'
@@ -29,6 +30,11 @@ const keys = readFileSync(keyPath, 'utf8')
   .map((line) => line.trim())
   .filter((line) => line && !line.startsWith('#'))
 
+// MODEL overrides the ladder with a single rung, for trying one candidate.
+const ladder = process.env.MODEL
+  ? [{ model: process.env.MODEL, rpm: 15 }]
+  : MODEL_LADDER
+
 const emit = (event: EngineEvent) => {
   if (event.type === 'log') console.log(`[${event.level}] ${event.message}`)
   else if (event.type === 'file-done') console.log(`✓ ${event.done}/${event.total} ${event.row.filename}`)
@@ -38,14 +44,14 @@ const emit = (event: EngineEvent) => {
 
 const result = await runFolder({
   source: new NodeDirectorySource(folder),
-  keys: new KeyPool(keys, emit),
+  // The same ladder the app runs, unless one model is named on the command
+  // line — which is how a candidate gets compared against the real pipeline.
+  keys: new KeyPool(keys, emit, ladder),
   profile: platform === 'shutterstock' ? shutterstockProfile : adobeProfile,
   video: passthroughPreprocessor,
   options: {
     platform: platform as 'adobe' | 'shutterstock',
     maxConcurrentWorkers: 2,
-    model: process.env.GEMMA_MODEL ?? 'gemma-4-26b-a4b-it',
-    fallbackModel: 'gemini-flash-latest',
     renameBrackets: false,
   },
   emit,

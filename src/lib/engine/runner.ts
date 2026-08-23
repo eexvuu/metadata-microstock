@@ -127,7 +127,7 @@ async function generateWithKey(
     if (signal?.aborted) throw new Error('aborted')
     keys.markRequest(keyIndex)
 
-    const model = modelOverride ?? options.model
+    const model = modelOverride ?? keys.modelFor(keyIndex)
     const ask = (withSchema: boolean) =>
       generateContent({
         apiKey: keys.clients[keyIndex].key,
@@ -215,42 +215,44 @@ async function generateWithKey(
  * is otherwise the API's own, because that is what makes a failed file
  * diagnosable.
  */
-function withoutModelNames(message: string, options: RunOptions): string {
+function withoutModelNames(message: string, keys: KeyPool): string {
   let clean = message
-  for (const name of [options.model, options.fallbackModel]) {
-    if (name) clean = clean.split(name).join('the model')
+  for (const rung of keys.ladder) {
+    clean = clean.split(rung.model).join('the model')
   }
   return clean
 }
 
 /**
- * The model fallback: Gemma is free and usually right, but it does refuse some
- * files outright. Rather than write an unusable row, ask the fallback family
- * once. A failure here is not interesting on its own — the caller already has
- * an error to report — so it is swallowed and the fallback row wins.
+ * One last try, a rung down, for a file every key has refused.
+ *
+ * Not the same thing as a demotion: the key keeps its rung and its quota, this
+ * is only about the file. A different family answering is better than writing
+ * a row nobody can upload. A failure here is not interesting on its own — the
+ * caller already has an error to report — so it is swallowed.
  */
-async function tryFallbackModel(
+async function tryNextRung(
   deps: RunnerDeps,
   entry: MediaEntry,
   keyIndex: number,
 ): Promise<MetadataRow | null> {
-  const { options, emit, keys, signal } = deps
-  const fallback = options.fallbackModel
+  const { emit, keys, signal } = deps
+  const deeper = keys.nextModelFor(keyIndex)
 
-  if (!fallback || fallback === options.model) return null
+  if (!deeper) return null
   if (signal?.aborted || keys.clients[keyIndex].quotaExceeded) return null
 
   emit({ type: 'model-fallback', name: entry.name })
 
   try {
-    return await generateWithKey(deps, entry, keyIndex, fallback)
+    return await generateWithKey(deps, entry, keyIndex, deeper)
   } catch (error) {
     emit({
       type: 'log',
       level: 'warn',
       message: withoutModelNames(
         `The backup model could not do ${entry.name} either: ${error instanceof Error ? error.message : String(error)}`,
-        options,
+        keys,
       ),
     })
     return null
@@ -364,7 +366,7 @@ export async function runFolder(deps: RunnerDeps): Promise<RunResult> {
 
         const message = withoutModelNames(
           error instanceof Error ? error.message : String(error),
-          options,
+          keys,
         )
 
         if (isQuotaExceededError(error)) {
@@ -372,7 +374,7 @@ export async function runFolder(deps: RunnerDeps): Promise<RunResult> {
           // stays eligible for this same key once the cooldown passes.
           queue.push(task)
           emit({ type: 'file-failed', name: task.entry.name, message, requeued: true })
-          if (keys.handleRateLimit(keyIndex)) return
+          if (keys.handleRateLimit(keyIndex, error)) return
           await sleep(keys.waitFor(keyIndex))
           continue
         }
@@ -391,7 +393,7 @@ export async function runFolder(deps: RunnerDeps): Promise<RunResult> {
           // Every key has refused this file on the primary model. One last try
           // on the fallback family before writing a row nobody can upload.
           const row =
-            (await tryFallbackModel(deps, task.entry, keyIndex)) ??
+            (await tryNextRung(deps, task.entry, keyIndex)) ??
             profile.errorFallback(contextFor(task.entry), message, options)
           rows.push(row)
           await withProgressLock(async () => {

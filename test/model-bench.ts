@@ -61,7 +61,6 @@ if (files.length === 0) {
 const options: RunOptions = {
   platform: 'adobe',
   maxConcurrentWorkers: 1,
-  model: 'bench',
   renameBrackets: false,
 }
 

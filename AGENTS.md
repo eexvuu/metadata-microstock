@@ -321,12 +321,36 @@ download and is never renamed or asked for a progress file.
 
 ## The model is not a setting
 
-`PRIMARY_MODEL` (Gemma) and `FALLBACK_MODEL` (`gemini-flash-latest`) live in
-`src/lib/generator/settings.ts` and are never shown to the user — nobody picks a
-model to get keywords. The fallback fires in exactly one place: `runner.ts`,
-when every key has failed on the primary model for one file, before an
-`errorFallback` row would be written. A 429 never reaches it — quota is
-rotation's job (`keys.ts`), and quota is per-model anyway.
+`MODEL_LADDER` lives in `src/lib/generator/settings.ts` and is never shown to
+the user — nobody picks a model to get keywords. Two rungs, fast quota first:
+
+| Rung | Model | RPM | Per file | Notes |
+|---|---|---|---|---|
+| 0 | `gemini-3.5-flash-lite` | 15 | ~3.8 s | clean JSON, takes video with its audio track |
+| 1 | `gemma-4-26b-a4b-it` | 30 | ~6 s | the big daily quota; refuses audio |
+
+Every number there was measured against the free tier on 2026-08-23
+(`test/model-bench.ts`), not read off a docs page — Google's rate-limit page
+stopped publishing per-model figures and points at AI Studio. The RPMs come
+from the 429 bodies themselves. Daily quotas are deliberately **not** encoded
+anywhere: they cannot be measured without spending somebody's day, and the API
+says which quota was hit in `details[].violations[].quotaId` when it matters.
+
+The rungs are pinned, not `-latest`. `gemini-flash-lite-latest` resolved to
+3.5-flash-lite the day this was measured and will quietly become something
+else; a model change should be a commit somebody made on purpose.
+
+**Quota is per project per model, so a key is never simply dead.** Each key
+walks down the ladder on its own (`KeyPool.demote`): a 429 whose `quotaId`
+matches `PerDay` — or five consecutive 429s, the backstop for a body that did
+not say — moves that key to the next rung and it keeps working. Only a key that
+has spent every rung is `quotaExceeded`. Per-minute 429s still just cool the
+key down, now for the `retryDelay` Google sent rather than a flat minute, and
+the clock is per rung because the rate limit is.
+
+One thing did not change: a file that every key refused still gets one try a
+rung down before an `errorFallback` row is written (`tryNextRung`). That is
+about the file, not the quota — the key keeps its rung.
 
 Worker count follows the keys: `workersFor(keyCount, settings.maxWorkers)`.
 One worker per key is what makes rotation visible on the Generate screen, and
@@ -344,10 +368,16 @@ holds its bytes and its base64 copy at once.
 These are ported from the CLI and are not optional. Removing any one of them
 breaks real runs:
 
+These are the *bottom* rung's quirks now — the ladder means most files never
+reach Gemma at all — but every one still fires the moment a key demotes.
+
 1. **Audio strip.** Gemma returns `400: Audio input modality is not enabled` for
    any media with an audio track. The tab remuxes with mp4box, which only walks
    ISOBMFF — so `canStrip()` decides, and both file sources skip AVI, MKV, WEBM,
    WMV and FLV at scan time rather than uploading a file Gemma will refuse.
+   Flash-lite has no such limit: it read a 4.6 MB MP4 with its audio intact in
+   16.6 s. Lifting the scan-time skip for the fast rung would be real user
+   value; it is not done, because the scan happens before any key has a rung.
 2. **Chain-of-thought JSON.** Gemma writes reasoning around the JSON no matter
    what the *prompt* demands, and the reasoning contains its own brace blocks.
    `parse.ts` walks candidates and rejects schema echoes (`"string — …"`) and
@@ -360,8 +390,9 @@ breaks real runs:
    it is: it is what catches a model that refuses the schema, and the runner
    remembers that refusal per model rather than per file.
 3. **Transient 429s.** A 429 is usually the per-minute limit, not the daily one.
-   Cool the key for 60 s; only five consecutive 429s with no success in between
-   mean the day's quota is gone.
+   Cool the key down; only a `PerDay` quota id, or five consecutive 429s with no
+   success in between, mean the day's quota is gone — and that now means a rung
+   down rather than a key out.
 
 ## Accounts and keys
 

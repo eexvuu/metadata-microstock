@@ -1,3 +1,4 @@
+import type { LadderRung } from '#/lib/engine/keys'
 import type { RunOptions } from '#/lib/engine/types'
 
 /**
@@ -12,15 +13,28 @@ const LEGACY_KEYS_STORAGE = 'microstock.gemini-keys'
 const SETTINGS_STORAGE = 'microstock.settings'
 
 /**
- * The model is not a user setting.
+ * The ladder. Fast quota first, deep quota last, and not a user setting —
+ * nobody chooses a model to get keywords.
  *
- * Gemma is free, and its quirks (chain-of-thought JSON, the audio refusal, the
- * 429 pattern) are what the whole engine is tuned for. When it refuses a file
- * on every key, the runner asks Gemini Flash once — see `tryFallbackModel`.
- * Neither name is worth a dropdown: nobody chooses a model to get keywords.
+ * Every number here was measured on 2026-08-23 against the free tier, not read
+ * off a docs page: `gemini-3.5-flash-lite` answers a photograph in 3.8 s and
+ * allows 15 requests a minute; `gemma-4-26b-a4b-it` takes 6 s (86 s before the
+ * response schema) and allows 30. Flash-lite goes first because it is faster
+ * per file, needs no JSON dug out of prose, and accepts video with its audio
+ * track still on. Gemma goes last because its daily quota is the big one —
+ * which is exactly what a key wants once the fast quota is spent.
+ *
+ * Pinned, not `-latest`: the alias resolved to 3.5-flash-lite the day this was
+ * measured and will quietly become something else. A model change should be a
+ * commit somebody made on purpose.
  */
-export const PRIMARY_MODEL = 'gemma-4-26b-a4b-it'
-export const FALLBACK_MODEL = 'gemini-flash-latest'
+export const MODEL_LADDER: LadderRung[] = [
+  { model: 'gemini-3.5-flash-lite', rpm: 15 },
+  { model: 'gemma-4-26b-a4b-it', rpm: 30 },
+]
+
+/** What the history row records — the whole ladder, since a run may use both. */
+export const LADDER_LABEL = MODEL_LADDER.map((rung) => rung.model).join(' → ')
 
 /**
  * What "auto" picks: one worker per key, up to eight.
@@ -136,8 +150,6 @@ export function toRunOptions(
      */
     vectorExtension: undefined,
     maxConcurrentWorkers: workersFor(keyCount, settings.maxWorkers),
-    model: PRIMARY_MODEL,
-    fallbackModel: FALLBACK_MODEL,
     editorial: settings.editorial,
     mature: settings.mature,
     illustration: settings.illustration === 'auto' ? null : settings.illustration === 'yes',

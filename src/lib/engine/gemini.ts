@@ -16,6 +16,63 @@ export interface UsageMetadata {
   totalTokenCount?: number
 }
 
+/**
+ * An API failure with the parts a caller has to branch on.
+ *
+ * The body is thirty lines of JSON and the two interesting facts are at the
+ * bottom of it: which quota was hit, and how long Google wants us to wait.
+ * Reading them here is what lets `KeyPool` ask "was that the daily limit?"
+ * instead of pattern-matching a truncated string — the per-minute answer and
+ * the per-day answer look identical until you reach `quotaId`.
+ */
+export class GeminiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly quotaId?: string,
+    readonly retryDelayMs?: number,
+  ) {
+    super(message)
+    this.name = 'GeminiError'
+  }
+}
+
+interface ErrorBody {
+  error?: {
+    message?: string
+    details?: {
+      '@type'?: string
+      retryDelay?: string
+      violations?: { quotaId?: string }[]
+    }[]
+  }
+}
+
+function errorFrom(status: number, body: string): GeminiError {
+  let detail = body
+  let quotaId: string | undefined
+  let retryDelayMs: number | undefined
+
+  try {
+    const parsed = JSON.parse(body) as ErrorBody
+    if (parsed.error?.message) detail = parsed.error.message
+    for (const item of parsed.error?.details ?? []) {
+      const type = item['@type'] ?? ''
+      if (type.includes('QuotaFailure')) quotaId ??= item.violations?.[0]?.quotaId
+      if (type.includes('RetryInfo') && item.retryDelay) {
+        const seconds = Number.parseFloat(item.retryDelay)
+        if (Number.isFinite(seconds)) retryDelayMs = Math.ceil(seconds * 1000)
+      }
+    }
+  } catch {
+    // A body that is not JSON is still worth reporting verbatim.
+  }
+
+  // Keep the status in the message: callers match on "[429]" and "[400]"
+  // exactly like the CLI matched the SDK's "[429 ...]" format.
+  return new GeminiError(`[${status}] ${detail.slice(0, 500)}`, status, quotaId, retryDelayMs)
+}
+
 export interface GenerateResult {
   text: string
   usage: UsageMetadata
@@ -78,10 +135,7 @@ export async function generateContent(options: {
   const durationMs = Date.now() - started
 
   if (!response.ok) {
-    const body = await response.text().catch(() => '')
-    // Keep the status in the message: KeyPool.isQuotaExceededError matches on it,
-    // exactly like the CLI matches on the SDK's "[429 ...]" message format.
-    throw new Error(`[${response.status}] ${body.slice(0, 500)}`)
+    throw errorFrom(response.status, await response.text().catch(() => ''))
   }
 
   const json = (await response.json()) as {

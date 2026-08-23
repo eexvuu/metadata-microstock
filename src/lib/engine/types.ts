@@ -49,13 +49,6 @@ export interface RunOptions {
   /** Rewrite the CSV filename column to this extension (".ai" / ".eps"). */
   vectorExtension?: string
   maxConcurrentWorkers: number
-  model: string
-  /**
-   * Tried once, on an alive key, when `model` has failed on every key for a
-   * file — a different family answering is better than a fallback row. Quota
-   * (429) never gets here: that is rotation's job, not the fallback's.
-   */
-  fallbackModel?: string
   /** Shutterstock column overrides. */
   editorial?: boolean
   mature?: boolean
@@ -85,8 +78,13 @@ export type EngineEvent =
   | { type: 'file-failed'; name: string; message: string; requeued: boolean }
   | { type: 'key-cooldown'; keyIndex: number; untilMs: number; consecutive429s: number }
   | { type: 'key-dead'; keyIndex: number }
+  /**
+   * A key's daily quota on one model is gone and it has moved down the ladder.
+   * Not a failure: the key keeps working, more slowly, on a deeper quota.
+   */
+  | { type: 'key-demoted'; keyIndex: number; rung: number }
   | { type: 'model-fallback'; name: string }
-  | { type: 'stats'; perKey: { requests: number; dead: boolean }[] }
+  | { type: 'stats'; perKey: { requests: number; dead: boolean; rung: number }[] }
   | { type: 'partial'; done: number; total: number; remaining: number }
   | { type: 'finished'; csvName: string; rows: number }
 

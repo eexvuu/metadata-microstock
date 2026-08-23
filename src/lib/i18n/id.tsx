@@ -430,6 +430,8 @@ export const id: Messages = {
     keyCooldown: (index: number, consecutive: number) =>
       `Kunci ${index} kena limit (429) — istirahat 60 detik (${consecutive}/5)`,
     keyDead: (index: number) => `Kunci ${index} kuotanya habis untuk hari ini`,
+    keyDemoted: (index: number) =>
+      `Kunci ${index} sudah habis jatah cepatnya hari ini — lanjut pakai model cadangan: lebih lambat, tapi jatahnya jauh lebih besar`,
     modelFallback: (name: string) =>
       `${name}: mencoba ulang dengan model cadangan`,
     partial: (done: number, total: number, remaining: number) =>

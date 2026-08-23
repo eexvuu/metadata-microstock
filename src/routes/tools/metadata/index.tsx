@@ -35,6 +35,7 @@ import type { MediaEntry, MetadataRow } from '#/lib/engine/types'
 import {
   AUTO_WORKERS,
   DEFAULT_SETTINGS,
+  LADDER_LABEL,
   MAX_WORKERS,
   clearLegacyKeyStorage,
   keysInPlay,
@@ -268,7 +269,7 @@ function MetadataTool() {
           await startRun({
             data: {
               platform: options.platform,
-              model: options.model,
+              model: LADDER_LABEL,
               folderName: selected.source.folderName,
               sourceMode: selected.writable ? 'folder' : 'files',
               filesTotal: entries.length,

@@ -459,6 +459,8 @@ export const en = {
     keyCooldown: (index: number, consecutive: number) =>
       `Key ${index} rate-limited (429) — cooling down 60s (${consecutive}/5)`,
     keyDead: (index: number) => `Key ${index} is out of quota for today`,
+    keyDemoted: (index: number) =>
+      `Key ${index} has spent today's fast quota — it carries on with the backup model, which is slower but has far more of it`,
     modelFallback: (name: string) => `${name}: retrying on the backup model`,
     partial: (done: number, total: number, remaining: number) =>
       `Partial run: ${done}/${total} done, ${remaining} left. No CSV yet — re-run to resume.`,
