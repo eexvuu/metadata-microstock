@@ -51,6 +51,7 @@ export function ReviewEditor({
   entries,
   source,
   platform,
+  previews,
   onChange,
   onExport,
   exporting,
@@ -61,6 +62,12 @@ export function ReviewEditor({
   entries: MediaEntry[]
   /** Null when the run is reopened from history: the files are long gone. */
   source: FileSource | null
+  /**
+   * Object URLs by `sourceName`, for a run reopened from history. The folder
+   * is gone but the browser that did the work kept a thumbnail — see
+   * `src/lib/generator/thumbnails.ts` for why they never went to the server.
+   */
+  previews?: Record<string, string>
   platform: RunOptions['platform']
   onChange: (rows: MetadataRow[]) => void
   onExport: () => void
@@ -205,6 +212,13 @@ export function ReviewEditor({
               <div className="space-y-1.5">
                 {entry && source ? (
                   <MediaThumb source={source} entry={entry} className="aspect-square" />
+                ) : previews?.[row.sourceName] ? (
+                  <img
+                    src={previews[row.sourceName]}
+                    alt=""
+                    loading="lazy"
+                    className="border-(--line) bg-muted aspect-square w-full border object-cover"
+                  />
                 ) : (
                   <div className="border-(--line) bg-muted aspect-square border" />
                 )}

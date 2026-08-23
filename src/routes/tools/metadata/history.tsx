@@ -1,5 +1,6 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { Sparkles } from 'lucide-react'
+import { useEffect } from 'react'
 
 import { PageHead } from '#/components/page-head'
 import { Badge } from '#/components/ui/badge'
@@ -12,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/ui/table'
+import { purgeThumbnails } from '#/lib/generator/thumbnails'
 import { useLocale, useMessages } from '#/lib/i18n'
 import { listRuns } from '#/lib/server/runs'
 
@@ -43,6 +45,17 @@ function HistoryPage() {
   const { tag } = useLocale()
   const runs = Route.useLoaderData()
   const files = runs.reduce((total, run) => total + run.filesDone, 0)
+
+  /*
+   * The one place that knows both halves: which runs the server still has, and
+   * what this browser is holding for them. Thumbnails for anything expired or
+   * gone are dropped here rather than lingering until the origin is cleared.
+   */
+  useEffect(() => {
+    void purgeThumbnails(runs.map((run) => run.id)).catch((error: unknown) => {
+      console.warn('[stockflow] could not purge stored previews:', error)
+    })
+  }, [runs])
 
   return (
     <div className="space-y-8">

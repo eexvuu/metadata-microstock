@@ -1,0 +1,9 @@
+# Only the landing page is public; everything else needs a session.
+User-agent: *
+Disallow: /dashboard
+Disallow: /tools
+Disallow: /api
+Disallow: /login
+Disallow: /signup
+
+Sitemap: https://tools.eexvuu.eu.org/sitemap.xml

@@ -39,96 +39,111 @@ export const id: Messages = {
   },
 
   landing: {
-    eyebrow: 'Stockflow · perkakas pertama, gratis selamanya',
+    eyebrow: 'Stockflow · satu rak perkakas, gratis hari ini',
     headline: (
       <>
-        Metadata stok untuk{' '}
-        <em className="text-primary font-normal italic">satu folder penuh</em>,
-        sekali jalan.
+        Rutinitas unggah,{' '}
+        <em className="text-primary font-normal italic">satu perkakas
+        sekali jalan</em>
+        .
       </>
     ),
-    lead: 'Stockflow adalah kumpulan perkakas untuk orang yang mengunggah ke microstock. Yang pertama menulis judul, 49 kata kunci dan kategori yang tepat untuk setiap gambar dan video dalam satu folder, langsung ke CSV yang diminta Adobe Stock dan Shutterstock — memakai model Google yang gratis dan kunci API Anda sendiri.',
+    lead: 'Stockflow adalah rak berisi perkakas kecil untuk orang yang mengunggah ke microstock. Satu akun, satu set kunci API Google milik Anda sendiri, dan ruang tersendiri untuk tiap pekerjaan. Perkakas pertama menulis CSV metadata untuk satu folder penuh; yang berikutnya mengambil sisa rutinitasnya.',
     ctaPrimary: 'Buat akun gratis',
     ctaSecondary: 'Masuk',
     stats: [
-      'kata kunci per berkas',
-      'permintaan gratis per kunci',
-      'byte media yang diunggah',
+      'byte file Anda di server kami',
+      'berkas sudah dibuatkan metadata',
+      'pekerjaan berjalan di browser Anda sendiri',
     ],
+    sheetTool: 'perkakas 01 · metadata',
     sheetStatus: 'memproses',
     sheetFooter: '6 / 6 berkas · 291 kata kunci',
 
-    catalogTitle: 'Isi rak',
+    catalogTitle: 'Di rak ini',
     catalogLead:
-      'Satu akun, satu set kunci, dan satu perkakas untuk tiap pekerjaan. Semua yang diketahui sebuah perkakas tentang file Anda tetap berada di tab tempat ia berjalan.',
+      'Satu perkakas untuk satu pekerjaan, dan tidak ada yang dibagi di antara mereka selain akun dan kunci Anda. Buka salah satu, maka run, riwayat dan pengaturannya tinggal di dalamnya — supaya rak ini bisa bertambah tanpa saling mengganggu.',
     catalogFree: 'gratis',
     catalogPlanned: 'direncanakan',
     catalogMetadata:
-      'Masukkan satu folder gambar dan video, keluar CSV Adobe Stock atau Shutterstock. Bisa dilanjutkan, mendukung banyak kunci, dan gratis selama tier gratis Google masih ada.',
-    catalogMetadataCta: 'Mulai dari sini',
+      'Satu folder gambar dan video masuk, CSV Adobe Stock atau Shutterstock keluar. Bisa dilanjutkan, multi-kunci, dan gratis selama kuota gratis Google masih ada.',
+    catalogMetadataCta: 'Mulai dari yang ini',
     catalogNextTitle: 'Perkakas berikutnya',
     catalogNext:
-      'Masih banyak bagian rutinitas unggah yang layak ada di sini. Apa pun yang datang berikutnya memakai akun yang sama, kunci yang sama, dan aturan yang sama: file Anda tidak pernah sampai ke server kami.',
+      'Masih banyak bagian rutinitas unggah yang pantas ada di sini. Apa pun yang datang berikutnya memakai akun dan kunci yang sama, dan tunduk pada tiga aturan di bawah.',
+
+    rulesTitle: 'Tiga aturan rumah',
+    rulesLead:
+      'Tiga hal ini berlaku untuk setiap perkakas di rak ini, dan akan tetap berlaku untuk yang belum ditulis.',
+    rules: [
+      {
+        title: 'File Anda tidak pernah sampai ke kami',
+        body: 'Pekerjaannya berjalan di browser Anda dan berbicara langsung ke Google. Foto dan footage Anda tidak pernah diunggah ke kami — tempat untuk menyimpannya pun kami tidak punya.',
+      },
+      {
+        title: 'Kunci Anda, kuota Anda',
+        body: 'Pakai kunci API Google gratis milik Anda sendiri. Kuncinya dienkripsi di akun Anda, hanya Anda yang memakainya, dan semua perkakas di rak ini mengambil dari set yang sama.',
+      },
+      {
+        title: 'Tidak ada yang final sebelum Anda setuju',
+        body: 'Perkakasnya mengusulkan, Anda yang memutuskan. Apa pun hasilnya bisa Anda ubah sebelum ditulis, dan pekerjaan yang sudah selesai masih bisa dibuka lagi selama seminggu.',
+      },
+    ],
+
+    firstToolTitle: 'Perkakas pertama: metadata',
+    firstToolLead:
+      'Judul, 49 kata kunci dan kategori yang tepat untuk setiap gambar dan video dalam satu folder, langsung ke CSV yang diminta Adobe Stock dan Shutterstock.',
+
+    specimenTitle: 'Yang mendarat di folder Anda',
+    specimenLead:
+      'Satu CSV, persis sesuai bentuk yang diterima tiap platform — BOM-nya, tanda kutipnya, akhir barisnya. Langsung masukkan ke antrean unggah tanpa perlu membuka spreadsheet.',
+
+    featuresTitle: 'Apa yang dikerjakannya',
+    features: [
+      {
+        title: 'Satu folder penuh sekali jalan',
+        body: 'Seret satu folder berisi gambar dan video. Setiap berkas dianalisis dan CSV-nya mendarat kembali di samping file Anda, siap diunggah.',
+      },
+      {
+        title: 'Adobe dan Shutterstock',
+        body: 'Tiap platform punya prompt sendiri, batas kata kunci sendiri dan bentuk CSV yang persis — BOM di tempat Adobe memintanya, nama kategori di tempat Shutterstock memintanya.',
+      },
+      {
+        title: 'Unggahan vektor, tanpa ribet',
+        body: 'Unggah JPEG atau SVG hasil ekspor Anda, lalu tentukan nama berkas yang dibawa CSV — .eps, .ai, .mp4, apa saja — untuk satu baris atau semua baris sekaligus.',
+      },
+      {
+        title: 'Seminggu untuk berubah pikiran',
+        body: 'Setiap run yang selesai masih bisa dibuka selama tujuh hari: perbaiki judul, tambah kata kunci, ambil CSV baru. Setelah itu tinggal angkanya saja.',
+      },
+    ],
 
     processTitle: 'Cara kerjanya',
     steps: [
       {
         title: 'Buat akun',
-        body: 'Gratis, tanpa kartu, dan tidak ada yang perlu diatur sebelum run pertama.',
+        body: 'Gratis, tanpa kartu, dan tidak ada yang perlu disetel sebelum run pertama.',
       },
       {
-        title: 'Tambahkan kunci Gemini Anda',
-        body: 'Tempel sekali, diverifikasi ke Google, lalu dienkripsi di akun Anda.',
+        title: 'Tambahkan kunci Google Anda',
+        body: 'Ditempel sekali, diverifikasi ke Google, lalu dienkripsi di akun Anda — dan semua perkakas di rak ini bisa memakainya.',
       },
       {
-        title: 'Seret foto Anda ke sini',
-        body: 'Periksa judul dan kata kunci yang ditulis, perbaiki sesuka Anda, lalu ambil CSV-nya.',
-      },
-    ],
-
-    specimenTitle: 'Yang muncul di folder',
-    specimenLead:
-      'Satu CSV, persis sampai ke bytenya seperti yang diterima tiap platform — BOM-nya, tanda kutipnya, akhir barisnya. Langsung masukkan ke antrean unggah tanpa perlu membuka spreadsheet.',
-
-    featuresTitle: 'Yang Anda dapat',
-    features: [
-      {
-        title: 'Satu folder sekaligus',
-        body: 'Seret satu folder berisi gambar dan video. Tiap berkas dianalisa dan CSV-nya muncul di samping file Anda, siap diunggah.',
-      },
-      {
-        title: 'Adobe dan Shutterstock',
-        body: 'Tiap platform punya prompt sendiri, batas kata kunci sendiri, dan bentuk CSV yang persis — BOM di tempat Adobe memintanya, nama kategori di tempat Shutterstock memintanya.',
-      },
-      {
-        title: 'Kunci Anda, kuota Anda',
-        body: 'Pakai kunci Gemini gratis milik Anda sendiri. Tiap kunci menambah sekitar 15 permintaan per menit, dan pekerjaannya dibagi ke semuanya.',
-      },
-      {
-        title: 'Keputusan akhir ada di Anda',
-        body: 'Tidak ada yang ditulis sebelum Anda setuju: tiap judul, kata kunci dan kategori bisa diubah tepat di sebelah gambarnya, dan baru setelah itu CSV dibuat.',
-      },
-      {
-        title: 'File tidak pernah keluar dari komputer Anda',
-        body: 'Analisanya berjalan di browser Anda dan berbicara langsung ke Google. Foto dan video Anda tidak pernah diunggah ke kami — kami bahkan tidak punya tempat untuk menyimpannya.',
-      },
-      {
-        title: 'Unggah vektor tanpa ribet',
-        body: 'Unggah JPEG atau SVG hasil ekspor Anda, lalu tentukan nama berkas yang harus dibawa CSV — .eps, .ai, apa pun — untuk satu baris atau untuk semuanya sekaligus.',
+        title: 'Buka perkakasnya, lalu kerjakan',
+        body: 'Hari ini itu berarti perkakas metadata: seret folder Anda, periksa hasil tulisannya, ambil CSV-nya.',
       },
     ],
 
     closeHeadline: (
       <>
-        Berhenti menulis kata kunci{' '}
-        <em className="text-primary font-normal italic">satu per satu</em>.
+        Singkirkan separuh membosankan dari proses unggah{' '}
+        <em className="text-primary font-normal italic">dari meja Anda</em>.
       </>
     ),
     closeLead:
-      'Tambahkan kunci Anda sekali, dan tiap batch unggahan setelahnya cukup satu klik sambil ngopi.',
+      'Tambahkan kunci Anda sekali saja. Setiap perkakas yang mendarat di rak ini setelah itu sudah siap pakai dan sudah gratis.',
     closeCta: 'Mulai sekarang',
   },
-
   catalog: {
     index: 'Katalog',
     title: 'Perkakas Anda',
@@ -190,8 +205,8 @@ export const id: Messages = {
     resultSaveFailed: 'Tidak bisa menyimpan perubahan itu.',
     save: 'Simpan perubahan',
     saving: 'Menyimpan…',
-    noThumbnails:
-      'Tidak ada pratinjau di sini — file-nya ada di komputer Anda sendiri, dan halaman ini memang tidak pernah memilikinya.',
+    previewsMissing:
+      'Tidak ada pratinjau di browser ini — gambar kecilnya disimpan di komputer yang menjalankan run-nya, tidak pernah di server kami, jadi hanya muncul di sana.',
   },
 
   auth: {

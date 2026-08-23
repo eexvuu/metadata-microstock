@@ -41,6 +41,7 @@ import {
   workersFor,
   type StoredSettings,
 } from '#/lib/generator/settings'
+import { captureThumbnails, saveThumbnails } from '#/lib/generator/thumbnails'
 import { useGenerator } from '#/lib/generator/use-generator'
 import { useMessages } from '#/lib/i18n'
 import { getDecryptedKeys, markKeysUsed } from '#/lib/server/gemini-keys'
@@ -205,9 +206,21 @@ function MetadataTool() {
        */
       if (result && result.rows.length > 0) {
         try {
-          await saveRunRows({
+          const { expiresAt } = await saveRunRows({
             data: { runId, rows: JSON.stringify(result.rows) },
           })
+
+          /*
+           * The pictures for that saved result, kept on this machine and dated
+           * to die with the rows. Not awaited: the folder is still open and the
+           * review screen is already usable, so decoding a hundred files has no
+           * business standing between the run and the person reading it.
+           */
+          void captureThumbnails(selected.source, entries)
+            .then((blobs) => saveThumbnails(runId, expiresAt, blobs))
+            .catch((error: unknown) => {
+              console.warn('[stockflow] previews not stored:', error)
+            })
         } catch (error) {
           toast.warning(
             error instanceof Error ? error.message : String(error),

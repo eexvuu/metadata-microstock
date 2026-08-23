@@ -1,0 +1,109 @@
+<!doctype html>
+<!--
+  The source of public/og.jpg — the link-preview card.
+
+  Not built by anything: it is opened in a browser at exactly 1200x630 and
+  screenshotted. That is deliberate. A card that regenerates on every build
+  would need a headless browser in CI for an image that changes twice a year,
+  and the alternative (hand-drawing text into a canvas) is worse than keeping
+  the real markup that a person can read and edit.
+
+  To regenerate: copy this file into public/ temporarily, open it at
+  http://localhost:3000/og-card.html with the viewport set to exactly
+  1200x630, screenshot the viewport as JPEG, save it over public/og.jpg, and
+  delete the copy from public/.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>og</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400..700&family=Fraunces:ital,opsz,wght@0,9..144,300..900&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{ --bg:#120d08; --fg:#f0ece5; --primary:#ffa544; --line:#332a20; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#000}
+  #card{
+    width:1200px;height:630px;background:var(--bg);color:var(--fg);
+    font-family:Archivo,system-ui,sans-serif;position:relative;overflow:hidden;
+    display:flex;flex-direction:column;
+  }
+  #card::before{
+    content:"";position:absolute;inset:0;
+    background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+    background-size:60px 60px;opacity:.35;
+  }
+  .safelight{height:3px;background:linear-gradient(90deg,transparent,var(--primary),transparent);position:relative;z-index:2}
+  .body{flex:1;display:grid;grid-template-columns:1.12fr .88fr;gap:56px;padding:48px 64px 36px;position:relative;z-index:2;min-height:0}
+  .left{display:flex;flex-direction:column;min-height:0}
+  .brand{display:flex;align-items:center;gap:14px}
+  .mark{width:38px;height:38px;flex:none}
+  .word{font-family:Fraunces,serif;font-size:30px;font-weight:600;letter-spacing:-.01em}
+  .kicker{font-family:"IBM Plex Mono",monospace;font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:#a89b8c}
+  h1{font-family:Fraunces,serif;font-weight:300;font-size:60px;line-height:1.03;letter-spacing:-.02em;margin-top:34px}
+  h1 em{font-style:italic;font-weight:400;color:var(--primary)}
+  p.lead{margin-top:22px;font-size:21px;line-height:1.5;color:#c9bfb2;max-width:560px}
+  .facts{margin-top:auto;display:flex;gap:12px}
+  .fact{font-family:"IBM Plex Mono",monospace;font-size:13px;letter-spacing:.08em;text-transform:uppercase;
+        border:1px solid var(--line);padding:9px 12px;color:#d7cec2;white-space:nowrap}
+  .fact b{color:var(--primary);font-weight:600}
+  .sheet{border:1px solid var(--line);background:rgba(255,255,255,.02);padding:16px;display:flex;flex-direction:column;min-height:0}
+  .sheet-top,.sheet-bot{display:flex;justify-content:space-between;font-family:"IBM Plex Mono",monospace;font-size:12px;
+        letter-spacing:.12em;text-transform:uppercase;color:#9a8d7e}
+  .sheet-top{border-bottom:1px solid var(--line);padding-bottom:10px}
+  .sheet-bot{border-top:1px solid var(--line);padding-top:10px;margin-top:14px;font-size:11px;gap:10px}
+  .sheet-bot span{white-space:nowrap}
+  .sheet-bot span:last-child{color:var(--primary)}
+  .frames{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:1fr 1fr;gap:12px;margin-top:14px;flex:1;min-height:0}
+  figure{display:flex;flex-direction:column;min-height:0}
+  .frame{flex:1;border:1px solid var(--line);position:relative;min-height:0}
+  .frame span{position:absolute;left:5px;top:4px;font-family:"IBM Plex Mono",monospace;font-size:10px;color:rgba(240,236,229,.75)}
+  .cap{font-family:"IBM Plex Mono",monospace;font-size:11px;color:#8d8172;margin-top:5px;display:flex;justify-content:space-between}
+  .cap b{color:var(--primary);font-weight:500}
+  .foot{position:relative;z-index:2;border-top:1px solid var(--line);padding:15px 64px;display:flex;justify-content:space-between;
+        font-family:"IBM Plex Mono",monospace;font-size:14px;letter-spacing:.16em;text-transform:uppercase;color:#9a8d7e}
+  .foot b{color:var(--fg);font-weight:500}
+</style>
+</head>
+<body>
+<div id="card">
+  <div class="safelight"></div>
+  <div class="body">
+    <div class="left">
+      <div class="brand">
+        <svg class="mark" viewBox="0 0 32 32">
+          <g fill="#b0aba4"><rect x="8" y="8" width="16" height="2"/><rect x="8" y="22" width="16" height="2"/><rect x="8" y="8" width="2" height="16"/><rect x="22" y="8" width="2" height="16"/></g>
+          <g fill="#ffa544"><rect x="13" y="13" width="6" height="6"/><rect x="3" y="3" width="8" height="2"/><rect x="3" y="3" width="2" height="8"/><rect x="21" y="27" width="8" height="2"/><rect x="27" y="21" width="2" height="8"/></g>
+        </svg>
+        <div class="word">Stockflow</div>
+        <div class="kicker" style="margin-left:2px">tools</div>
+      </div>
+
+      <h1>A folder of media in.<br>An <em>upload-ready CSV</em> out.</h1>
+      <p class="lead">Free tools for people who upload to microstock. Your keys, your browser, your machine — the files never reach our server.</p>
+
+      <div class="facts">
+        <div class="fact"><b>49</b> keywords per file</div>
+        <div class="fact">adobe <b>+</b> shutterstock</div>
+        <div class="fact"><b>0</b> bytes uploaded</div>
+      </div>
+    </div>
+
+    <div class="sheet">
+      <div class="sheet-top"><span>/shoot-2026-04-harbour</span><span style="color:#ffa544">developing</span></div>
+      <div class="frames">
+        <figure><div class="frame" style="background:linear-gradient(145deg,rgba(255,165,68,.44),rgba(240,236,229,.12) 70%)"><span>01</span></div><div class="cap"><span>DSC_4417</span><b>49</b></div></figure>
+        <figure><div class="frame" style="background:linear-gradient(215deg,rgba(255,165,68,.22),rgba(240,236,229,.12) 70%)"><span>02</span></div><div class="cap"><span>pier_01</span><b>49</b></div></figure>
+        <figure><div class="frame" style="background:linear-gradient(60deg,rgba(255,165,68,.34),rgba(240,236,229,.12) 70%)"><span>03</span></div><div class="cap"><span>A7R_0912</span><b>47</b></div></figure>
+        <figure><div class="frame" style="background:linear-gradient(320deg,rgba(255,165,68,.16),rgba(240,236,229,.12) 70%)"><span>04</span></div><div class="cap"><span>market</span><b>49</b></div></figure>
+        <figure><div class="frame" style="background:linear-gradient(100deg,rgba(255,165,68,.28),rgba(240,236,229,.12) 70%)"><span>05</span></div><div class="cap"><span>IMG_0031</span><b>48</b></div></figure>
+        <figure><div class="frame" style="background:linear-gradient(250deg,rgba(255,165,68,.40),rgba(240,236,229,.12) 70%)"><span>06</span></div><div class="cap"><span>drone_c</span><b>49</b></div></figure>
+      </div>
+      <div class="sheet-bot"><span>6 / 6 files · 291 kw</span><span>adobe-stock.csv</span></div>
+    </div>
+  </div>
+  <div class="foot"><span><b>tools.eexvuu.eu.org</b></span><span>google's model · your keys · your machine</span></div>
+</div>
+</body>
+</html>

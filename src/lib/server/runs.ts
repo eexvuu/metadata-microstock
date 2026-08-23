@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
-import { and, desc, eq, gt } from 'drizzle-orm'
+import { and, desc, eq, gt, sql } from 'drizzle-orm'
 import { z } from 'zod'
 
 import { getDb } from '#/db/index'
@@ -102,6 +102,29 @@ export const finishRun = createServerFn({ method: 'POST' })
 
     return { ok: true }
   })
+
+/**
+ * The one number on the public landing page.
+ *
+ * Deliberately unauthenticated and deliberately two integers: how many runs
+ * have happened and how many files came out of them, across everybody. No
+ * session, no folder names, no owner — nothing here narrows to a person.
+ *
+ * Same warning as the rest of this file applies: the browser reports the
+ * counts, so this is a marketing number, not an audited one.
+ */
+export const getPublicStats = createServerFn({ method: 'GET' }).handler(
+  async (): Promise<{ runs: number; files: number }> => {
+    const [row] = await getDb()
+      .select({
+        runs: sql<number>`count(*)`,
+        files: sql<number>`coalesce(sum(${generationRun.filesDone}), 0)`,
+      })
+      .from(generationRun)
+
+    return { runs: Number(row?.runs ?? 0), files: Number(row?.files ?? 0) }
+  },
+)
 
 export const listRuns = createServerFn({ method: 'GET' }).handler(
   async (): Promise<RunSummary[]> => {

@@ -3,18 +3,26 @@ import {
   ArrowRight,
   FileSpreadsheet,
   FolderOpen,
+  History,
   KeyRound,
   Layers,
-  RefreshCw,
+  PenLine,
   ShieldCheck,
   Sparkles,
 } from 'lucide-react'
 
 import { CONTAINER } from '#/components/shell'
 import { Button } from '#/components/ui/button'
-import { useMessages } from '#/lib/i18n'
+import { useLocale, useMessages } from '#/lib/i18n'
+import { getPublicStats } from '#/lib/server/runs'
 
 export const Route = createFileRoute('/')({
+  /*
+   * One aggregate over `generation_run`, on a public page. It is the only
+   * thing here that is not a constant, and it is the only claim on the page a
+   * visitor cannot check for themselves — so it had better be the real count.
+   */
+  loader: () => getPublicStats(),
   component: LandingPage,
 })
 
@@ -32,17 +40,20 @@ const SHEET = [
   { file: 'drone_coast.mp4', keywords: 49, angle: 250, tint: 40 },
 ]
 
-/** Numbers and icons stay here; the words that go with them are translated. */
-const STAT_VALUES = ['49', '14,400', '0']
+/**
+ * Icons stay here; the words that go with them are translated.
+ *
+ * Two of the three numbers are promises about the shelf rather than facts
+ * about one tool. The middle one is the real running total, so it is filled in
+ * from the loader rather than sitting in this array.
+ */
+const STAT_VALUES = ['0', null, '100%']
 
-const FEATURE_ICONS = [
-  FolderOpen,
-  FileSpreadsheet,
-  KeyRound,
-  RefreshCw,
-  ShieldCheck,
-  Layers,
-]
+/** The three that hold for every tool. */
+const RULE_ICONS = [ShieldCheck, KeyRound, PenLine]
+
+/** The four that are the metadata tool's own. */
+const FEATURE_ICONS = [FolderOpen, FileSpreadsheet, Layers, History]
 
 const SPECIMEN = [
   'Filename,Title,Keywords,Category,Releases',
@@ -50,14 +61,23 @@ const SPECIMEN = [
   'A7R_0912.mov,"Aerial pass over a terraced rice field in soft morning light",aerial,drone,rice,terrace,…,4,',
 ]
 
+/**
+ * The shelf first, the tool second.
+ *
+ * The order is the argument: Stockflow is a set of tools that share an
+ * account, a set of keys and three rules, and the metadata tool is the first
+ * of them. Section 03 is where the page is allowed to be about one tool — and
+ * it is numbered, so the next one slots in beside it rather than rewriting
+ * everything above.
+ */
 function LandingPage() {
   return (
     <main>
       <Hero />
       <Catalog />
+      <Rules />
+      <FirstTool />
       <Process />
-      <Specimen />
-      <Features />
       <Close />
     </main>
   )
@@ -65,6 +85,8 @@ function LandingPage() {
 
 function Hero() {
   const m = useMessages()
+  const { tag } = useLocale()
+  const { files } = Route.useLoaderData()
 
   return (
     <section className="safelight sheet-grid border-(--line) relative overflow-hidden border-b">
@@ -102,7 +124,7 @@ function Hero() {
             {m.landing.stats.map((label, index) => (
               <div key={label}>
                 <dt className="font-display text-3xl leading-none font-medium tabular-nums">
-                  {STAT_VALUES[index]}
+                  {STAT_VALUES[index] ?? files.toLocaleString(tag)}
                 </dt>
                 <dd className="text-muted-foreground mt-2 pr-4 font-mono text-[0.7rem] leading-snug">
                   {label}
@@ -124,10 +146,12 @@ function ContactSheet() {
   return (
     <div className="relative">
       <div className="border-(--line) bg-card/60 crop-marks border p-3 backdrop-blur-sm sm:p-4">
-        <div className="border-(--line) mb-3 flex items-center justify-between border-b pb-2">
+        <div className="border-(--line) mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-b pb-2">
+          <span className="eyebrow text-primary/80">{m.landing.sheetTool}</span>
           <span className="eyebrow text-muted-foreground">
             /shoot-2026-04-harbour
           </span>
+          <span className="ml-auto" />
           <span className="eyebrow text-primary developing flex items-center gap-1.5">
             <span className="bg-primary size-1.5" />
             {m.landing.sheetStatus}
@@ -232,7 +256,7 @@ function Process() {
 
   return (
     <section className={`${CONTAINER} py-20`}>
-      <SectionHead index="02" title={m.landing.processTitle} />
+      <SectionHead index="04" title={m.landing.processTitle} />
 
       <ol className="mt-10 grid gap-px sm:grid-cols-3">
         {m.landing.steps.map((step, index) => (
@@ -256,58 +280,59 @@ function Process() {
   )
 }
 
-function Specimen() {
+function Rules() {
   const m = useMessages()
 
   return (
     <section className="border-(--line) border-y">
       <div className={`${CONTAINER} py-20`}>
-        <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
-          <div>
-            <SectionHead index="03" title={m.landing.specimenTitle} />
-            <p className="text-muted-foreground mt-5 max-w-md text-pretty">
-              {m.landing.specimenLead}
-            </p>
-          </div>
+        <SectionHead index="02" title={m.landing.rulesTitle} />
+        <p className="text-muted-foreground mt-5 max-w-2xl text-pretty">
+          {m.landing.rulesLead}
+        </p>
 
-          <div className="border-(--line) bg-card overflow-hidden border">
-            <div className="border-(--line) bg-muted/40 flex items-center gap-2 border-b px-3 py-2">
-              <span className="bg-primary size-1.5" />
-              <span className="eyebrow text-muted-foreground">
-                adobe-stock.csv
-              </span>
-            </div>
-            <div className="overflow-x-auto p-4">
-              <pre className="font-mono text-[0.7rem] leading-6">
-                {SPECIMEN.map((line, index) => (
-                  <div
-                    key={line}
-                    className={
-                      index === 0
-                        ? 'text-primary'
-                        : 'text-muted-foreground hover:text-foreground transition-colors'
-                    }
-                  >
-                    {line}
-                  </div>
-                ))}
-              </pre>
-            </div>
-          </div>
+        <div className="mt-10 grid gap-px sm:grid-cols-3">
+          {m.landing.rules.map((rule, index) => {
+            const Icon = RULE_ICONS[index]
+
+            return (
+              <article
+                key={rule.title}
+                className="border-(--line) border-t pt-6 sm:border-r sm:pr-7 sm:last:border-r-0"
+              >
+                <Icon className="text-primary size-5" strokeWidth={1.5} />
+                <h3 className="font-display mt-5 text-xl font-medium text-balance">
+                  {rule.title}
+                </h3>
+                <p className="text-muted-foreground mt-2 text-sm leading-relaxed text-pretty">
+                  {rule.body}
+                </p>
+              </article>
+            )
+          })}
         </div>
       </div>
     </section>
   )
 }
 
-function Features() {
+/**
+ * Where the page is allowed to be about one tool.
+ *
+ * Everything above holds for the shelf; this section is the metadata tool's
+ * own — what it does, and the CSV it leaves behind.
+ */
+function FirstTool() {
   const m = useMessages()
 
   return (
     <section className={`${CONTAINER} py-20`}>
-      <SectionHead index="04" title={m.landing.featuresTitle} />
+      <SectionHead index="03" title={m.landing.firstToolTitle} />
+      <p className="text-muted-foreground mt-5 max-w-2xl text-pretty">
+        {m.landing.firstToolLead}
+      </p>
 
-      <div className="border-(--line) mt-10 grid border-t border-l sm:grid-cols-2 lg:grid-cols-3">
+      <div className="border-(--line) mt-10 grid border-t border-l sm:grid-cols-2">
         {m.landing.features.map((feature, index) => {
           const Icon = FEATURE_ICONS[index]
 
@@ -332,6 +357,42 @@ function Features() {
             </article>
           )
         })}
+      </div>
+
+      <div className="mt-14 grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
+        <div>
+          <h3 className="font-display text-2xl font-light tracking-tight sm:text-3xl">
+            {m.landing.specimenTitle}
+          </h3>
+          <p className="text-muted-foreground mt-4 max-w-md text-pretty">
+            {m.landing.specimenLead}
+          </p>
+        </div>
+
+        <div className="border-(--line) bg-card overflow-hidden border">
+          <div className="border-(--line) bg-muted/40 flex items-center gap-2 border-b px-3 py-2">
+            <span className="bg-primary size-1.5" />
+            <span className="eyebrow text-muted-foreground">
+              adobe-stock.csv
+            </span>
+          </div>
+          <div className="overflow-x-auto p-4">
+            <pre className="font-mono text-[0.7rem] leading-6">
+              {SPECIMEN.map((line, index) => (
+                <div
+                  key={line}
+                  className={
+                    index === 0
+                      ? 'text-primary'
+                      : 'text-muted-foreground hover:text-foreground transition-colors'
+                  }
+                >
+                  {line}
+                </div>
+              ))}
+            </pre>
+          </div>
+        </div>
       </div>
     </section>
   )

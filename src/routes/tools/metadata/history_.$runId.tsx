@@ -1,6 +1,6 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { ArrowLeft, Loader2, Save } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
 import { ReviewEditor } from '#/components/generator/review-editor'
@@ -10,17 +10,22 @@ import { csvTextFor } from '#/lib/engine/runner'
 import { adobeProfile } from '#/lib/engine/profiles/adobe'
 import { shutterstockProfile } from '#/lib/engine/profiles/shutterstock'
 import type { MetadataRow, RunOptions } from '#/lib/engine/types'
+import { loadThumbnails } from '#/lib/generator/thumbnails'
 import { useMessages } from '#/lib/i18n'
 import { getRunRows, updateRunRows } from '#/lib/server/runs'
 
 /**
  * A finished run, reopened.
  *
- * The same editor the tool shows after a run, with two things missing and one
- * added. Missing: the thumbnails and the folder — the files are on the
- * contributor's own disk and this page never had a handle to them, which is
- * why `source` is null and the CSV is built without one. Added: a Save, since
- * these edits have to survive the tab.
+ * The same editor the tool shows after a run, with one thing missing and one
+ * added. Missing: the folder — the files are on the contributor's own disk and
+ * this page never had a handle to them, which is why `source` is null and the
+ * CSV is built without one. Added: a Save, since these edits have to survive
+ * the tab.
+ *
+ * The pictures come from IndexedDB rather than from us. That is the whole
+ * point — see `src/lib/generator/thumbnails.ts` — and it means a run reopened
+ * on a different machine shows the rows without the tiles.
  */
 /**
  * The trailing underscore on the filename matters. Without it, TanStack's flat
@@ -57,6 +62,35 @@ function SavedResultPage() {
   )
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [previews, setPreviews] = useState<Record<string, string>>({})
+
+  // Before the early return below, or the hook order changes with the data.
+  useEffect(() => {
+    let cancelled = false
+    const urls: string[] = []
+
+    loadThumbnails(runId)
+      .then((blobs) => {
+        if (!blobs || cancelled) return
+        const next: Record<string, string> = {}
+        for (const [name, blob] of Object.entries(blobs)) {
+          const url = URL.createObjectURL(blob)
+          urls.push(url)
+          next[name] = url
+        }
+        setPreviews(next)
+      })
+      .catch((error: unknown) => {
+        // Private mode, a cleared origin, a browser with IndexedDB off — none
+        // of it should cost the contributor their rows.
+        console.warn('[stockflow] no stored previews:', error)
+      })
+
+    return () => {
+      cancelled = true
+      for (const url of urls) URL.revokeObjectURL(url)
+    }
+  }, [runId])
 
   if (!saved) {
     return (
@@ -142,13 +176,17 @@ function SavedResultPage() {
           </Button>
         }
       >
-        {m.history.expiresIn(days)} · {m.history.noThumbnails}
+        {m.history.expiresIn(days)}
+        {Object.keys(previews).length === 0
+          ? ` · ${m.history.previewsMissing}`
+          : null}
       </PageHead>
 
       <ReviewEditor
         rows={rows}
         entries={[]}
         source={null}
+        previews={previews}
         platform={platform}
         onChange={(next) => {
           setRows(next)

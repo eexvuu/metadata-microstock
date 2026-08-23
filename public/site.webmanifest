@@ -1,0 +1,14 @@
+{
+  "name": "Stockflow",
+  "short_name": "Stockflow",
+  "description": "Tools for microstock contributors. Your media stays on your machine.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#120d08",
+  "theme_color": "#120d08",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

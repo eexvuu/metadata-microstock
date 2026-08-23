@@ -44,28 +44,28 @@ export const en = {
   },
 
   landing: {
-    eyebrow: 'Stockflow · first tool, free forever',
+    eyebrow: 'Stockflow · a shelf of tools, free today',
     headline: (
       <>
-        Stock metadata for the{' '}
-        <em className="text-primary font-normal italic">whole folder</em>, in one
-        run.
+        The upload routine,{' '}
+        <em className="text-primary font-normal italic">one tool at a time</em>.
       </>
     ) as ReactNode,
-    lead: "Stockflow is a shelf of tools for people who upload to microstock. The first one writes titles, 49 keywords and the right category for every image and video in a folder, straight into the CSV Adobe Stock and Shutterstock ask for — on a free Google model and your own API keys.",
+    lead: 'Stockflow is a shelf of small tools for people who upload to microstock. One account, one set of your own Google API keys, and a room of its own for every job. The first tool writes the metadata CSV for a whole folder; the ones after it take on the rest of the routine.',
     ctaPrimary: 'Create a free account',
     ctaSecondary: 'Sign in',
     stats: [
-      'keywords per file',
-      'free requests per key',
-      'bytes of media uploaded',
+      'bytes of your media on our servers',
+      'files given metadata so far',
+      'of the work happens in your own browser',
     ],
+    sheetTool: 'tool 01 · metadata',
     sheetStatus: 'developing',
     sheetFooter: '6 / 6 files · 291 keywords',
 
     catalogTitle: 'On the shelf',
     catalogLead:
-      'One account, one set of keys, and a tool for each job. Everything a tool knows about your media stays in the tab it runs in.',
+      'A tool per job, and nothing shared between them but your account and your keys. Open one and its runs, its history and its settings stay inside it — so the shelf can grow without any of them getting in each other’s way.',
     catalogFree: 'free',
     catalogPlanned: 'planned',
     catalogMetadata:
@@ -73,29 +73,35 @@ export const en = {
     catalogMetadataCta: 'Start with this one',
     catalogNextTitle: 'The next tool',
     catalogNext:
-      'More of the upload routine belongs here. Whatever lands next shares the same account, the same keys and the same rule: your files never reach our server.',
+      'More of the upload routine belongs here. Whatever lands next shares the same account and the same keys, and plays by the same three rules below.',
 
-    processTitle: 'How it works',
-    steps: [
+    rulesTitle: 'The house rules',
+    rulesLead:
+      'Three things are true of every tool on this shelf, and will stay true of the ones that are not written yet.',
+    rules: [
       {
-        title: 'Create an account',
-        body: 'Free, no card, and nothing to configure before the first run.',
+        title: 'Your media never reaches us',
+        body: 'The work happens in your browser and talks to Google directly. Your photos and footage are never uploaded to us — we do not even have somewhere to put them.',
       },
       {
-        title: 'Add your Gemini keys',
-        body: 'Pasted once, verified against Google, then encrypted on your account.',
+        title: 'Your keys, your quota',
+        body: 'Bring your own free Google API keys. They are encrypted on your account, spent only by you, and every tool on the shelf draws from the same set.',
       },
       {
-        title: 'Drag your photos in',
-        body: 'Check the titles and keywords it wrote, fix anything you like, then take the CSV.',
+        title: 'Nothing is final until you say so',
+        body: 'A tool proposes, you decide. Whatever it produced is yours to edit before anything is written, and you can reopen a finished job for a week afterwards.',
       },
     ],
+
+    firstToolTitle: 'The first tool: metadata',
+    firstToolLead:
+      'Titles, 49 keywords and the right category for every image and video in a folder, written straight into the CSV Adobe Stock and Shutterstock ask for.',
 
     specimenTitle: 'What lands in the folder',
     specimenLead:
       'One CSV, byte-for-byte the shape each platform accepts — the BOM, the quoting, the line endings. Drop it into the upload queue without opening a spreadsheet.',
 
-    featuresTitle: 'What you get',
+    featuresTitle: 'What it does',
     features: [
       {
         title: 'A whole folder at once',
@@ -106,34 +112,41 @@ export const en = {
         body: 'Each platform gets its own prompt, its own keyword limit and its exact CSV shape — BOM where Adobe wants one, category names where Shutterstock wants those.',
       },
       {
-        title: 'Your keys, your quota',
-        body: 'Bring your own free Gemini keys. Each one adds about 15 requests a minute, and the run spreads work across all of them.',
-      },
-      {
-        title: 'You get the last word',
-        body: 'Nothing is written until you say so: every title, keyword and category is editable next to the picture it came from, and only then does the CSV get made.',
-      },
-      {
-        title: 'Media never leaves your machine',
-        body: 'The analysis runs in your browser and talks to Google directly. Your photos and footage are never uploaded to us — we do not even have somewhere to put them.',
-      },
-      {
         title: 'Vector uploads, without the fuss',
-        body: 'Upload the JPEG or SVG you exported, then set the filename the CSV should carry — .eps, .ai, anything — for one row or for all of them at once.',
+        body: 'Upload the JPEG or SVG you exported, then set the filename the CSV should carry — .eps, .ai, .mp4, anything — for one row or for all of them at once.',
+      },
+      {
+        title: 'A week to change your mind',
+        body: 'Every finished run stays openable for seven days: fix a title, add a keyword, take a fresh CSV. After that only the numbers remain.',
+      },
+    ],
+
+    processTitle: 'How it works',
+    steps: [
+      {
+        title: 'Create an account',
+        body: 'Free, no card, and nothing to configure before the first run.',
+      },
+      {
+        title: 'Add your Google keys',
+        body: 'Pasted once, verified against Google, then encrypted on your account — and every tool on the shelf can use them.',
+      },
+      {
+        title: 'Open a tool and work',
+        body: 'Today that is the metadata tool: drag your folder in, check what it wrote, take the CSV.',
       },
     ],
 
     closeHeadline: (
       <>
-        Stop writing keywords{' '}
-        <em className="text-primary font-normal italic">by hand</em>.
+        Get the boring half of the upload{' '}
+        <em className="text-primary font-normal italic">off your desk</em>.
       </>
     ) as ReactNode,
     closeLead:
-      'Add your keys once and every upload batch after that is one click and a coffee.',
+      'Add your keys once. Every tool that lands on this shelf after that is already set up and already free.',
     closeCta: 'Get started',
   },
-
   catalog: {
     index: 'Catalog',
     title: 'Your tools',
@@ -195,8 +208,8 @@ export const en = {
     resultSaveFailed: 'Could not save those edits.',
     save: 'Save edits',
     saving: 'Saving…',
-    noThumbnails:
-      'No previews here — the files are on your own disk, and this page never had them.',
+    previewsMissing:
+      'No previews in this browser — thumbnails are kept on the machine that did the run, never on our server, so they only show up there.',
   },
 
   auth: {
