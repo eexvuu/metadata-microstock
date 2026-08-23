@@ -8,6 +8,7 @@ import {
   directoryFromHandle,
   isSupported,
   pickDirectory,
+  type DirectoryHandle,
 } from '#/lib/sources/browser-directory'
 import {
   DroppedFilesSource,
@@ -25,6 +26,12 @@ export interface SelectedSource {
   writable: boolean
   source: FileSource
   video: VideoPreprocessor
+  /**
+   * The handle behind a folder, kept so an unfinished run can be remembered
+   * and reopened later. Absent for loose files, and for the Firefox/Safari
+   * drop path — neither of which can be resumed anyway.
+   */
+  directory?: DirectoryHandle
 }
 
 /**
@@ -50,8 +57,8 @@ export function MediaPicker({
   const fileInput = useRef<HTMLInputElement>(null)
   const supportsFolders = typeof window !== 'undefined' && isSupported()
 
-  const takeDirectory = (directory: Parameters<typeof toDirectorySource>[0]) =>
-    onSelect(toDirectorySource(directory))
+  const takeDirectory = (directory: DirectoryHandle) =>
+    onSelect(directorySource(directory))
 
   const takeFiles = (files: File[]) => {
     const usable = files.filter((file) => file.size > 0)
@@ -202,13 +209,16 @@ export function MediaPicker({
   )
 }
 
-function toDirectorySource(
-  directory: ConstructorParameters<typeof BrowserDirectorySource>[0],
-): SelectedSource {
+/**
+ * Exported because the resume card builds the same selection from a handle it
+ * pulled out of IndexedDB rather than from a gesture on this component.
+ */
+export function directorySource(directory: DirectoryHandle): SelectedSource {
   return {
     label: directory.name,
     writable: true,
     source: new BrowserDirectorySource(directory),
     video: mp4boxPreprocessor,
+    directory,
   }
 }

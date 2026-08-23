@@ -73,6 +73,13 @@ export interface RunOptions {
 export type EngineEvent =
   | { type: 'log'; level: 'info' | 'warn' | 'error'; message: string }
   | { type: 'scanned'; total: number; images: number; videos: number; skipped: number }
+  /**
+   * Rows recovered from the progress file at the start of a resumed run. They
+   * never fire `file-done`, so anything keeping its own tally — the UI, a
+   * checkpoint to the server — has to start from these or it will report the
+   * second half of a run as if it were the whole of it.
+   */
+  | { type: 'resumed'; rows: MetadataRow[]; total: number }
   | { type: 'file-start'; name: string; keyIndex: number }
   | { type: 'file-done'; row: MetadataRow; done: number; total: number; keyIndex: number }
   | { type: 'file-failed'; name: string; message: string; requeued: boolean }

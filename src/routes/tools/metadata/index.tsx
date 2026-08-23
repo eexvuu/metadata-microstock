@@ -1,5 +1,5 @@
 import { createFileRoute, getRouteApi } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Check, Loader2, Play, RotateCcw, Square } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -8,6 +8,7 @@ import { AddFirstKey, KeysDialog } from '#/components/generator/keys-dialog'
 import { MediaGrid } from '#/components/generator/media-thumb'
 import {
   MediaPicker,
+  directorySource,
   type SelectedSource,
 } from '#/components/generator/media-picker'
 import { AdvancedOptions } from '#/components/generator/options-panel'
@@ -41,11 +42,19 @@ import {
   workersFor,
   type StoredSettings,
 } from '#/lib/generator/settings'
+import {
+  clearPendingRun,
+  loadPendingRun,
+  regrantWrite,
+  savePendingRun,
+  updatePendingProgress,
+  type PendingRun,
+} from '#/lib/generator/resume'
 import { captureThumbnails, saveThumbnails } from '#/lib/generator/thumbnails'
 import { useGenerator } from '#/lib/generator/use-generator'
 import { useMessages } from '#/lib/i18n'
 import { getDecryptedKeys, markKeysUsed } from '#/lib/server/gemini-keys'
-import { finishRun, saveRunRows, startRun } from '#/lib/server/runs'
+import { checkpointRun, finishRun, saveRunRows, startRun } from '#/lib/server/runs'
 
 export const Route = createFileRoute('/tools/metadata/')({
   component: MetadataTool,
@@ -64,6 +73,15 @@ const PLATFORMS = [
   },
 ]
 
+/**
+ * How many finished files are worth a round trip.
+ *
+ * Every checkpoint posts the whole result — a 500-file run is around 300 KB —
+ * so this is the trade between what a closed tab loses and what a shared box
+ * carries. Ten files is a couple of minutes of work at most.
+ */
+const CHECKPOINT_EVERY = 10
+
 function MetadataTool() {
   const m = useMessages()
   const keys = shell.useLoaderData()
@@ -77,12 +95,32 @@ function MetadataTool() {
   const [rows, setRows] = useState<MetadataRow[]>([])
   const [exported, setExported] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
+  const [pending, setPending] = useState<PendingRun | null>(null)
   const { state, start, cancel, reset } = useGenerator()
+  /** Checkpoints are serialised: a slow one must not land after the last. */
+  const checkpointChain = useRef<Promise<unknown>>(Promise.resolve())
+  const lastCheckpoint = useRef(0)
+  /** Set by the resume card so the run starts itself once the scan is in. */
+  const autoRun = useRef(false)
 
   useEffect(() => {
     setSettings(loadSettings())
     clearLegacyKeyStorage()
+    void loadPendingRun().then(setPending)
   }, [])
+
+  /*
+   * The engine is in this tab, so closing it stops the run. Nothing is lost —
+   * the progress file and the checkpoints both survive — but somebody who
+   * closed the wrong window deserves to be asked first.
+   */
+  useEffect(() => {
+    if (state.status !== 'running') return
+
+    const guard = (event: BeforeUnloadEvent) => event.preventDefault()
+    window.addEventListener('beforeunload', guard)
+    return () => window.removeEventListener('beforeunload', guard)
+  }, [state.status])
 
   // Scanning as soon as something is dropped is what makes the tool feel like
   // it understood you: the grid appears before you reach for the Run button.
@@ -157,6 +195,35 @@ function MetadataTool() {
     saveSettings(next)
   }
 
+  /**
+   * Write what is finished so far to the server, one call at a time.
+   *
+   * This is what makes a closed tab survivable from the History screen's side:
+   * the folder already has the progress file, but nothing on the server knew
+   * about a run until it ended. A failure here is logged and nothing else —
+   * the rows are still in the tab and still in the folder, and a run must not
+   * die because a convenience save did.
+   */
+  const queueCheckpoint = (runId: string, rows: MetadataRow[]) => {
+    const snapshot = [...rows]
+
+    checkpointChain.current = checkpointChain.current
+      .then(async () => {
+        await saveRunRows({ data: { runId, rows: JSON.stringify(snapshot) } })
+        await checkpointRun({
+          data: {
+            id: runId,
+            filesDone: snapshot.length,
+            fallbacks: snapshot.filter((row) => row.fallback).length,
+          },
+        })
+        await updatePendingProgress(snapshot.length)
+      })
+      .catch((error: unknown) => {
+        console.warn('[stockflow] checkpoint not saved:', error)
+      })
+  }
+
   const run = async () => {
     if (!selected) return
 
@@ -171,20 +238,80 @@ function MetadataTool() {
       const spendingIds = ids.slice(0, inPlay)
       const options = { ...toRunOptions(settings, spending.length), deferExport: true }
 
-      const { id: runId } = await startRun({
-        data: {
-          platform: options.platform,
-          model: options.model,
-          folderName: selected.source.folderName,
-          sourceMode: selected.writable ? 'folder' : 'files',
-          filesTotal: entries.length,
-        },
-      })
+      /*
+       * A folder we already have an unfinished run for keeps that run's history
+       * row: continuing is the same piece of work, and two rows for it would
+       * make the History screen lie about how many runs a person did.
+       */
+      const carried =
+        pending &&
+        pending.folderName === selected.source.folderName &&
+        pending.platform === options.platform
+          ? pending
+          : null
 
-      const result = await start(selected.source, spending, options, selected.video)
+      let runId = ''
+      if (carried) {
+        // `ok: false` means the row is gone — pruned, or a different account.
+        const { ok } = await checkpointRun({
+          data: { id: carried.runId, filesTotal: entries.length },
+        })
+        if (ok) runId = carried.runId
+      }
+      if (!runId) {
+        runId = (
+          await startRun({
+            data: {
+              platform: options.platform,
+              model: options.model,
+              folderName: selected.source.folderName,
+              sourceMode: selected.writable ? 'folder' : 'files',
+              filesTotal: entries.length,
+            },
+          })
+        ).id
+      }
+
+      /*
+       * Only a real folder can be reopened: loose files have no handle, and
+       * without one there is nothing to come back to.
+       */
+      if (selected.directory) {
+        await savePendingRun({
+          runId,
+          folderName: selected.source.folderName,
+          platform: options.platform,
+          directory: selected.directory,
+          filesTotal: entries.length,
+          filesDone: carried?.filesDone ?? 0,
+        })
+        setPending(await loadPendingRun())
+      }
+
+      lastCheckpoint.current = 0
+      const result = await start(
+        selected.source,
+        spending,
+        options,
+        selected.video,
+        (rows) => {
+          // The first file goes up on its own: a run that dies at file three
+          // should still read as `partial` in History rather than as a run
+          // that never started.
+          const due =
+            rows.length === 1 || rows.length - lastCheckpoint.current >= CHECKPOINT_EVERY
+          if (!due) return
+          lastCheckpoint.current = rows.length
+          queueCheckpoint(runId, rows)
+        },
+      )
 
       setRows(result?.rows ?? [])
       setExported(null)
+
+      // Anything still in flight has to land before the closing numbers, or a
+      // slow checkpoint overwrites them a moment later.
+      await checkpointChain.current
 
       await finishRun({
         data: {
@@ -195,6 +322,19 @@ function MetadataTool() {
         },
       })
       if (spendingIds.length > 0) await markKeysUsed({ data: { ids: spendingIds } })
+
+      /*
+       * A finished run has nothing left to resume — and the CSV step is about
+       * to delete the progress file anyway. Anything else keeps its folder, so
+       * the card is there on the next visit.
+       */
+      if (result?.status === 'complete') {
+        await clearPendingRun()
+        setPending(null)
+      } else if (selected.directory) {
+        await updatePendingProgress(result?.rows.length ?? 0)
+        setPending(await loadPendingRun())
+      }
 
       /**
        * Keep the result so History can reopen it for a week.
@@ -272,6 +412,43 @@ function MetadataTool() {
     if (selected) setSelected({ ...selected })
   }
 
+  /**
+   * Back into the folder of a run that did not finish.
+   *
+   * The permission call has to happen inside this click — a handle restored
+   * from IndexedDB comes back revoked, and `requestPermission` is only allowed
+   * to answer during a gesture. Everything after it is the ordinary path: the
+   * scan finds the progress file, and the run skips what is already in it.
+   */
+  const resume = async () => {
+    if (!pending) return
+
+    if (!(await regrantWrite(pending.directory))) {
+      toast.error(m.tool.resumeDenied)
+      return
+    }
+
+    updateSettings({ ...settings, platform: pending.platform })
+    autoRun.current = true
+    setSelected(directorySource(pending.directory))
+  }
+
+  const forgetPending = async () => {
+    await clearPendingRun()
+    setPending(null)
+  }
+
+  // The second half of `resume`: the scan is asynchronous, so the run can only
+  // start once there is something to run on.
+  useEffect(() => {
+    if (!autoRun.current || scanning || !selected || entries.length === 0) return
+    autoRun.current = false
+    void run()
+    // `run` is deliberately not a dependency: it closes over settings that
+    // change every render, and re-running this effect is exactly what must
+    // not happen twice.
+  }, [selected, entries, scanning])
+
   const percent = state.total > 0 ? Math.round((state.done / state.total) * 100) : 0
 
   return (
@@ -322,11 +499,39 @@ function MetadataTool() {
       ) : (
         <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
           <div className="space-y-6">
+            {pending && !selected ? (
+              <section className="border-primary/50 bg-accent/20 space-y-3 border p-4">
+                <p className="eyebrow text-primary">{m.tool.resumeTitle}</p>
+                <p className="max-w-2xl text-sm text-pretty">
+                  {m.tool.resumeBody(
+                    pending.folderName,
+                    pending.filesDone,
+                    pending.filesTotal,
+                  )}
+                </p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button onClick={() => void resume()} className="eyebrow">
+                    <Play className="size-4" />
+                    {m.tool.resumeAction}
+                  </Button>
+                  <Button variant="ghost" onClick={() => void forgetPending()}>
+                    {m.tool.resumeDismiss}
+                  </Button>
+                </div>
+              </section>
+            ) : null}
+
             <section className="space-y-3">
               <p className="eyebrow text-muted-foreground">{m.tool.step1}</p>
               <MediaPicker
                 selected={selected}
-                onSelect={setSelected}
+                // Choosing a folder by hand cancels a resume that never got
+                // off the ground: an auto-start left armed would spend quota
+                // on a folder nobody pressed Run for.
+                onSelect={(next) => {
+                  autoRun.current = false
+                  setSelected(next)
+                }}
                 disabled={running}
               />
 
@@ -441,6 +646,12 @@ function MetadataTool() {
                   </Button>
                 ) : null}
               </div>
+
+              {running ? (
+                <p className="text-muted-foreground text-xs text-pretty">
+                  {m.tool.runningNote}
+                </p>
+              ) : null}
 
               {!ready && !running ? (
                 <p className="text-muted-foreground font-mono text-xs">

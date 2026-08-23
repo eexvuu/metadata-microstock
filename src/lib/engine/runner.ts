@@ -257,6 +257,7 @@ export async function runFolder(deps: RunnerDeps): Promise<RunResult> {
     .map((entry) => ({ entry, triedKeys: new Set<number>() }))
 
   if (rows.length > 0) {
+    emit({ type: 'resumed', rows: [...rows], total })
     emit({
       type: 'log',
       level: 'info',
@@ -305,11 +306,21 @@ export async function runFolder(deps: RunnerDeps): Promise<RunResult> {
           await saveProgress()
         })
       } catch (error) {
+        if (signal?.aborted) {
+          // `takeTaskFor` spliced this task out of the queue. Put it back
+          // before unwinding: a Stop pressed while the last files are in
+          // flight would otherwise leave an empty queue, which reads as a
+          // finished run — and a finished run writes a CSV missing exactly
+          // those files and deletes the progress file that could have
+          // recovered them.
+          queue.push(task)
+          return
+        }
+
         const message = withoutModelNames(
           error instanceof Error ? error.message : String(error),
           options,
         )
-        if (signal?.aborted) return
 
         if (isQuotaExceededError(error)) {
           // A 429 says nothing about the file, so it goes back untouched and

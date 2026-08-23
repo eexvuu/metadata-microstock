@@ -2,6 +2,7 @@ import type { MediaEntry } from '#/lib/engine/types'
 import { mimeTypeOf } from '#/lib/engine/media'
 import { browserImagePreprocessor } from '#/lib/image/browser'
 import type { FileSource } from '#/lib/sources/types'
+import { THUMBNAILS, transact } from './idb'
 
 /**
  * Contact-sheet thumbnails for a finished run, kept in the browser.
@@ -18,10 +19,6 @@ import type { FileSource } from '#/lib/sources/types'
  * the rows, the edits and the CSV all come from the server.
  */
 
-const DB_NAME = 'stockflow'
-const DB_VERSION = 1
-const STORE = 'run-thumbnails'
-
 /** Long enough to recognise the shot, small enough that 500 of them fit. */
 const MAX_EDGE = 320
 const QUALITY = 0.72
@@ -33,35 +30,10 @@ interface ThumbnailRecord {
   blobs: Record<string, Blob>
 }
 
-function openDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION)
-    request.onupgradeneeded = () => {
-      const db = request.result
-      if (!db.objectStoreNames.contains(STORE)) {
-        db.createObjectStore(STORE, { keyPath: 'runId' })
-      }
-    }
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error)
-  })
-}
-
-function transact<T>(
+const store = <T,>(
   mode: IDBTransactionMode,
   work: (store: IDBObjectStore) => IDBRequest<T>,
-): Promise<T> {
-  return openDb().then(
-    (db) =>
-      new Promise<T>((resolve, reject) => {
-        const tx = db.transaction(STORE, mode)
-        const request = work(tx.objectStore(STORE))
-        request.onsuccess = () => resolve(request.result)
-        request.onerror = () => reject(request.error)
-        tx.oncomplete = () => db.close()
-      }),
-  )
-}
+) => transact<T>(THUMBNAILS, mode, work)
 
 export async function saveThumbnails(
   runId: string,
@@ -70,14 +42,14 @@ export async function saveThumbnails(
 ): Promise<void> {
   if (Object.keys(blobs).length === 0) return
   const record: ThumbnailRecord = { runId, expiresAt, blobs }
-  await transact('readwrite', (store) => store.put(record))
+  await store('readwrite', (records) => records.put(record))
 }
 
 export async function loadThumbnails(
   runId: string,
 ): Promise<Record<string, Blob> | null> {
-  const record = await transact<ThumbnailRecord | undefined>('readonly', (store) =>
-    store.get(runId),
+  const record = await store<ThumbnailRecord | undefined>('readonly', (records) =>
+    records.get(runId),
   )
   if (!record) return null
   // A record that outlived its run is treated as absent rather than deleted
@@ -91,8 +63,8 @@ export async function loadThumbnails(
  * Called from the history screen, which is the only place that knows both.
  */
 export async function purgeThumbnails(liveRunIds: string[]): Promise<void> {
-  const records = await transact<ThumbnailRecord[]>('readonly', (store) =>
-    store.getAll(),
+  const records = await store<ThumbnailRecord[]>('readonly', (records) =>
+    records.getAll(),
   )
   const live = new Set(liveRunIds)
   const now = Date.now()
@@ -101,7 +73,7 @@ export async function purgeThumbnails(liveRunIds: string[]): Promise<void> {
   )
 
   for (const record of dead) {
-    await transact('readwrite', (store) => store.delete(record.runId))
+    await store('readwrite', (records) => records.delete(record.runId))
   }
 }
 

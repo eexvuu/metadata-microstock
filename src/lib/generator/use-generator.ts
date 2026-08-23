@@ -101,6 +101,12 @@ export function useGenerator() {
       keys: string[],
       options: RunOptions,
       video: VideoPreprocessor,
+      /**
+       * Called with every row the run holds so far, recovered rows included,
+       * after each file. The caller decides how often that is worth a request —
+       * this only guarantees the array is complete every time it fires.
+       */
+      onProgress?: (rows: MetadataRow[]) => void,
     ): Promise<RunOutcome> => {
       if (keys.length === 0) {
         setState({
@@ -113,6 +119,9 @@ export function useGenerator() {
 
       const controller = new AbortController()
       abortRef.current = controller
+      // React state is batched and read back a render later; a checkpoint
+      // needs the rows as they are now, so the tally lives here too.
+      const collected: MetadataRow[] = []
       setState({
         ...INITIAL,
         status: 'running',
@@ -132,6 +141,18 @@ export function useGenerator() {
         switch (event.type) {
           case 'log':
             append(event.level, event.message)
+            break
+          case 'resumed':
+            // These never fire `file-done`, so without this the screen and
+            // every checkpoint would count the second half of a run as if it
+            // were the whole of it.
+            collected.push(...event.rows)
+            setState((previous) => ({
+              ...previous,
+              rows: [...event.rows],
+              done: event.rows.length,
+              total: event.total,
+            }))
             break
           case 'scanned':
             setState((previous) => ({ ...previous, total: event.total }))
@@ -162,6 +183,8 @@ export function useGenerator() {
             }))
             break
           case 'file-done':
+            collected.push(event.row)
+            onProgress?.(collected)
             setState((previous) => {
               const inFlight = { ...previous.inFlight }
               delete inFlight[event.keyIndex]

@@ -272,6 +272,16 @@ export const en = {
     continueRun: 'Continue the run',
     startOver: 'Start over',
 
+    resumeTitle: 'An unfinished run',
+    resumeBody: (folder: string, done: number, total: number) =>
+      `${done} of ${total} files in ${folder} were done before this tab closed. Continue and the finished ones are skipped — no key pays for the same file twice.`,
+    resumeAction: 'Continue in that folder',
+    resumeDismiss: 'Forget it',
+    resumeDenied:
+      'Without permission for that folder there is nothing to read. Choose it again below and the run picks up where it stopped.',
+    runningNote:
+      'Keep this tab open — the model is being called from here. Close it and everything finished so far is kept, in the folder and in History.',
+
     scanning: 'reading the folder…',
     counts: (files: number, images: number, videos: number) =>
       `${files} file${files === 1 ? '' : 's'} · ${images} images · ${videos} videos`,

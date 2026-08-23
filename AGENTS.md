@@ -272,6 +272,34 @@ can never point at something that is not there.
 
 **A partial run writes no CSV and renames nothing.** Half a CSV is worse than
 none, and renaming before the run finishes desyncs the progress file from disk.
+An aborted file counts as remaining: `runner.ts` pushes the in-flight task back
+onto the queue before it unwinds, because a Stop pressed while the last files
+are in flight would otherwise leave an empty queue — which reads as a finished
+run, and a finished run exports a CSV missing exactly those files and deletes
+the progress file that could have recovered them.
+
+**Closing the tab stops a run, and that is the deal.** The engine is in the
+browser, so nothing can keep calling the model once the tab is gone. What is
+guaranteed instead is that stopping costs one file, never a run — three things
+hold it up, and all three are load-bearing:
+
+1. `.metadata-progress.json` in the folder, written after every file, is what a
+   second run reads to skip what is already done (2026-08-23).
+2. `pending-run` in IndexedDB (`src/lib/generator/resume.ts`) keeps the
+   directory *handle*, so the way back to the folder is a button rather than a
+   memory test. The handle comes back revoked and `requestPermission` only
+   answers inside a gesture — which is why resuming is a click and never
+   something the page does on load.
+3. `checkpointRun` + `saveRunRows` after the first file and then every
+   `CHECKPOINT_EVERY`, so History shows a run that died with its tab as
+   `partial` with honest counts and an openable result. Before this, such a run
+   sat at `running` with zero files forever. The first file goes up alone on
+   purpose: a run that dies at file three is still a run that happened.
+
+A resumed run reuses its `generation_run` row rather than starting a second
+one, and the runner's `resumed` event carries the recovered rows to anything
+keeping a tally — without it a checkpoint would post the second half of a run
+as though it were the whole of it.
 
 **The CSV is written by `exportRun`, not by the run.** The browser passes
 `deferExport: true`, edits the rows on the review screen and calls `exportRun`

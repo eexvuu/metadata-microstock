@@ -104,6 +104,50 @@ export const finishRun = createServerFn({ method: 'POST' })
   })
 
 /**
+ * Progress, written while the run is still going.
+ *
+ * A run used to reach the database exactly twice — `startRun` and `finishRun` —
+ * which meant a tab closed halfway left a row saying `running` with zero files
+ * done, forever, and History had nothing to show for work that really happened.
+ * This is the heartbeat in between: it moves the counts and parks the status at
+ * `partial`, which is the true statement at every moment until the last file.
+ * `finishRun` still has the last word.
+ *
+ * Deliberately not `finishedAt`: a checkpoint is not an ending, and a run that
+ * dies with the tab should read as unfinished rather than as finished early.
+ *
+ * `ok: false` means the id is not this user's or no longer exists — the caller
+ * starts a fresh run rather than writing into nothing.
+ */
+export const checkpointRun = createServerFn({ method: 'POST' })
+  .inputValidator(
+    z.object({
+      id: z.string(),
+      filesDone: z.number().int().min(0).max(100000).optional(),
+      filesTotal: z.number().int().min(0).max(100000).optional(),
+      fallbacks: z.number().int().min(0).max(100000).optional(),
+    }),
+  )
+  .handler(async ({ data }): Promise<{ ok: boolean }> => {
+    const session = await requireSession()
+
+    const updated = await getDb()
+      .update(generationRun)
+      .set({
+        status: 'partial',
+        ...(data.filesDone === undefined ? {} : { filesDone: data.filesDone }),
+        // A resumed run reuses the row, and the folder may have gained or lost
+        // files since the first session.
+        ...(data.filesTotal === undefined ? {} : { filesTotal: data.filesTotal }),
+        ...(data.fallbacks === undefined ? {} : { fallbacks: data.fallbacks }),
+      })
+      .where(and(eq(generationRun.id, data.id), eq(generationRun.userId, session.user.id)))
+      .returning({ id: generationRun.id })
+
+    return { ok: updated.length > 0 }
+  })
+
+/**
  * The one number on the public landing page.
  *
  * Deliberately unauthenticated and deliberately two integers: how many runs

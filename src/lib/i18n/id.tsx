@@ -250,6 +250,16 @@ export const id: Messages = {
     continueRun: 'Lanjutkan run',
     startOver: 'Mulai ulang',
 
+    resumeTitle: 'Ada run yang belum selesai',
+    resumeBody: (folder: string, done: number, total: number) =>
+      `${done} dari ${total} berkas di ${folder} sudah beres sebelum tab ini ditutup. Lanjutkan dan yang sudah jadi dilewati — tidak ada kunci yang membayar berkas yang sama dua kali.`,
+    resumeAction: 'Lanjutkan di folder itu',
+    resumeDismiss: 'Lupakan',
+    resumeDenied:
+      'Tanpa izin ke folder itu tidak ada yang bisa dibaca. Pilih lagi folder yang sama di bawah, run akan lanjut dari tempat berhentinya.',
+    runningNote:
+      'Biarkan tab ini terbuka — model dipanggil dari sini. Kalau ditutup, semua yang sudah selesai tetap tersimpan: di folder Anda dan di Riwayat.',
+
     scanning: 'membaca folder…',
     counts: (files: number, images: number, videos: number) =>
       `${files} berkas · ${images} gambar · ${videos} video`,
