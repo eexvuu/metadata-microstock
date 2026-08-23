@@ -19,7 +19,14 @@ import { requireSession } from '#/lib/server/session'
  * than `getDecryptedKeys` to its own owner.
  */
 
-const MAX_KEYS_PER_USER = 20
+/**
+ * Contributors hoard keys for daily quota, not for speed — the worker pool
+ * caps at 8 whatever you paste in, so key eleven buys you more requests per
+ * day and not a faster run. A hundred is generous enough that nobody sensible
+ * meets it and small enough that one account cannot turn this table into a
+ * list of somebody else credentials.
+ */
+const MAX_KEYS_PER_USER = 100
 
 export interface KeySummary {
   id: string
@@ -86,76 +93,192 @@ const addSchema = z.object({
   keys: z.string().min(1),
 })
 
+export interface KeyPlan {
+  /** In paste order: deduped, new to this account, and inside the cap. */
+  accept: { key: string; preview: string }[]
+  /** Lines naming a key the account already holds. */
+  alreadyHeld: number
+  /** New keys the cap has no room for. */
+  overflow: number
+}
+
+/**
+ * What a paste should actually do, decided before anything is stored.
+ *
+ * Pulled out of the handler so it can be tested without a session, a database
+ * or a round trip to Google — `test/key-plan.ts` runs it.
+ *
+ * The ORDER is the whole fix. This used to compare the cap against the number
+ * of LINES pasted, before any of them had been checked against what the
+ * account already held. So re-pasting your own `gemini-key.txt` — the exact
+ * thing the dialog invites you to do — came back as "that would take you past
+ * 20 keys" even when every line in it was already stored and nothing would
+ * have been added at all.
+ */
+export function planKeyAdditions(
+  lines: string[],
+  heldPreviews: string[],
+  cap: number,
+): KeyPlan {
+  const seen = new Set<string>()
+  const unique: { key: string; preview: string }[] = []
+
+  for (const line of lines) {
+    const key = line.trim()
+    if (!key || key.startsWith('#') || key === 'your_api_key_here') continue
+
+    // Deduped on the WHOLE key, not on its preview. Every Gemini key starts
+    // `AIzaSy`, so a preview is really the last four characters doing the work
+    // — at a hundred keys the odds of two distinct ones colliding are around
+    // one in three hundred, which is far too likely for something that would
+    // silently drop a key the user pasted. The same list twice is the case
+    // this exists for, and it costs nothing to get right.
+    if (seen.has(key)) continue
+    seen.add(key)
+    unique.push({ key, preview: previewOf(key) })
+  }
+
+  /**
+   * Against what is already stored we can only compare previews: the keys
+   * themselves are encrypted and this runs before anything is decrypted. So a
+   * preview collision here reads as "already on this account" and quietly
+   * skips a key that is genuinely new. Rare, visible in the count it reports,
+   * and the fix is a hash column — worth doing before anyone routinely holds
+   * dozens, not worth a migration today.
+   */
+  const held = new Set(heldPreviews)
+  const fresh = unique.filter((entry) => !held.has(entry.preview))
+  const room = Math.max(cap - heldPreviews.length, 0)
+  const accept = fresh.slice(0, room)
+
+  return {
+    accept,
+    alreadyHeld: unique.length - fresh.length,
+    overflow: fresh.length - accept.length,
+  }
+}
+
+/**
+ * Verify in parallel, but not all at once.
+ *
+ * This used to be a sequential loop, which was invisible at a handful of keys
+ * and would have taken half a minute at a hundred — long enough for the request
+ * to die and for someone to reasonably conclude the feature was broken.
+ * Bounded, because pointing a hundred simultaneous requests at Google to prove
+ * you are a good citizen is its own kind of rude.
+ */
+const VERIFY_CONCURRENCY = 8
+
+async function verifyAll(
+  entries: { key: string; preview: string }[],
+): Promise<{ key: string; preview: string; failure: string | null }[]> {
+  const results: { key: string; preview: string; failure: string | null }[] = []
+  let next = 0
+
+  const worker = async () => {
+    while (next < entries.length) {
+      const entry = entries[next++]
+      results.push({ ...entry, failure: await verifyWithGoogle(entry.key) })
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(VERIFY_CONCURRENCY, entries.length) }, worker),
+  )
+
+  return results
+}
+
+/**
+ * Add whatever of that paste is actually new.
+ *
+ * The order matters and it was wrong before: the cap was checked against the
+ * number of LINES pasted, before anything had been compared with what the
+ * account already held. So re-pasting your own `gemini-key.txt` — the exact
+ * thing the dialog invites you to do — was refused outright as "past 20 keys"
+ * even when every line in it was already stored and nothing would have been
+ * added at all.
+ *
+ * Now: dedupe inside the paste, drop what is already held, and only then ask
+ * whether the remainder fits. What fits goes in; what does not is reported
+ * rather than turned into a reason to reject the rest.
+ */
 export const addGeminiKeys = createServerFn({ method: 'POST' })
   .inputValidator(addSchema)
   .handler(async ({ data }) => {
     const userId = await ownerId()
     const db = getDb()
 
-    const parsed = data.keys
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter((line) => line && !line.startsWith('#') && line !== 'your_api_key_here')
-
-    if (parsed.length === 0) return { added: 0, errors: ['No keys found in that text.'] }
-
     const existing = await db
       .select({ preview: geminiKey.preview })
       .from(geminiKey)
       .where(eq(geminiKey.userId, userId))
 
-    if (existing.length + parsed.length > MAX_KEYS_PER_USER) {
-      return {
-        added: 0,
-        errors: [`That would take you past ${MAX_KEYS_PER_USER} keys.`],
-      }
+    const {
+      accept: accepted,
+      alreadyHeld,
+      overflow,
+    } = planKeyAdditions(
+      data.keys.split(/\r?\n/),
+      existing.map((row) => row.preview),
+      MAX_KEYS_PER_USER,
+    )
+
+    if (accepted.length === 0 && alreadyHeld === 0 && overflow === 0) {
+      return { added: 0, errors: ['No keys found in that text.'] }
     }
 
-    const knownPreviews = new Set(existing.map((row) => row.preview))
     const errors: string[] = []
-    /** Previews only — the audit trail must never see a whole key. */
-    const recorded: { id: string; preview: string }[] = []
-    let added = 0
-
-    for (const [index, key] of parsed.entries()) {
-      const preview = previewOf(key)
-      if (knownPreviews.has(preview)) {
-        errors.push(`${preview} is already saved.`)
-        continue
-      }
-
-      const failure = await verifyWithGoogle(key)
-      if (failure) {
-        errors.push(`${preview}: ${failure}`)
-        continue
-      }
-
-      const id = crypto.randomUUID()
-      await db.insert(geminiKey).values({
-        id,
-        userId,
-        label: data.label?.trim() || `Key ${existing.length + added + 1}`,
-        ciphertext: await encryptSecret(key),
-        preview,
-        status: 'active',
-      })
-      knownPreviews.add(preview)
-      recorded.push({ id, preview })
-      added++
-      void index
+    if (alreadyHeld > 0) {
+      errors.push(
+        `${alreadyHeld} ${alreadyHeld === 1 ? 'key was' : 'keys were'} already on this account.`,
+      )
+    }
+    if (overflow > 0) {
+      errors.push(
+        `${overflow} more would take you past ${MAX_KEYS_PER_USER} keys — remove some first.`,
+      )
     }
 
-    await recordAudit(
-      userId,
-      recorded.map((entry) => ({
-        action: 'key.added' as const,
-        targetType: 'key' as const,
-        targetId: entry.id,
-        targetLabel: entry.preview,
+    if (accepted.length === 0) return { added: 0, errors }
+
+    const checked = await verifyAll(accepted)
+    const good = checked.filter((entry) => entry.failure === null)
+
+    for (const entry of checked) {
+      if (entry.failure) errors.push(`${entry.preview}: ${entry.failure}`)
+    }
+
+    if (good.length === 0) return { added: 0, errors }
+
+    /** Previews only — the audit trail must never see a whole key. */
+    const rows = await Promise.all(
+      good.map(async (entry, index) => ({
+        id: crypto.randomUUID(),
+        userId,
+        label: data.label?.trim() || `Key ${existing.length + index + 1}`,
+        ciphertext: await encryptSecret(entry.key),
+        preview: entry.preview,
+        status: 'active' as const,
       })),
     )
 
-    return { added, errors }
+    // One statement rather than one per key: a hundred round trips to SQLite
+    // for something the user experiences as a single action is a hundred
+    // chances to half-succeed.
+    await db.insert(geminiKey).values(rows)
+
+    await recordAudit(
+      userId,
+      rows.map((row) => ({
+        action: 'key.added' as const,
+        targetType: 'key' as const,
+        targetId: row.id,
+        targetLabel: row.preview,
+      })),
+    )
+
+    return { added: rows.length, errors }
   })
 
 export const setGeminiKeyStatus = createServerFn({ method: 'POST' })

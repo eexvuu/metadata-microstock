@@ -42,11 +42,14 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      # The gate. There is no test suite yet — the model's output is the thing
-      # under test and that needs a real folder and a real key — so this is
-      # what CI can honestly promise: it compiles, and it builds.
+      # The gate. Still no broad suite — what the model returns needs a real
+      # folder and a real key to test — but the paste rules are pure and were
+      # wrong in production, so those run here now.
       - name: Typecheck
         run: bun run typecheck
+
+      - name: Test the paste rules
+        run: bun test/key-plan.ts
 
       - name: Build
         run: bun run build

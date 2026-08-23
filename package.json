@@ -12,6 +12,7 @@
     "cron": "node dist/server/server.js --cron",
     "preview": "bun run build && bun run start",
     "typecheck": "tsc --noEmit",
+    "test": "bun test/key-plan.ts",
     "generate-routes": "tsr generate",
     "auth:generate": "better-auth generate --config auth.cli.ts --output src/db/auth-schema.ts --yes",
     "db:generate": "drizzle-kit generate",
