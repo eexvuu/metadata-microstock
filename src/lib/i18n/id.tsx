@@ -5,14 +5,13 @@ import type { Messages } from './en'
  *
  * Typed as `Messages`, so this file cannot drift from `en.tsx` — add a key
  * there and the build fails here until it is translated. The register is
- * "Anda" throughout, and product nouns stay as they are: Stockflow, Gemma,
+ * "Anda" throughout, and product nouns stay as they are: Stockflow,
  * Gemini, Adobe Stock, Shutterstock, CSV, BOM, run.
  */
 export const id: Messages = {
   nav: {
     overview: 'Ringkasan',
     tools: 'Perkakas',
-    history: 'Riwayat',
     catalog: 'Katalog',
     metadata: 'Metadata',
     monitoring: 'Pemantauan',
@@ -36,7 +35,7 @@ export const id: Messages = {
         <span className="text-primary font-mono">kunci Anda sendiri</span>.
       </>
     ),
-    stamp: 'Gemma · kunci Anda · komputer Anda',
+    stamp: 'Model Google · kunci Anda · komputer Anda',
   },
 
   landing: {
@@ -48,7 +47,7 @@ export const id: Messages = {
         sekali jalan.
       </>
     ),
-    lead: 'Stockflow adalah kumpulan perkakas untuk orang yang mengunggah ke microstock. Yang pertama menulis judul, 49 kata kunci dan kategori yang tepat untuk setiap gambar dan video dalam satu folder, langsung ke CSV yang diminta Adobe Stock dan Shutterstock — memakai model Gemma gratis dari Google dan kunci API Anda sendiri.',
+    lead: 'Stockflow adalah kumpulan perkakas untuk orang yang mengunggah ke microstock. Yang pertama menulis judul, 49 kata kunci dan kategori yang tepat untuk setiap gambar dan video dalam satu folder, langsung ke CSV yang diminta Adobe Stock dan Shutterstock — memakai model Google yang gratis dan kunci API Anda sendiri.',
     ctaPrimary: 'Buat akun gratis',
     ctaSecondary: 'Masuk',
     stats: [
@@ -133,16 +132,13 @@ export const id: Messages = {
   catalog: {
     index: 'Katalog',
     title: 'Perkakas Anda',
-    lead: 'Semua di sini berjalan dengan kunci Gemini Anda sendiri, di browser Anda sendiri. Perkakas metadata gratis dan akan selalu gratis — yang berbayar akan menyebutkannya di kartunya.',
+    lead: 'Satu akun, satu set kunci, dan ruang sendiri untuk tiap perkakas. Buka salah satu dan bekerjalah di dalamnya — run, riwayat dan pengaturannya tinggal di situ.',
     free: 'gratis',
     planned: 'direncanakan',
     metadataBody:
       'Judul, 49 kata kunci dan kategori yang tepat untuk satu folder penuh gambar dan video, ditulis ke CSV yang diminta Adobe Stock dan Shutterstock.',
-    statRuns: 'run',
-    statFiles: 'berkas',
-    statKeys: 'kunci',
-    open: 'Buka perkakas',
-    needKey: 'tambahkan kunci Gemini gratis di dalam perkakas',
+    open: 'Buka',
+    needKey: 'perlu kunci Gemini gratis',
     nextTitle: 'Perkakas berikutnya',
     nextBody: (
       <>
@@ -152,20 +148,22 @@ export const id: Messages = {
         bersama.
       </>
     ),
-    lastRun: 'Run terakhir',
-    fullHistory: 'Riwayat lengkap',
-    files: (done: number, total: number) => `${done}/${total} berkas`,
+    keysHeading: 'Kunci Anda',
+    keysNote: (active: number) =>
+      active === 0
+        ? 'Akun ini belum punya kunci Gemini. Semua perkakas di sini berjalan dengan kunci Anda sendiri — tambahkan satu di dalam perkakas dan berlaku untuk semuanya.'
+        : `${active} kunci aktif, dipakai bersama oleh semua perkakas di rak ini. Satu kunci kira-kira 15 permintaan per menit.`,
   },
 
   history: {
-    index: 'Akun',
+    index: 'Metadata',
     title: 'Riwayat',
     empty:
       'Belum ada — tambahkan kunci Gemini lalu arahkan perkakas metadata ke sebuah folder.',
     summary: (files: number, runs: number) =>
       `${files} berkas dari ${runs} run terakhir Anda, dilaporkan oleh browser yang mengerjakannya.`,
     noRuns: 'belum ada run tercatat',
-    openTool: 'Buka perkakas metadata',
+    openTool: 'Mulai satu run',
     columns: {
       folder: 'Folder',
       platform: 'Platform',
@@ -218,6 +216,9 @@ export const id: Messages = {
     keysButton: 'Kunci',
     keySummary: (keys: number, parallel: number) =>
       `${keys} kunci · ${parallel} paralel`,
+    keyCount: (keys: number) => `${keys} kunci di akun ini`,
+    tabGenerate: 'Buat',
+    tabHistory: 'Riwayat',
 
     step1: 'Langkah 1 · File Anda',
     step2: 'Langkah 2 · Tempat unggah',
@@ -256,6 +257,11 @@ export const id: Messages = {
 
     keysInRotation: 'Kunci yang dirotasi',
     manage: 'Kelola',
+    keysUsed: 'Dipakai bersamaan',
+    keysAll: (keys: number) => `semua ${keys} kunci`,
+    keysExactly: (keys: number) => `${keys} kunci`,
+    keysHeldBack: (held: number) =>
+      `${held} kunci tidak ikut run ini — kuotanya tidak tersentuh.`,
     rotationNote:
       'Tiap kunci bekerja sekitar 15 permintaan per menit. Kunci yang kena limit istirahat sebentar sementara yang lain lanjut, jadi makin banyak kunci makin cepat.',
 
@@ -362,8 +368,7 @@ export const id: Messages = {
     renameEvery: (extension: string) => `ubah semua baris jadi ${extension}`,
     writeCsv: 'Tulis CSV ke folder',
     downloadCsv: 'Unduh CSV',
-    fallbackNote: (model: string) =>
-      `fallback ${model} — tulis manual atau jalankan ulang`,
+    fallbackNote: 'model cadangan — tulis manual atau jalankan ulang',
     filenameInCsv: 'Nama berkas di CSV',
     onDisk: (name: string) => `di disk: ${name}`,
     titleLabel: 'Judul',
@@ -395,8 +400,8 @@ export const id: Messages = {
     keyCooldown: (index: number, consecutive: number) =>
       `Kunci ${index} kena limit (429) — istirahat 60 detik (${consecutive}/5)`,
     keyDead: (index: number) => `Kunci ${index} kuotanya habis untuk hari ini`,
-    modelFallback: (name: string, model: string) =>
-      `${name}: mencoba ulang dengan ${model}`,
+    modelFallback: (name: string) =>
+      `${name}: mencoba ulang dengan model cadangan`,
     partial: (done: number, total: number, remaining: number) =>
       `Run sebagian: ${done}/${total} selesai, ${remaining} tersisa. Belum ada CSV — jalankan lagi untuk melanjutkan.`,
     finished: (csvName: string, rows: number) =>

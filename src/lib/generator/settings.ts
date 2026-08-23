@@ -30,6 +30,13 @@ export interface StoredSettings {
   editorial: boolean
   mature: boolean
   illustration: 'auto' | 'yes' | 'no'
+  /**
+   * How many keys this run is allowed to spend at once. `0` means all of them,
+   * and it is the sentinel rather than the count because the count changes
+   * every time a key is added or deleted — a stored `4` would quietly stop
+   * meaning "all" the moment a fifth key arrived.
+   */
+  maxKeys: number
 }
 
 export const DEFAULT_SETTINGS: StoredSettings = {
@@ -37,6 +44,7 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   editorial: false,
   mature: false,
   illustration: 'auto',
+  maxKeys: 0,
 }
 
 /**
@@ -68,6 +76,18 @@ export function saveSettings(settings: StoredSettings): void {
 /** Worker count follows the keys: one per key, so rotation has somewhere to go. */
 export function workersFor(keyCount: number): number {
   return Math.max(1, Math.min(keyCount, MAX_WORKERS))
+}
+
+/**
+ * How many keys a run actually gets, clamped at the point of use.
+ *
+ * `maxKeys` is remembered on the machine and the account's key list is not, so
+ * a stored number can outlive the keys it was chosen for. Deciding here means
+ * every caller — the picker, the rail, the run — agrees on one answer.
+ */
+export function keysInPlay(settings: StoredSettings, available: number): number {
+  if (settings.maxKeys <= 0) return available
+  return Math.max(1, Math.min(settings.maxKeys, available))
 }
 
 export function toRunOptions(

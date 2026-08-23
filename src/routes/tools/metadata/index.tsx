@@ -1,6 +1,6 @@
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, getRouteApi } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { ArrowLeft, Check, KeyRound, Loader2, Play, RotateCcw, Square } from 'lucide-react'
+import { Check, Loader2, Play, RotateCcw, Square } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { KeyRail } from '#/components/generator/key-rail'
@@ -14,6 +14,14 @@ import { AdvancedOptions } from '#/components/generator/options-panel'
 import { ReviewEditor } from '#/components/generator/review-editor'
 import { RunLog } from '#/components/generator/run-log'
 import { Button } from '#/components/ui/button'
+import { Label } from '#/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '#/components/ui/select'
 import {
   SUPPORTED_EXTENSIONS,
   UNSUPPORTED_MEDIA_EXTENSIONS,
@@ -26,6 +34,7 @@ import type { MediaEntry, MetadataRow } from '#/lib/engine/types'
 import {
   DEFAULT_SETTINGS,
   clearLegacyKeyStorage,
+  keysInPlay,
   loadSettings,
   saveSettings,
   toRunOptions,
@@ -34,13 +43,15 @@ import {
 } from '#/lib/generator/settings'
 import { useGenerator } from '#/lib/generator/use-generator'
 import { useMessages } from '#/lib/i18n'
-import { getDecryptedKeys, listGeminiKeys, markKeysUsed } from '#/lib/server/gemini-keys'
+import { getDecryptedKeys, markKeysUsed } from '#/lib/server/gemini-keys'
 import { finishRun, saveRunRows, startRun } from '#/lib/server/runs'
 
-export const Route = createFileRoute('/tools/metadata')({
-  loader: () => listGeminiKeys(),
+export const Route = createFileRoute('/tools/metadata/')({
   component: MetadataTool,
 })
+
+/** The tool's shell holds the keys — both of its screens want the same list. */
+const shell = getRouteApi('/tools/metadata')
 
 /** The names belong to the platforms; what each wants is translated copy. */
 const PLATFORMS = [
@@ -54,7 +65,7 @@ const PLATFORMS = [
 
 function MetadataTool() {
   const m = useMessages()
-  const keys = Route.useLoaderData()
+  const keys = shell.useLoaderData()
   const [settings, setSettings] = useState<StoredSettings>(DEFAULT_SETTINGS)
   const [selected, setSelected] = useState<SelectedSource | null>(null)
   const [entries, setEntries] = useState<MediaEntry[]>([])
@@ -126,6 +137,7 @@ function MetadataTool() {
   }, [selected])
 
   const activeKeys = keys.filter((key) => key.status === 'active')
+  const keysUsed = keysInPlay(settings, activeKeys.length)
   const running = state.status === 'running'
   const profile = settings.platform === 'adobe' ? adobeProfile : shutterstockProfile
   // `selected` guards the render: clearing the drop empties it one render
@@ -150,8 +162,13 @@ function MetadataTool() {
     try {
       // Plaintext keys are fetched per run rather than held in component state,
       // so they live no longer than the run that needs them.
+      // Slice keys and ids together: `markKeysUsed` must only stamp the keys
+      // that actually spent quota, and the two lists are ordered the same way.
       const { keys: plaintext, ids } = await getDecryptedKeys()
-      const options = { ...toRunOptions(settings, plaintext.length), deferExport: true }
+      const inPlay = keysInPlay(settings, plaintext.length)
+      const spending = plaintext.slice(0, inPlay)
+      const spendingIds = ids.slice(0, inPlay)
+      const options = { ...toRunOptions(settings, spending.length), deferExport: true }
 
       const { id: runId } = await startRun({
         data: {
@@ -163,7 +180,7 @@ function MetadataTool() {
         },
       })
 
-      const result = await start(selected.source, plaintext, options, selected.video)
+      const result = await start(selected.source, spending, options, selected.video)
 
       setRows(result?.rows ?? [])
       setExported(null)
@@ -176,7 +193,7 @@ function MetadataTool() {
           status: result?.status ?? 'error',
         },
       })
-      if (ids.length > 0) await markKeysUsed({ data: { ids } })
+      if (spendingIds.length > 0) await markKeysUsed({ data: { ids: spendingIds } })
 
       /**
        * Keep the result so History can reopen it for a week.
@@ -211,7 +228,7 @@ function MetadataTool() {
         {
           source: selected.source,
           profile,
-          options: toRunOptions(settings, Math.max(activeKeys.length, 1)),
+          options: toRunOptions(settings, Math.max(keysUsed, 1)),
           emit: () => {},
           media: entries,
         },
@@ -245,43 +262,7 @@ function MetadataTool() {
   const percent = state.total > 0 ? Math.round((state.done / state.total) * 100) : 0
 
   return (
-    <div className="space-y-6">
-      <header className="border-(--line) flex flex-wrap items-center gap-x-6 gap-y-3 border-b pb-4">
-        <Link
-          to="/dashboard"
-          className="text-muted-foreground hover:text-foreground eyebrow inline-flex items-center gap-1.5"
-        >
-          <ArrowLeft className="size-3" />
-          {m.nav.tools}
-        </Link>
-
-        <div className="flex items-baseline gap-3">
-          <h1 className="font-display text-2xl leading-none font-medium tracking-tight">
-            {m.nav.metadata}
-          </h1>
-          <span className="border-primary/40 text-primary border px-1.5 py-0.5 font-mono text-[0.6rem] tracking-[0.1em] uppercase">
-            {m.catalog.free}
-          </span>
-        </div>
-
-        <div className="text-muted-foreground ml-auto flex flex-wrap items-center gap-x-5 gap-y-1 font-mono text-xs">
-          <span>
-            {m.tool.keySummary(
-              activeKeys.length,
-              workersFor(activeKeys.length),
-            )}
-          </span>
-          <KeysDialog keys={keys}>
-            <button
-              type="button"
-              className="hover:text-foreground inline-flex items-center gap-1.5 transition-colors"
-            >
-              <KeyRound className="size-3" />
-              {m.tool.keysButton}
-            </button>
-          </KeysDialog>
-        </div>
-      </header>
+    <>
 
       {reviewing ? (
         <>
@@ -494,10 +475,64 @@ function MetadataTool() {
                   <AddFirstKey keys={keys} />
                 ) : (
                   <>
-                    <KeyRail keys={activeKeys} live={state.keys} />
+                    {/*
+                      Every key is a separate daily quota, and a contributor
+                      often wants one run to leave some of it alone. All of them
+                      is the default because that is the fast answer; holding
+                      keys back is the deliberate one.
+                    */}
+                    <div className="flex items-center gap-3">
+                      <Label
+                        htmlFor="keys-at-once"
+                        className="text-muted-foreground shrink-0"
+                      >
+                        {m.tool.keysUsed}
+                      </Label>
+                      <Select
+                        // A stored count can outlive the keys it was chosen
+                        // for. The run already falls back to all of them; show
+                        // that rather than an empty box.
+                        value={String(
+                          settings.maxKeys > activeKeys.length ? 0 : settings.maxKeys,
+                        )}
+                        disabled={running}
+                        onValueChange={(value) =>
+                          updateSettings({ ...settings, maxKeys: Number(value) })
+                        }
+                      >
+                        <SelectTrigger id="keys-at-once" className="h-8 flex-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0">
+                            {m.tool.keysAll(activeKeys.length)}
+                          </SelectItem>
+                          {Array.from(
+                            { length: activeKeys.length },
+                            (_, index) => index + 1,
+                          ).map((count) => (
+                            <SelectItem key={count} value={String(count)}>
+                              {m.tool.keysExactly(count)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <KeyRail
+                      keys={activeKeys.slice(0, keysUsed)}
+                      live={state.keys}
+                    />
                     <p className="text-muted-foreground text-xs text-pretty">
+                      {m.tool.keySummary(keysUsed, workersFor(keysUsed))}
+                      {' · '}
                       {m.tool.rotationNote}
                     </p>
+                    {keysUsed < activeKeys.length ? (
+                      <p className="text-primary font-mono text-xs text-pretty">
+                        {m.tool.keysHeldBack(activeKeys.length - keysUsed)}
+                      </p>
+                    ) : null}
                   </>
                 )}
               </div>
@@ -505,7 +540,7 @@ function MetadataTool() {
           </div>
         </div>
       )}
-    </div>
+    </>
   )
 }
 

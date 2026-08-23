@@ -78,7 +78,7 @@ export type EngineEvent =
   | { type: 'file-failed'; name: string; message: string; requeued: boolean }
   | { type: 'key-cooldown'; keyIndex: number; untilMs: number; consecutive429s: number }
   | { type: 'key-dead'; keyIndex: number }
-  | { type: 'model-fallback'; name: string; model: string }
+  | { type: 'model-fallback'; name: string }
   | { type: 'stats'; perKey: { requests: number; dead: boolean }[] }
   | { type: 'partial'; done: number; total: number; remaining: number }
   | { type: 'finished'; csvName: string; rows: number }

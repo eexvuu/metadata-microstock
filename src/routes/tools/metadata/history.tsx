@@ -26,7 +26,7 @@ import { listRuns } from '#/lib/server/runs'
  * not, rather than a dead column: seven days is short enough that someone will
  * meet the edge, and "expired" is a better answer than an empty cell.
  */
-export const Route = createFileRoute('/dashboard/history')({
+export const Route = createFileRoute('/tools/metadata/history')({
   loader: () => listRuns(),
   component: HistoryPage,
 })
@@ -113,7 +113,7 @@ function HistoryPage() {
                   <TableCell className="text-right">
                     {run.resultExpiresAt ? (
                       <Link
-                        to="/dashboard/history/$runId"
+                        to="/tools/metadata/history/$runId"
                         params={{ runId: run.id }}
                         className="text-primary eyebrow hover:underline"
                       >

@@ -18,10 +18,14 @@ import { Skeleton } from '#/components/ui/skeleton'
 import { signOut, useSession } from '#/lib/auth-client'
 import { useMessages } from '#/lib/i18n'
 
+/**
+ * Site-wide chrome names no single tool. A tool's own screens — its runs, its
+ * history — live behind its card on the shelf, so that this nav still fits
+ * when the shelf holds six of them.
+ */
 const NAV = [
   { to: '/', key: 'overview' },
   { to: '/dashboard', key: 'tools' },
-  { to: '/dashboard/history', key: 'history' },
 ] as const
 
 const NAV_LINK =

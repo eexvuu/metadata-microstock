@@ -134,7 +134,7 @@ async function generateWithKey(
     emit({
       type: 'log',
       level: 'info',
-      message: `Extracted JSON from a verbose Gemma response for ${entry.name}`,
+      message: `Extracted JSON from a verbose model response for ${entry.name}`,
     })
   }
   if (outcome.parseFailed) {
@@ -163,6 +163,22 @@ async function generateWithKey(
 }
 
 /**
+ * Google's errors quote the model id back at you ("models/x-y-z is not
+ * found"), and that id is the one thing the run log is not supposed to say —
+ * which model writes the keywords is nobody's decision to make, so putting a
+ * name in front of someone invites them to ask for a different one. The text
+ * is otherwise the API's own, because that is what makes a failed file
+ * diagnosable.
+ */
+function withoutModelNames(message: string, options: RunOptions): string {
+  let clean = message
+  for (const name of [options.model, options.fallbackModel]) {
+    if (name) clean = clean.split(name).join('the model')
+  }
+  return clean
+}
+
+/**
  * The model fallback: Gemma is free and usually right, but it does refuse some
  * files outright. Rather than write an unusable row, ask the fallback family
  * once. A failure here is not interesting on its own — the caller already has
@@ -179,7 +195,7 @@ async function tryFallbackModel(
   if (!fallback || fallback === options.model) return null
   if (signal?.aborted || keys.clients[keyIndex].quotaExceeded) return null
 
-  emit({ type: 'model-fallback', name: entry.name, model: fallback })
+  emit({ type: 'model-fallback', name: entry.name })
 
   try {
     return await generateWithKey(deps, entry, keyIndex, fallback)
@@ -187,7 +203,10 @@ async function tryFallbackModel(
     emit({
       type: 'log',
       level: 'warn',
-      message: `${fallback} could not do ${entry.name} either: ${error instanceof Error ? error.message : String(error)}`,
+      message: withoutModelNames(
+        `The backup model could not do ${entry.name} either: ${error instanceof Error ? error.message : String(error)}`,
+        options,
+      ),
     })
     return null
   }
@@ -286,7 +305,10 @@ export async function runFolder(deps: RunnerDeps): Promise<RunResult> {
           await saveProgress()
         })
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
+        const message = withoutModelNames(
+          error instanceof Error ? error.message : String(error),
+          options,
+        )
         if (signal?.aborted) return
 
         if (isQuotaExceededError(error)) {

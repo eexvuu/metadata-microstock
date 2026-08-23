@@ -17,7 +17,6 @@ export const en = {
   nav: {
     overview: 'Overview',
     tools: 'Tools',
-    history: 'History',
     catalog: 'Catalog',
     metadata: 'Metadata',
     monitoring: 'Monitoring',
@@ -41,7 +40,7 @@ export const en = {
         <span className="text-primary font-mono">your own keys</span>.
       </>
     ) as ReactNode,
-    stamp: 'Gemma · your keys · your machine',
+    stamp: "Google's model · your keys · your machine",
   },
 
   landing: {
@@ -53,7 +52,7 @@ export const en = {
         run.
       </>
     ) as ReactNode,
-    lead: "Stockflow is a shelf of tools for people who upload to microstock. The first one writes titles, 49 keywords and the right category for every image and video in a folder, straight into the CSV Adobe Stock and Shutterstock ask for — on Google's free Gemma model and your own API keys.",
+    lead: "Stockflow is a shelf of tools for people who upload to microstock. The first one writes titles, 49 keywords and the right category for every image and video in a folder, straight into the CSV Adobe Stock and Shutterstock ask for — on a free Google model and your own API keys.",
     ctaPrimary: 'Create a free account',
     ctaSecondary: 'Sign in',
     stats: [
@@ -138,16 +137,13 @@ export const en = {
   catalog: {
     index: 'Catalog',
     title: 'Your tools',
-    lead: 'Everything here runs on your own Gemini keys, in your own browser. The metadata tool is free and always will be — anything paid will say so on its card.',
+    lead: 'One account, one set of keys, and a room of its own for every tool. Open one to work inside it — its runs, its history and its settings stay there.',
     free: 'free',
     planned: 'planned',
     metadataBody:
       'Titles, 49 keywords and the right category for a whole folder of images and videos, written into the CSV Adobe Stock and Shutterstock ask for.',
-    statRuns: 'runs',
-    statFiles: 'files',
-    statKeys: 'keys',
-    open: 'Open tool',
-    needKey: 'add a free Gemini key inside the tool',
+    open: 'Open',
+    needKey: 'needs a free Gemini key',
     nextTitle: 'The next tool',
     nextBody: (
       <>
@@ -156,20 +152,22 @@ export const en = {
         here — the account, the keys and the run history are already shared.
       </>
     ) as ReactNode,
-    lastRun: 'Last run',
-    fullHistory: 'Full history',
-    files: (done: number, total: number) => `${done}/${total} files`,
+    keysHeading: 'Your keys',
+    keysNote: (active: number) =>
+      active === 0
+        ? 'No Gemini key on this account yet. Every tool here runs on your own key — add one inside a tool and it counts for all of them.'
+        : `${active} active key${active === 1 ? '' : 's'}, shared by every tool on the shelf. Each one is worth about 15 requests a minute.`,
   },
 
   history: {
-    index: 'Account',
+    index: 'Metadata',
     title: 'History',
     empty:
       'Nothing yet — add a Gemini key and point the metadata tool at a folder.',
     summary: (files: number, runs: number) =>
       `${files} file${files === 1 ? '' : 's'} across your last ${runs} run${runs === 1 ? '' : 's'}, reported by the browser that did the work.`,
     noRuns: 'no runs recorded',
-    openTool: 'Open the metadata tool',
+    openTool: 'Start a run',
     columns: {
       folder: 'Folder',
       platform: 'Platform',
@@ -240,6 +238,10 @@ export const en = {
     keysButton: 'Keys',
     keySummary: (keys: number, parallel: number) =>
       `${keys} key${keys === 1 ? '' : 's'} · ${parallel} parallel`,
+    keyCount: (keys: number) =>
+      `${keys} key${keys === 1 ? '' : 's'} on this account`,
+    tabGenerate: 'Generate',
+    tabHistory: 'History',
 
     step1: 'Step 1 · Your media',
     step2: 'Step 2 · Where you upload',
@@ -278,6 +280,11 @@ export const en = {
 
     keysInRotation: 'Keys in rotation',
     manage: 'Manage',
+    keysUsed: 'Use at once',
+    keysAll: (keys: number) => `all ${keys} key${keys === 1 ? '' : 's'}`,
+    keysExactly: (keys: number) => `${keys} key${keys === 1 ? '' : 's'}`,
+    keysHeldBack: (held: number) =>
+      `${held} key${held === 1 ? '' : 's'} sitting this run out — that quota stays untouched.`,
     rotationNote:
       'Each key works at ~15 requests a minute. One that hits a limit cools down while the others carry on, so more keys is simply faster.',
 
@@ -385,8 +392,7 @@ export const en = {
     renameEvery: (extension: string) => `rename every row to ${extension}`,
     writeCsv: 'Write CSV to folder',
     downloadCsv: 'Download CSV',
-    fallbackNote: (model: string) =>
-      `${model} fallback — written by hand or re-run`,
+    fallbackNote: 'backup model — written by hand or re-run',
     filenameInCsv: 'Filename in the CSV',
     onDisk: (name: string) => `on disk: ${name}`,
     titleLabel: 'Title',
@@ -423,8 +429,7 @@ export const en = {
     keyCooldown: (index: number, consecutive: number) =>
       `Key ${index} rate-limited (429) — cooling down 60s (${consecutive}/5)`,
     keyDead: (index: number) => `Key ${index} is out of quota for today`,
-    modelFallback: (name: string, model: string) =>
-      `${name}: retrying on ${model}`,
+    modelFallback: (name: string) => `${name}: retrying on the backup model`,
     partial: (done: number, total: number, remaining: number) =>
       `Partial run: ${done}/${total} done, ${remaining} left. No CSV yet — re-run to resume.`,
     finished: (csvName: string, rows: number) =>

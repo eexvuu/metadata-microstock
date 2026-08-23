@@ -1,4 +1,4 @@
-import { createFileRoute, useSearch } from '@tanstack/react-router'
+import { createFileRoute, redirect, useSearch } from '@tanstack/react-router'
 import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -6,6 +6,7 @@ import { AuthShell } from '#/components/auth-shell'
 import { Button } from '#/components/ui/button'
 import { signIn } from '#/lib/auth-client'
 import { useMessages } from '#/lib/i18n'
+import { hasSession } from '#/lib/server/signed-in'
 
 /**
  * The only way in.
@@ -15,6 +16,13 @@ import { useMessages } from '#/lib/i18n'
  * page and `/signup` renders this one.
  */
 export const Route = createFileRoute('/login')({
+  /**
+   * Already signed in? There is nothing here for you — the button would only
+   * hand back the session you are holding. Straight to the shelf.
+   */
+  beforeLoad: async () => {
+    if (await hasSession()) throw redirect({ to: '/dashboard' })
+  },
   /**
    * `?error=` is where Better Auth lands a refused sign-in — see `onAPIError`
    * in src/lib/auth.ts. Validated rather than read raw, because it is a value

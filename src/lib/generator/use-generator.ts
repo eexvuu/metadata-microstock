@@ -197,7 +197,7 @@ export function useGenerator() {
             append('error', m.log.keyDead(event.keyIndex + 1))
             break
           case 'model-fallback':
-            append('warn', m.log.modelFallback(event.name, event.model))
+            append('warn', m.log.modelFallback(event.name))
             break
           case 'stats':
             setState((previous) => ({

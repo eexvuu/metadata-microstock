@@ -4,9 +4,8 @@ import { CONTAINER } from '#/components/shell'
 import { useMessages } from '#/lib/i18n'
 
 const LINKS = [
+  { to: '/', key: 'overview' },
   { to: '/dashboard', key: 'tools' },
-  { to: '/tools/metadata', key: 'metadata' },
-  { to: '/dashboard/history', key: 'history' },
 ] as const
 
 /** The colophon — printed small at the bottom of the sheet, like a lab stamp. */

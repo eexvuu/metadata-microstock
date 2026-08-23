@@ -25,8 +25,12 @@ const MAX_KEYWORDS: Record<RunOptions['platform'], number> = {
   shutterstock: 50,
 }
 
-/** What a contributor uploading vector art actually needs the CSV to say. */
-const EXTENSIONS = ['.eps', '.ai', '.jpg', '.png']
+/**
+ * What the CSV may have to say that the folder does not. Vector art is
+ * analysed as a JPEG and uploaded as .eps or .ai; a video is often delivered
+ * alongside the .mp4 or .avi the platform indexes. Nothing on disk moves.
+ */
+const EXTENSIONS = ['.eps', '.ai', '.svg', '.jpg', '.jpeg', '.png', '.mp4', '.avi']
 
 function swapExtension(filename: string, extension: string): string {
   const dot = filename.lastIndexOf('.')
@@ -206,7 +210,7 @@ export function ReviewEditor({
                 )}
                 {row.fallback ? (
                   <p className="text-destructive font-mono text-[0.6rem]">
-                    {m.review.fallbackNote(row.fallback)}
+                    {m.review.fallbackNote}
                   </p>
                 ) : null}
               </div>

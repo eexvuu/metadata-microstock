@@ -28,7 +28,7 @@ import { getRunRows, updateRunRows } from '#/lib/server/runs'
  * renders the history list again at the new URL — which is exactly what it did
  * before the rename. `history_.$runId` is a sibling instead.
  */
-export const Route = createFileRoute('/dashboard/history_/$runId')({
+export const Route = createFileRoute('/tools/metadata/history_/$runId')({
   loader: ({ params }) => getRunRows({ data: { runId: params.runId } }),
   component: SavedResultPage,
 })
@@ -65,7 +65,7 @@ function SavedResultPage() {
           {m.history.resultGoneBody}
         </PageHead>
         <Button asChild variant="outline" size="sm">
-          <Link to="/dashboard/history" className="eyebrow">
+          <Link to="/tools/metadata/history" className="eyebrow">
             <ArrowLeft className="size-3" />
             {m.history.backToHistory}
           </Link>
@@ -120,7 +120,7 @@ function SavedResultPage() {
     <div className="space-y-8">
       <div>
         <Link
-          to="/dashboard/history"
+          to="/tools/metadata/history"
           className="text-muted-foreground hover:text-foreground eyebrow inline-flex items-center gap-1.5"
         >
           <ArrowLeft className="size-3" />

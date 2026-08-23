@@ -1,5 +1,6 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
+import { hasSession } from '#/lib/server/signed-in'
 import { GoogleSignIn } from '#/routes/login'
 
 /**
@@ -11,5 +12,8 @@ import { GoogleSignIn } from '#/routes/login'
  * they were looking for.
  */
 export const Route = createFileRoute('/signup')({
+  beforeLoad: async () => {
+    if (await hasSession()) throw redirect({ to: '/dashboard' })
+  },
   component: GoogleSignIn,
 })

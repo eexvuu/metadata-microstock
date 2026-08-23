@@ -16,11 +16,12 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ToolsRouteRouteImport } from './routes/tools/route'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as DashboardResourceRouteImport } from './routes/dashboard/$resource'
-import { Route as DashboardHistoryRouteImport } from './routes/dashboard/history'
-import { Route as ToolsMetadataRouteImport } from './routes/tools/metadata'
+import { Route as ToolsMetadataRouteRouteImport } from './routes/tools/metadata/route'
 import { Route as DashboardAdminIndexRouteImport } from './routes/dashboard/admin/index'
-import { Route as DashboardHistoryRunIdRouteImport } from './routes/dashboard/history_.$runId'
+import { Route as ToolsMetadataIndexRouteImport } from './routes/tools/metadata/index'
+import { Route as ToolsMetadataHistoryRouteImport } from './routes/tools/metadata/history'
 import { Route as DashboardAdminUsersUserIdRouteImport } from './routes/dashboard/admin/users.$userId'
+import { Route as ToolsMetadataHistoryRunIdRouteImport } from './routes/tools/metadata/history_.$runId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -57,12 +58,7 @@ const DashboardResourceRoute = DashboardResourceRouteImport.update({
   path: '/$resource',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
-const DashboardHistoryRoute = DashboardHistoryRouteImport.update({
-  id: '/history',
-  path: '/history',
-  getParentRoute: () => DashboardRouteRoute,
-} as any)
-const ToolsMetadataRoute = ToolsMetadataRouteImport.update({
+const ToolsMetadataRouteRoute = ToolsMetadataRouteRouteImport.update({
   id: '/metadata',
   path: '/metadata',
   getParentRoute: () => ToolsRouteRoute,
@@ -72,16 +68,27 @@ const DashboardAdminIndexRoute = DashboardAdminIndexRouteImport.update({
   path: '/admin/',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
-const DashboardHistoryRunIdRoute = DashboardHistoryRunIdRouteImport.update({
-  id: '/history_/$runId',
-  path: '/history/$runId',
-  getParentRoute: () => DashboardRouteRoute,
+const ToolsMetadataIndexRoute = ToolsMetadataIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ToolsMetadataRouteRoute,
+} as any)
+const ToolsMetadataHistoryRoute = ToolsMetadataHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => ToolsMetadataRouteRoute,
 } as any)
 const DashboardAdminUsersUserIdRoute =
   DashboardAdminUsersUserIdRouteImport.update({
     id: '/admin/users/$userId',
     path: '/admin/users/$userId',
     getParentRoute: () => DashboardRouteRoute,
+  } as any)
+const ToolsMetadataHistoryRunIdRoute =
+  ToolsMetadataHistoryRunIdRouteImport.update({
+    id: '/history_/$runId',
+    path: '/history/$runId',
+    getParentRoute: () => ToolsMetadataRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -90,13 +97,14 @@ export interface FileRoutesByFullPath {
   '/tools': typeof ToolsRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/tools/metadata': typeof ToolsMetadataRouteRouteWithChildren
   '/dashboard/$resource': typeof DashboardResourceRoute
-  '/dashboard/history': typeof DashboardHistoryRoute
-  '/tools/metadata': typeof ToolsMetadataRoute
   '/dashboard/': typeof DashboardIndexRoute
-  '/dashboard/history/$runId': typeof DashboardHistoryRunIdRoute
+  '/tools/metadata/history': typeof ToolsMetadataHistoryRoute
   '/dashboard/admin/': typeof DashboardAdminIndexRoute
+  '/tools/metadata/': typeof ToolsMetadataIndexRoute
   '/dashboard/admin/users/$userId': typeof DashboardAdminUsersUserIdRoute
+  '/tools/metadata/history/$runId': typeof ToolsMetadataHistoryRunIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -104,12 +112,12 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/dashboard/$resource': typeof DashboardResourceRoute
-  '/dashboard/history': typeof DashboardHistoryRoute
-  '/tools/metadata': typeof ToolsMetadataRoute
   '/dashboard': typeof DashboardIndexRoute
-  '/dashboard/history/$runId': typeof DashboardHistoryRunIdRoute
+  '/tools/metadata/history': typeof ToolsMetadataHistoryRoute
   '/dashboard/admin': typeof DashboardAdminIndexRoute
+  '/tools/metadata': typeof ToolsMetadataIndexRoute
   '/dashboard/admin/users/$userId': typeof DashboardAdminUsersUserIdRoute
+  '/tools/metadata/history/$runId': typeof ToolsMetadataHistoryRunIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -118,13 +126,14 @@ export interface FileRoutesById {
   '/tools': typeof ToolsRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/tools/metadata': typeof ToolsMetadataRouteRouteWithChildren
   '/dashboard/$resource': typeof DashboardResourceRoute
-  '/dashboard/history': typeof DashboardHistoryRoute
-  '/tools/metadata': typeof ToolsMetadataRoute
   '/dashboard/': typeof DashboardIndexRoute
-  '/dashboard/history_/$runId': typeof DashboardHistoryRunIdRoute
+  '/tools/metadata/history': typeof ToolsMetadataHistoryRoute
   '/dashboard/admin/': typeof DashboardAdminIndexRoute
+  '/tools/metadata/': typeof ToolsMetadataIndexRoute
   '/dashboard/admin/users/$userId': typeof DashboardAdminUsersUserIdRoute
+  '/tools/metadata/history_/$runId': typeof ToolsMetadataHistoryRunIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -134,13 +143,14 @@ export interface FileRouteTypes {
     | '/tools'
     | '/login'
     | '/signup'
-    | '/dashboard/$resource'
-    | '/dashboard/history'
     | '/tools/metadata'
+    | '/dashboard/$resource'
     | '/dashboard/'
-    | '/dashboard/history/$runId'
+    | '/tools/metadata/history'
     | '/dashboard/admin/'
+    | '/tools/metadata/'
     | '/dashboard/admin/users/$userId'
+    | '/tools/metadata/history/$runId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -148,12 +158,12 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/dashboard/$resource'
-    | '/dashboard/history'
-    | '/tools/metadata'
     | '/dashboard'
-    | '/dashboard/history/$runId'
+    | '/tools/metadata/history'
     | '/dashboard/admin'
+    | '/tools/metadata'
     | '/dashboard/admin/users/$userId'
+    | '/tools/metadata/history/$runId'
   id:
     | '__root__'
     | '/'
@@ -161,13 +171,14 @@ export interface FileRouteTypes {
     | '/tools'
     | '/login'
     | '/signup'
-    | '/dashboard/$resource'
-    | '/dashboard/history'
     | '/tools/metadata'
+    | '/dashboard/$resource'
     | '/dashboard/'
-    | '/dashboard/history_/$runId'
+    | '/tools/metadata/history'
     | '/dashboard/admin/'
+    | '/tools/metadata/'
     | '/dashboard/admin/users/$userId'
+    | '/tools/metadata/history_/$runId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -229,18 +240,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardResourceRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
-    '/dashboard/history': {
-      id: '/dashboard/history'
-      path: '/history'
-      fullPath: '/dashboard/history'
-      preLoaderRoute: typeof DashboardHistoryRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
     '/tools/metadata': {
       id: '/tools/metadata'
       path: '/metadata'
       fullPath: '/tools/metadata'
-      preLoaderRoute: typeof ToolsMetadataRouteImport
+      preLoaderRoute: typeof ToolsMetadataRouteRouteImport
       parentRoute: typeof ToolsRouteRoute
     }
     '/dashboard/admin/': {
@@ -250,12 +254,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardAdminIndexRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
-    '/dashboard/history_/$runId': {
-      id: '/dashboard/history_/$runId'
-      path: '/history/$runId'
-      fullPath: '/dashboard/history/$runId'
-      preLoaderRoute: typeof DashboardHistoryRunIdRouteImport
-      parentRoute: typeof DashboardRouteRoute
+    '/tools/metadata/': {
+      id: '/tools/metadata/'
+      path: '/'
+      fullPath: '/tools/metadata/'
+      preLoaderRoute: typeof ToolsMetadataIndexRouteImport
+      parentRoute: typeof ToolsMetadataRouteRoute
+    }
+    '/tools/metadata/history': {
+      id: '/tools/metadata/history'
+      path: '/history'
+      fullPath: '/tools/metadata/history'
+      preLoaderRoute: typeof ToolsMetadataHistoryRouteImport
+      parentRoute: typeof ToolsMetadataRouteRoute
     }
     '/dashboard/admin/users/$userId': {
       id: '/dashboard/admin/users/$userId'
@@ -264,23 +275,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardAdminUsersUserIdRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/tools/metadata/history_/$runId': {
+      id: '/tools/metadata/history_/$runId'
+      path: '/history/$runId'
+      fullPath: '/tools/metadata/history/$runId'
+      preLoaderRoute: typeof ToolsMetadataHistoryRunIdRouteImport
+      parentRoute: typeof ToolsMetadataRouteRoute
+    }
   }
 }
 
 interface DashboardRouteRouteChildren {
   DashboardResourceRoute: typeof DashboardResourceRoute
-  DashboardHistoryRoute: typeof DashboardHistoryRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
-  DashboardHistoryRunIdRoute: typeof DashboardHistoryRunIdRoute
   DashboardAdminIndexRoute: typeof DashboardAdminIndexRoute
   DashboardAdminUsersUserIdRoute: typeof DashboardAdminUsersUserIdRoute
 }
 
 const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardResourceRoute: DashboardResourceRoute,
-  DashboardHistoryRoute: DashboardHistoryRoute,
   DashboardIndexRoute: DashboardIndexRoute,
-  DashboardHistoryRunIdRoute: DashboardHistoryRunIdRoute,
   DashboardAdminIndexRoute: DashboardAdminIndexRoute,
   DashboardAdminUsersUserIdRoute: DashboardAdminUsersUserIdRoute,
 }
@@ -289,12 +303,27 @@ const DashboardRouteRouteWithChildren = DashboardRouteRoute._addFileChildren(
   DashboardRouteRouteChildren,
 )
 
+interface ToolsMetadataRouteRouteChildren {
+  ToolsMetadataHistoryRoute: typeof ToolsMetadataHistoryRoute
+  ToolsMetadataIndexRoute: typeof ToolsMetadataIndexRoute
+  ToolsMetadataHistoryRunIdRoute: typeof ToolsMetadataHistoryRunIdRoute
+}
+
+const ToolsMetadataRouteRouteChildren: ToolsMetadataRouteRouteChildren = {
+  ToolsMetadataHistoryRoute: ToolsMetadataHistoryRoute,
+  ToolsMetadataIndexRoute: ToolsMetadataIndexRoute,
+  ToolsMetadataHistoryRunIdRoute: ToolsMetadataHistoryRunIdRoute,
+}
+
+const ToolsMetadataRouteRouteWithChildren =
+  ToolsMetadataRouteRoute._addFileChildren(ToolsMetadataRouteRouteChildren)
+
 interface ToolsRouteRouteChildren {
-  ToolsMetadataRoute: typeof ToolsMetadataRoute
+  ToolsMetadataRouteRoute: typeof ToolsMetadataRouteRouteWithChildren
 }
 
 const ToolsRouteRouteChildren: ToolsRouteRouteChildren = {
-  ToolsMetadataRoute: ToolsMetadataRoute,
+  ToolsMetadataRouteRoute: ToolsMetadataRouteRouteWithChildren,
 }
 
 const ToolsRouteRouteWithChildren = ToolsRouteRoute._addFileChildren(

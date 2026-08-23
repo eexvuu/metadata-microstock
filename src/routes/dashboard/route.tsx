@@ -1,5 +1,5 @@
 import { Link, Outlet, createFileRoute } from '@tanstack/react-router'
-import { Gauge, LayoutGrid, ShieldCheck, Sparkles } from 'lucide-react'
+import { LayoutGrid, ShieldCheck } from 'lucide-react'
 
 import { PanelIcon } from '#/components/panel/panel-icon'
 import { PanelSearch } from '#/components/panel/panel-search'
@@ -10,10 +10,14 @@ import { getPanelNav } from '#/lib/server/panel'
 /**
  * The dashboard shell.
  *
- * Sections run across the top rather than down a rail: with the tool on its
+ * Sections run across the top rather than down a rail: with every tool on its
  * own page there are only a handful of them, and a sidebar would inset this
  * content while `/tools/*` starts at the header's edge — the two would never
  * line up. Everything here shares `CONTAINER` with the header and the footer.
+ *
+ * No tool is linked from here. The dashboard is the shelf and the account; a
+ * tool's own screens hang off its own shell (`/tools/<name>`), so this nav
+ * does not grow a link every time a tool ships.
  *
  * The nav is server-driven: `getPanelNav` returns only the resources this
  * session's role may view, and every panel resource is admin-gated — so the
@@ -49,24 +53,6 @@ function DashboardLayout() {
           >
             <LayoutGrid className="mr-1.5 inline size-3.5" strokeWidth={1.5} />
             {m.nav.catalog}
-          </Link>
-
-          <Link
-            to="/tools/metadata"
-            activeProps={{ className: LINK_ACTIVE }}
-            className={LINK_CLASS}
-          >
-            <Sparkles className="mr-1.5 inline size-3.5" strokeWidth={1.5} />
-            {m.nav.metadata}
-          </Link>
-
-          <Link
-            to="/dashboard/history"
-            activeProps={{ className: LINK_ACTIVE }}
-            className={LINK_CLASS}
-          >
-            <Gauge className="mr-1.5 inline size-3.5" strokeWidth={1.5} />
-            {m.nav.history}
           </Link>
 
           {isAdmin ? (
