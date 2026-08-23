@@ -149,7 +149,8 @@ export const en = {
       <>
         This shelf is built to hold more than one thing. A new tool is a folder
         under <code className="font-mono text-xs">src/lib/</code> and a card
-        here — the account, the keys and the run history are already shared.
+        here — the account and the keys are already shared. Its runs and its
+        history stay in its own room.
       </>
     ) as ReactNode,
     keysHeading: 'Your keys',

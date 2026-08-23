@@ -144,8 +144,8 @@ export const id: Messages = {
       <>
         Rak ini dibuat untuk menampung lebih dari satu hal. Perkakas baru berarti
         satu folder di bawah <code className="font-mono text-xs">src/lib/</code>{' '}
-        dan satu kartu di sini — akun, kunci dan riwayat run-nya sudah dipakai
-        bersama.
+        dan satu kartu di sini — akun dan kuncinya sudah dipakai bersama. Run dan
+        riwayatnya tinggal di ruangnya sendiri.
       </>
     ),
     keysHeading: 'Kunci Anda',
