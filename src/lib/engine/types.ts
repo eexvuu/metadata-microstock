@@ -36,6 +36,15 @@ export interface MetadataRow {
   processedAt: string
   /** Set when the row is a fallback rather than a real model answer. */
   fallback?: 'parse' | 'error'
+  /**
+   * Which model actually answered for this file.
+   *
+   * Per row, not per run: with the ladder a key can demote halfway through, so
+   * two files in the same run can come from different models. Recorded for the
+   * admin screen — the CSV never carries it, and the contributor's own screens
+   * do not show it (see `withoutModelNames` for why).
+   */
+  model?: string
 }
 
 export interface PromptContext {

@@ -17,6 +17,13 @@ export interface ProgressRecord {
   categories?: string
   illustration?: string
   processed_at: string
+  /**
+   * Additive, and the one field here the CLI does not write. `gemma/index.js`
+   * ignores keys it does not know, so a progress file still moves between the
+   * terminal and the browser — a run resumed from a CLI file simply has no
+   * model recorded for the rows the terminal produced.
+   */
+  model?: string
 }
 
 export function toProgressRecord(row: MetadataRow, platform: RunOptions['platform']): ProgressRecord {
@@ -27,6 +34,7 @@ export function toProgressRecord(row: MetadataRow, platform: RunOptions['platfor
     filepath: row.sourceName,
     keywords: row.keywords,
     processed_at: row.processedAt,
+    model: row.model,
   }
 
   if (platform === 'shutterstock') {
@@ -54,5 +62,6 @@ export function fromProgressRecord(
       platform === 'shutterstock' ? (record.categories ?? '') : (record.category ?? '1'),
     illustration: record.illustration,
     processedAt: record.processed_at,
+    model: record.model,
   }
 }

@@ -81,6 +81,9 @@ async function generateWithKey(
   const { keys, profile, options, emit, source, video, image, signal } = deps
   const ctx = contextFor(entry)
   const prompt = profile.buildPrompt(ctx)
+  // Read once, so the row records the model that actually answered even if the
+  // key demotes while this file is in flight.
+  const model = modelOverride ?? keys.modelFor(keyIndex)
 
   let bytes = await source.readBytes(entry)
   let mimeType = mimeTypeOf(entry.name)
@@ -127,7 +130,6 @@ async function generateWithKey(
     if (signal?.aborted) throw new Error('aborted')
     keys.markRequest(keyIndex)
 
-    const model = modelOverride ?? keys.modelFor(keyIndex)
     const ask = (withSchema: boolean) =>
       generateContent({
         apiKey: keys.clients[keyIndex].key,
@@ -204,7 +206,7 @@ async function generateWithKey(
     if (retried.row.keywords && !retried.irreparable) outcome = retried
   }
 
-  return outcome.row
+  return { ...outcome.row, model }
 }
 
 /**
@@ -394,7 +396,10 @@ export async function runFolder(deps: RunnerDeps): Promise<RunResult> {
           // on the fallback family before writing a row nobody can upload.
           const row =
             (await tryNextRung(deps, task.entry, keyIndex)) ??
-            profile.errorFallback(contextFor(task.entry), message, options)
+            {
+              ...profile.errorFallback(contextFor(task.entry), message, options),
+              model: keys.modelFor(keyIndex),
+            }
           rows.push(row)
           await withProgressLock(async () => {
             emit({ type: 'file-done', row, done: rows.length, total, keyIndex })

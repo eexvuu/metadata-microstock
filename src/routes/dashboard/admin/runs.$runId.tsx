@@ -33,6 +33,11 @@ export const Route = createFileRoute('/dashboard/admin/runs/$runId')({
   component: AdminRunDetail,
 })
 
+/** Empty keywords is 0, not 1 — `''.split(',')` would say otherwise. */
+function countKeywords(keywords: string): number {
+  return keywords.split(',').filter((keyword) => keyword.trim()).length
+}
+
 function parseRows(json: string): MetadataRow[] {
   try {
     const parsed: unknown = JSON.parse(json)
@@ -153,20 +158,31 @@ function AdminRunDetail() {
             the saved rows could not be read
           </p>
         ) : (
+          /*
+           * `TableCell` is `whitespace-nowrap` by default, which a 49-keyword
+           * string does not survive: the text ran straight out of its cell and
+           * painted over the category next door. Keywords and titles wrap
+           * here; the columns that are short by nature keep the default.
+           */
           <div className="border-(--line) mt-4 overflow-x-auto border">
-            <Table>
+            <Table className="table-fixed">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-64">Filename</TableHead>
-                  <TableHead>Title</TableHead>
+                  <TableHead className="w-56">Filename</TableHead>
+                  <TableHead className="w-72">Title</TableHead>
                   <TableHead>Keywords</TableHead>
-                  <TableHead className="w-20">Category</TableHead>
+                  <TableHead className="w-12 text-right">KW</TableHead>
+                  <TableHead className="w-16">Cat</TableHead>
+                  <TableHead className="w-44">Model</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.map((row, index) => (
                   <TableRow key={`${row.filename}-${index}`}>
-                    <TableCell className="max-w-64 truncate font-mono text-xs">
+                    <TableCell
+                      className="truncate align-top font-mono text-xs"
+                      title={row.filename}
+                    >
                       {row.filename}
                       {row.fallback ? (
                         <Badge variant="destructive" className="ml-2">
@@ -174,7 +190,7 @@ function AdminRunDetail() {
                         </Badge>
                       ) : null}
                     </TableCell>
-                    <TableCell className="text-sm">
+                    <TableCell className="align-top text-sm whitespace-normal">
                       {row.title}
                       {row.description ? (
                         <span className="text-muted-foreground mt-1 block text-xs">
@@ -182,11 +198,30 @@ function AdminRunDetail() {
                         </span>
                       ) : null}
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-w-96 text-xs">
+                    <TableCell className="text-muted-foreground align-top text-xs whitespace-normal">
                       {row.keywords}
                     </TableCell>
-                    <TableCell className="font-mono text-xs tabular-nums">
+                    {/*
+                      The count is the fastest quality read there is: a row
+                      that came back with twelve keywords is a row worth
+                      asking about, and it is invisible in the wall of text.
+                    */}
+                    <TableCell className="align-top text-right font-mono text-xs tabular-nums">
+                      {countKeywords(row.keywords)}
+                    </TableCell>
+                    <TableCell className="align-top font-mono text-xs tabular-nums">
                       {row.category}
+                    </TableCell>
+                    {/*
+                      The one screen where a model id belongs. Everywhere the
+                      contributor can see, it is scrubbed on purpose — here it
+                      is the whole point: with the ladder, two rows of the same
+                      run can come from different models, and support cannot
+                      tell "the keywords are thin" from "that key had demoted"
+                      without it. Blank for runs that predate the field.
+                    */}
+                    <TableCell className="text-muted-foreground align-top font-mono text-[0.7rem]">
+                      {row.model ?? '—'}
                     </TableCell>
                   </TableRow>
                 ))}
