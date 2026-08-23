@@ -328,8 +328,16 @@ when every key has failed on the primary model for one file, before an
 `errorFallback` row would be written. A 429 never reaches it — quota is
 rotation's job (`keys.ts`), and quota is per-model anyway.
 
-Worker count follows the keys: `workersFor(keyCount)`, capped at 8. One worker
-per key is what makes rotation visible on the Generate screen.
+Worker count follows the keys: `workersFor(keyCount, settings.maxWorkers)`.
+One worker per key is what makes rotation visible on the Generate screen, and
+it is why the ceiling is the number of keys in play — a worker without a key of
+its own has nothing to spend. `AUTO_WORKERS` (8) is what `maxWorkers: 0` picks,
+and it is a default, not a rule: it is roughly where a home connection stops
+being helped by more parallel uploads and where a folder of 4K video stops
+fitting in a tab. Thirty keys and a folder of JPEGs is the case it was wrong
+for, so the Generate screen lets somebody say a number up to `MAX_WORKERS`
+(32) — past which the limit is the tab's memory, since every in-flight file
+holds its bytes and its base64 copy at once.
 
 ## Gemma's three quirks
 

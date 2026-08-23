@@ -33,7 +33,9 @@ import { shutterstockProfile } from '#/lib/engine/profiles/shutterstock'
 import { exportRun } from '#/lib/engine/runner'
 import type { MediaEntry, MetadataRow } from '#/lib/engine/types'
 import {
+  AUTO_WORKERS,
   DEFAULT_SETTINGS,
+  MAX_WORKERS,
   clearLegacyKeyStorage,
   keysInPlay,
   loadSettings,
@@ -177,6 +179,9 @@ function MetadataTool() {
 
   const activeKeys = keys.filter((key) => key.status === 'active')
   const keysUsed = keysInPlay(settings, activeKeys.length)
+  const workersRunning = workersFor(keysUsed, settings.maxWorkers)
+  /** A worker without a key of its own has nothing to spend. */
+  const workerChoices = Math.min(keysUsed, MAX_WORKERS)
   const running = state.status === 'running'
   const profile = settings.platform === 'adobe' ? adobeProfile : shutterstockProfile
   // `selected` guards the render: clearing the drop empties it one render
@@ -743,15 +748,64 @@ function MetadataTool() {
                       </Select>
                     </div>
 
+                    {/*
+                      One worker per key is the shape of the thing — the rail
+                      above only shows rotation because of it — but eight was a
+                      default pretending to be a rule. Thirty keys and a folder
+                      of JPEGs is a real case, so the number is chooseable up to
+                      the keys in play.
+                    */}
+                    <div className="flex items-center gap-3">
+                      <Label
+                        htmlFor="workers-at-once"
+                        className="text-muted-foreground shrink-0"
+                      >
+                        {m.tool.workersUsed}
+                      </Label>
+                      <Select
+                        // Show what the run will actually do, not what is
+                        // stored: asking for twenty with ten keys runs ten,
+                        // and `min` keeps the 0 sentinel meaning auto. Raise
+                        // the key count again and the stored number comes back.
+                        value={String(Math.min(settings.maxWorkers, workerChoices))}
+                        disabled={running}
+                        onValueChange={(value) =>
+                          updateSettings({ ...settings, maxWorkers: Number(value) })
+                        }
+                      >
+                        <SelectTrigger id="workers-at-once" className="h-8 flex-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0">
+                            {m.tool.workersAuto(workersFor(keysUsed))}
+                          </SelectItem>
+                          {Array.from(
+                            { length: workerChoices },
+                            (_, index) => index + 1,
+                          ).map((count) => (
+                            <SelectItem key={count} value={String(count)}>
+                              {m.tool.workersExactly(count)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
                     <KeyRail
                       keys={activeKeys.slice(0, keysUsed)}
                       live={state.keys}
                     />
                     <p className="text-muted-foreground text-xs text-pretty">
-                      {m.tool.keySummary(keysUsed, workersFor(keysUsed))}
+                      {m.tool.keySummary(keysUsed, workersRunning)}
                       {' · '}
                       {m.tool.rotationNote}
                     </p>
+                    {workersRunning > AUTO_WORKERS ? (
+                      <p className="text-primary font-mono text-xs text-pretty">
+                        {m.tool.workersNote}
+                      </p>
+                    ) : null}
                     {keysUsed < activeKeys.length ? (
                       <p className="text-primary font-mono text-xs text-pretty">
                         {m.tool.keysHeldBack(activeKeys.length - keysUsed)}

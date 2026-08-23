@@ -285,6 +285,11 @@ export const id: Messages = {
     keysUsed: 'Dipakai bersamaan',
     keysAll: (keys: number) => `semua ${keys} kunci`,
     keysExactly: (keys: number) => `${keys} kunci`,
+    workersUsed: 'Berkas sekaligus',
+    workersAuto: (workers: number) => `otomatis (${workers})`,
+    workersExactly: (workers: number) => `${workers} berkas`,
+    workersNote:
+      'Di atas delapan sekaligus, untungnya cuma terasa untuk berkas kecil dan koneksi cepat — run video malah bisa bikin tab ini kehabisan memori. Tiap worker butuh satu kunci sendiri, jadi daftarnya berhenti di jumlah kunci yang dipakai.',
     keysHeldBack: (held: number) =>
       `${held} kunci tidak ikut run ini — kuotanya tidak tersentuh.`,
     rotationNote:

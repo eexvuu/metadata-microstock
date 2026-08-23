@@ -22,8 +22,25 @@ const SETTINGS_STORAGE = 'microstock.settings'
 export const PRIMARY_MODEL = 'gemma-4-26b-a4b-it'
 export const FALLBACK_MODEL = 'gemini-flash-latest'
 
-/** One worker per key, capped: more parallelism than keys just queues. */
-export const MAX_WORKERS = 8
+/**
+ * What "auto" picks: one worker per key, up to eight.
+ *
+ * Eight is a safe default rather than a limit — it is roughly where a home
+ * connection stops being helped by more parallel uploads, and where a folder
+ * of 4K video stops fitting in a tab's memory. Somebody with thirty keys and a
+ * folder of JPEGs is a different case, which is why the number is now settable.
+ */
+export const AUTO_WORKERS = 8
+
+/**
+ * The most a run will ever start, whatever is stored.
+ *
+ * Past this it is not parallelism any more: every in-flight file holds its
+ * bytes *and* its base64 copy in the tab, so the ceiling is memory, not
+ * politeness. Keys cap it too — a worker without a key of its own has nothing
+ * to spend.
+ */
+export const MAX_WORKERS = 32
 
 export interface StoredSettings {
   platform: RunOptions['platform']
@@ -37,6 +54,12 @@ export interface StoredSettings {
    * meaning "all" the moment a fifth key arrived.
    */
   maxKeys: number
+  /**
+   * How many files to work on at once. `0` means auto — one worker per key up
+   * to `AUTO_WORKERS` — and it is the sentinel for the same reason `maxKeys`
+   * has one: a stored number outlives the key list it was chosen for.
+   */
+  maxWorkers: number
 }
 
 export const DEFAULT_SETTINGS: StoredSettings = {
@@ -45,6 +68,7 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   mature: false,
   illustration: 'auto',
   maxKeys: 0,
+  maxWorkers: 0,
 }
 
 /**
@@ -73,9 +97,17 @@ export function saveSettings(settings: StoredSettings): void {
   localStorage.setItem(SETTINGS_STORAGE, JSON.stringify(settings))
 }
 
-/** Worker count follows the keys: one per key, so rotation has somewhere to go. */
-export function workersFor(keyCount: number): number {
-  return Math.max(1, Math.min(keyCount, MAX_WORKERS))
+/**
+ * How many workers a run starts.
+ *
+ * Never more than there are keys in play: a worker is pinned to one key —
+ * that is what makes rotation visible on the Generate screen — so a ninth
+ * worker with eight keys would sit there with nothing to spend.
+ */
+export function workersFor(keyCount: number, requested = 0): number {
+  const ceiling = Math.min(keyCount, MAX_WORKERS)
+  if (requested > 0) return Math.max(1, Math.min(requested, ceiling))
+  return Math.max(1, Math.min(keyCount, AUTO_WORKERS))
 }
 
 /**
@@ -103,7 +135,7 @@ export function toRunOptions(
      * option for the CLI.
      */
     vectorExtension: undefined,
-    maxConcurrentWorkers: workersFor(keyCount),
+    maxConcurrentWorkers: workersFor(keyCount, settings.maxWorkers),
     model: PRIMARY_MODEL,
     fallbackModel: FALLBACK_MODEL,
     editorial: settings.editorial,

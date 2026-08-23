@@ -307,6 +307,12 @@ export const en = {
     keysUsed: 'Use at once',
     keysAll: (keys: number) => `all ${keys} key${keys === 1 ? '' : 's'}`,
     keysExactly: (keys: number) => `${keys} key${keys === 1 ? '' : 's'}`,
+    workersUsed: 'Files at once',
+    workersAuto: (workers: number) => `auto (${workers})`,
+    workersExactly: (workers: number) =>
+      `${workers} file${workers === 1 ? '' : 's'}`,
+    workersNote:
+      'Past eight at once the gain comes from small files and a fast line — a video run can run this tab out of memory instead. Every worker needs a key of its own, so the list stops at the keys in play.',
     keysHeldBack: (held: number) =>
       `${held} key${held === 1 ? '' : 's'} sitting this run out — that quota stays untouched.`,
     rotationNote:
