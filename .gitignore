@@ -24,3 +24,6 @@ data/
 # Scratch media for manual testing — and gemini-key.txt lives in there.
 sample/
 .release-package.json
+
+# Promo drafts and screenshots — not part of the app.
+promo/
