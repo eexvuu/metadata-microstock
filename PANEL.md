@@ -79,6 +79,7 @@ That is the whole loop. `id` and the tenant column are stamped for you.
 | `actions` | Turn a whole action off — `create: false` makes a read-only screen |
 | `roles` | Which member roles may `view` / `create` / `update` / `delete` |
 | `rowActions` | Your own actions, in the row menu and the bulk bar — see below |
+| `detailPath` | A route to one record (`/dashboard/admin/users/$userId`). Links the primary column and adds an Open item to the row menu |
 | `joins` | Read extra columns from another table. Writes still go to `table` only |
 | `onCreate` | Extra column values stamped on insert (`createdById`, defaults, …) |
 | `beforeDelete` | Throw to block a delete — the message becomes the user's toast |
@@ -200,5 +201,7 @@ browser never sends a query, a column or a function.
   `searchable` to fewer columns.
 - **The dialog is one column of fields.** No tabs, sections or conditional
   fields — that is the next thing to add if you need it.
-- **No per-record page.** `?edit=` opens the edit dialog; there is no read-only
-  detail view (Filament's infolist) and no relation manager.
+- **No per-record page is generated.** `?edit=` opens the edit dialog; there is
+  no read-only detail view (Filament's infolist) and no relation manager.
+  `detailPath` links out to a page you wrote yourself — the panel supplies the
+  link, never the screen, and that route has to check the role for itself.

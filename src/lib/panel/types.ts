@@ -99,6 +99,17 @@ export type PanelCustomAction = {
   success?: string
 }
 
+/**
+ * A link from a row to a per-record route the app already has, e.g.
+ * `/dashboard/admin/users/$userId`. `param` is the segment name the row id
+ * fills in — derived once at definition time so the browser never parses it.
+ */
+export type PanelDetail = {
+  to: string
+  param: string
+  label: string
+}
+
 /** Everything the generic UI needs to render one resource. */
 export type PanelResourceMeta = {
   name: string
@@ -114,6 +125,12 @@ export type PanelResourceMeta = {
   defaultSort: { column: string; dir: 'asc' | 'desc' }
   /** Only the ones this user's role may run — the rest never reach the browser. */
   rowActions: PanelCustomAction[]
+  /**
+   * A hand-written page for one record, if the resource has one. The panel
+   * generates no such page — this is only the way to it, so the route on the
+   * other end enforces its own access.
+   */
+  detail?: PanelDetail
   /** Resolved for the CURRENT user — the server enforces the same rules. */
   can: Record<PanelAction, boolean>
 }

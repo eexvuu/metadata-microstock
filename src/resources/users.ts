@@ -43,6 +43,13 @@ export const users = defineResource({
 
   searchPlaceholder: 'Search by name or email…',
 
+  /**
+   * The one screen that can show an account whole — its keys, its runs, the
+   * ban switch. The list is where an admin starts looking, so it has to be
+   * reachable from a row; the route checks the role again on its own.
+   */
+  detailPath: '/dashboard/admin/users/$userId',
+
   columns: [
     {
       name: 'name',

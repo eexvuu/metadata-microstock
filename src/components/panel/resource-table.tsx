@@ -1,7 +1,9 @@
+import { Link } from '@tanstack/react-router'
 import {
   ArrowDown,
   ArrowUp,
   ChevronsUpDown,
+  Eye,
   MoreHorizontal,
   Pencil,
   Trash2,
@@ -27,11 +29,25 @@ import {
 } from '#/components/ui/table'
 import { PanelIcon } from '#/components/panel/panel-icon'
 import { cn } from '#/lib/utils'
+import type { ReactElement, ReactNode } from 'react'
 import type {
   PanelCustomAction,
   PanelRecord,
   PanelResourceMeta,
 } from '#/lib/panel/types'
+
+/**
+ * TanStack types `to` against the generated route tree, and a resource hands
+ * the panel a plain string — deliberately, since that string is all the browser
+ * is allowed to know about `src/resources/`. Widen the props once here rather
+ * than teaching a generic table about every route in the app.
+ */
+const DetailLink = Link as unknown as (props: {
+  to: string
+  params: Record<string, string>
+  className?: string
+  children?: ReactNode
+}) => ReactElement
 
 /**
  * The list table for any resource. It knows nothing about projects, members or
@@ -63,9 +79,11 @@ export function ResourceTable({
   onAction: (action: PanelCustomAction, record: PanelRecord) => void
 }) {
   const custom = meta.rowActions.filter((action) => action.on.row)
+  const detail = meta.detail
   const selectable =
     meta.can.delete || meta.rowActions.some((action) => action.on.bulk)
-  const rowActions = meta.can.update || meta.can.delete || custom.length > 0
+  const rowActions =
+    meta.can.update || meta.can.delete || custom.length > 0 || detail !== undefined
   const allSelected = items.length > 0 && selected.length === items.length
 
   return (
@@ -142,7 +160,17 @@ export function ResourceTable({
                     column.className,
                   )}
                 >
-                  <PanelCell column={column} value={item[column.name]} />
+                  {detail && column.primary ? (
+                    <DetailLink
+                      to={detail.to}
+                      params={{ [detail.param]: item.id }}
+                      className="hover:text-primary hover:underline"
+                    >
+                      <PanelCell column={column} value={item[column.name]} />
+                    </DetailLink>
+                  ) : (
+                    <PanelCell column={column} value={item[column.name]} />
+                  )}
                 </TableCell>
               ))}
 
@@ -159,6 +187,20 @@ export function ResourceTable({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-44">
+                      {detail ? (
+                        <DropdownMenuItem asChild>
+                          <DetailLink
+                            to={detail.to}
+                            params={{ [detail.param]: item.id }}
+                          >
+                            <Eye className="size-4" />
+                            {detail.label}
+                          </DetailLink>
+                        </DropdownMenuItem>
+                      ) : null}
+
+                      {detail && meta.can.update ? <DropdownMenuSeparator /> : null}
+
                       {meta.can.update ? (
                         <DropdownMenuItem onSelect={() => onEdit(item)}>
                           <Pencil className="size-4" />
@@ -166,7 +208,7 @@ export function ResourceTable({
                         </DropdownMenuItem>
                       ) : null}
 
-                      {custom.length > 0 && meta.can.update ? (
+                      {custom.length > 0 && (meta.can.update || detail) ? (
                         <DropdownMenuSeparator />
                       ) : null}
 
@@ -185,7 +227,7 @@ export function ResourceTable({
 
                       {meta.can.delete ? (
                         <>
-                          {meta.can.update || custom.length > 0 ? (
+                          {meta.can.update || custom.length > 0 || detail ? (
                             <DropdownMenuSeparator />
                           ) : null}
                           <DropdownMenuItem

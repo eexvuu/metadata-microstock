@@ -9,6 +9,7 @@ import type {
   PanelAction,
   PanelColumn,
   PanelCustomAction,
+  PanelDetail,
   PanelField,
   PanelFilter,
   PanelIcon,
@@ -126,6 +127,15 @@ export type ResourceInput = {
   rowActions?: ResourceActionInput[]
   /** Which roles may perform an action. Undefined = anyone signed in. */
   roles?: Partial<Record<PanelAction, readonly string[]>>
+  /**
+   * A route to one record, with the id as its only param — e.g.
+   * `/dashboard/admin/users/$userId`. The panel adds the link; it does not
+   * generate the page, and the link is NOT a guard: that route re-checks the
+   * role for itself, like every other route in the app.
+   */
+  detailPath?: string
+  /** What the link is called in the row menu. Defaults to "Open". */
+  detailLabel?: string
   /** Show a counter on the dashboard overview. Defaults to true. */
   stats?: boolean
   /**
@@ -233,6 +243,25 @@ export function defineResource(input: ResourceInput) {
     delete: input.actions?.delete ?? true,
   }
 
+  /**
+   * The one `$param` in the detail path. Resolved here so a typo is an import
+   * error rather than a link that navigates nowhere.
+   */
+  let detail: PanelDetail | undefined
+  if (input.detailPath) {
+    const param = /\$(\w+)/.exec(input.detailPath)?.[1]
+    if (!param) {
+      throw new Error(
+        `Resource "${input.name}": detailPath "${input.detailPath}" has no $param for the record id`,
+      )
+    }
+    detail = {
+      to: input.detailPath,
+      param,
+      label: input.detailLabel ?? 'Open',
+    }
+  }
+
   if (!sortable[input.defaultSort.column]) {
     throw new Error(
       `Resource "${input.name}": defaultSort column "${input.defaultSort.column}" is not sortable`,
@@ -306,6 +335,7 @@ export function defineResource(input: ResourceInput) {
     searchColumns,
     titleColumn,
     detailColumn,
+    detail,
     writable,
     tableColumns,
 
@@ -344,6 +374,7 @@ export function defineResource(input: ResourceInput) {
               success: action.success,
             }),
           ),
+        detail,
         can: can(roles),
       }
     },
