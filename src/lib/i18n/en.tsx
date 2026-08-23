@@ -197,7 +197,7 @@ export const en = {
     expiresIn: (days: number) =>
       days <= 0 ? 'goes today' : `${days} day${days === 1 ? '' : 's'} left`,
     resultsNote:
-      'A finished run keeps its rows for seven days so you can open it, fix a title and take a fresh CSV. After that only the numbers above remain.',
+      'A finished run keeps its rows for seven days so you can open it, fix a title and take a fresh CSV. After that only the numbers above remain. While a result is still here, an admin can open it too if you ask us for help with it — every time one does, it is recorded against them.',
 
     resultTitle: 'Saved result',
     resultGone: 'This result has expired.',

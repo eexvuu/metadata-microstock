@@ -219,6 +219,22 @@ Every query in `src/lib/server/gemini-keys.ts` filters on the session's
 `userId`; `gemini_key` is deliberately NOT organization-scoped,
 because a workspace member must not be able to spend a colleague's quota.
 
+**A saved result is readable by an admin, on the same terms.** `revealRunRows`
+(2026-08-23) is the run equivalent of `revealUserKey`, and it exists for the
+same reason: "the titles come out wrong" cannot be answered without seeing the
+titles, and asking a contributor to paste their CSV into a chat is worse for
+them than an admin opening a screen that records the opening. It is built to
+the same three rules — it is the only path to `run_rows` outside the owner's
+own session, it writes a `run.revealed` audit row **before** it answers, and
+`history.resultsNote` in both locales tells users an admin can do it. Two
+deliberate limits keep it support rather than surveillance: it is **read-only**
+(`updateRunRows` stays session-scoped, because fixing somebody's metadata for
+them is editing their work), and it refuses an expired result even though the
+row survives until the nightly prune reaches it — seven days is what the
+contributor was told, and an admin does not get a longer window than the owner.
+The loader (`getRunForAdmin`) deliberately carries no rows, so an audit entry
+means somebody clicked, not that a page rendered.
+
 **The CSV bytes are a contract.** Adobe needs the UTF-8 BOM, Shutterstock must
 not have one; Adobe titles carry no commas or quotes, Shutterstock descriptions
 may. `src/lib/engine/csv.ts` reproduces `csv-writer`'s quoting exactly, because

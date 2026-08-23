@@ -404,6 +404,11 @@ function UserDetail() {
         <h2 className="font-display text-xl font-medium tracking-tight">
           Recent runs
         </h2>
+        <p className="text-muted-foreground mt-1 text-sm">
+          A finished run keeps its rows for seven days, and Open shows them.
+          Reading them is recorded against the admin who did it, the same way a
+          key reveal is.
+        </p>
         {runs.length === 0 ? (
           <p className="border-(--line) text-muted-foreground mt-4 border border-dashed py-8 text-center font-mono text-xs">
             this account has not run anything yet
@@ -419,6 +424,7 @@ function UserDetail() {
                   <TableHead className="w-24">Files</TableHead>
                   <TableHead className="w-28">Status</TableHead>
                   <TableHead className="w-40">Started</TableHead>
+                  <TableHead className="w-24 text-right">Result</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -449,6 +455,23 @@ function UserDetail() {
                     </TableCell>
                     <TableCell className="text-muted-foreground font-mono text-xs">
                       {new Date(run.startedAt).toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {run.resultExpiresAt ? (
+                        <Button asChild variant="ghost" size="sm" className="h-7 px-2">
+                          <Link
+                            to="/dashboard/admin/runs/$runId"
+                            params={{ runId: run.id }}
+                          >
+                            <Eye className="size-3" />
+                            open
+                          </Link>
+                        </Button>
+                      ) : (
+                        <span className="text-muted-foreground font-mono text-xs">
+                          gone
+                        </span>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

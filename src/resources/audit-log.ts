@@ -11,6 +11,7 @@ const TARGETS = [
   { value: 'user', label: 'Account' },
   { value: 'session', label: 'Session' },
   { value: 'key', label: 'Key' },
+  { value: 'run', label: 'Run' },
 ]
 
 /**
@@ -66,6 +67,7 @@ export const auditLogs = defineResource({
         'key.revealed': 'destructive',
         'key.disabled': 'secondary',
         'key.enabled': 'secondary',
+        'run.revealed': 'destructive',
       },
     },
     {

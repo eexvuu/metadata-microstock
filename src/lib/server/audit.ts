@@ -33,13 +33,14 @@ export const AUDIT_ACTIONS = {
   'key.revealed': 'Key revealed to an admin',
   'key.disabled': 'Key disabled',
   'key.enabled': 'Key enabled',
+  'run.revealed': 'Result opened by an admin',
 } as const
 
 export type AuditAction = keyof typeof AUDIT_ACTIONS
 
 export interface AuditEntry {
   action: AuditAction
-  targetType: 'user' | 'session' | 'key'
+  targetType: 'user' | 'session' | 'key' | 'run'
   targetId?: string | null
   /** How a human recognises the target: an email, a key preview. */
   targetLabel?: string | null

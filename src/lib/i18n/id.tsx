@@ -194,7 +194,7 @@ export const id: Messages = {
     expiresIn: (days: number) =>
       days <= 0 ? 'hilang hari ini' : `sisa ${days} hari`,
     resultsNote:
-      'Run yang selesai menyimpan barisnya selama tujuh hari, jadi Anda bisa membukanya lagi, membetulkan judul, dan mengambil CSV baru. Setelah itu yang tersisa hanya angka di atas.',
+      'Run yang selesai menyimpan barisnya selama tujuh hari, jadi Anda bisa membukanya lagi, membetulkan judul, dan mengambil CSV baru. Setelah itu yang tersisa hanya angka di atas. Selama hasilnya masih ada, admin juga bisa membukanya kalau Anda minta bantuan soal hasil itu — dan tiap pembukaan tercatat atas nama admin tersebut.',
 
     resultTitle: 'Hasil tersimpan',
     resultGone: 'Hasil ini sudah kedaluwarsa.',

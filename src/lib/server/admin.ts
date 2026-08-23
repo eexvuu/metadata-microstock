@@ -1,9 +1,9 @@
 import { createServerFn } from '@tanstack/react-start'
-import { and, count, desc, eq, gte, sum } from 'drizzle-orm'
+import { and, count, desc, eq, gt, gte, sum } from 'drizzle-orm'
 import { z } from 'zod'
 
 import { getDb } from '#/db/index'
-import { generationRun, geminiKey, session, user } from '#/db/schema'
+import { generationRun, geminiKey, runRows, session, user } from '#/db/schema'
 import type { AuditEntry } from '#/lib/server/audit'
 import { recordAudit } from '#/lib/server/audit'
 import { decryptSecret } from '#/lib/server/crypto'
@@ -16,12 +16,14 @@ import { requireAdmin } from '#/lib/server/session'
  * authorisation is re-checked on the server, applied to the hand-written
  * screens too. A non-admin session is redirected, never answered.
  *
- * One function here does return a key: `revealUserKey`, added deliberately so
- * support can answer "why does mine not work" without asking someone to paste a
- * credential into a chat. It is the only place `gemini_key.ciphertext` is
- * selected outside the owner's own path, it writes an audit row BEFORE it
- * answers, and the copy shown to users says an admin can do this. Every other
- * screen here sees previews and nothing more.
+ * Two functions here return something the owner would call theirs:
+ * `revealUserKey` (the plaintext of a Gemini key) and `revealRunRows` (the
+ * metadata a run produced). Both exist so support can answer "it does not work
+ * for me" without asking anyone to send their credential or their results over
+ * a chat, and both are built the same way: they are the only paths to that data
+ * outside the owner's own session, they write an audit row BEFORE they answer,
+ * and the copy shown to users says an admin can do it. Every other screen here
+ * sees previews and counts and nothing more.
  */
 
 const DAY = 24 * 60 * 60 * 1000
@@ -118,6 +120,9 @@ export const getUserDetail = createServerFn({ method: 'GET' })
       .where(eq(geminiKey.userId, data.id))
       .orderBy(desc(geminiKey.createdAt))
 
+    // The join is for the Open button and nothing else: whether the rows are
+    // still there, never the rows themselves. Those cost a deliberate click on
+    // the run's own screen, and that click is audited.
     const runs = await db
       .select({
         id: generationRun.id,
@@ -128,8 +133,10 @@ export const getUserDetail = createServerFn({ method: 'GET' })
         filesTotal: generationRun.filesTotal,
         status: generationRun.status,
         startedAt: generationRun.startedAt,
+        resultExpiresAt: runRows.expiresAt,
       })
       .from(generationRun)
+      .leftJoin(runRows, eq(runRows.runId, generationRun.id))
       .where(eq(generationRun.userId, data.id))
       .orderBy(desc(generationRun.startedAt))
       .limit(15)
@@ -156,7 +163,16 @@ export const getUserDetail = createServerFn({ method: 'GET' })
         ...key,
         lastUsedAt: key.lastUsedAt?.getTime() ?? null,
       })),
-      runs: runs.map((run) => ({ ...run, startedAt: run.startedAt.getTime() })),
+      runs: runs.map((run) => ({
+        ...run,
+        startedAt: run.startedAt.getTime(),
+        // An expired result is the same as no result to everything upstream;
+        // the row only survives until the nightly prune reaches it.
+        resultExpiresAt:
+          run.resultExpiresAt && run.resultExpiresAt.getTime() > Date.now()
+            ? run.resultExpiresAt.getTime()
+            : null,
+      })),
       totals: {
         runs: totals?.runs ?? 0,
         files: Number(totals?.files ?? 0),
@@ -424,4 +440,110 @@ export const revokeUserSessions = createServerFn({ method: 'POST' })
     })
 
     return { ok: true }
+  })
+
+/**
+ * The run, and who owns it — everything about a run except what it produced.
+ *
+ * Deliberately split from `revealRunRows` below. A loader runs again on every
+ * navigation and every `router.invalidate()`, and an audit trail padded with
+ * rows nobody chose to create is a trail nobody reads. So the screen loads from
+ * here, and reading the rows costs a click.
+ */
+async function runWithOwner(id: string) {
+  const db = getDb()
+
+  const [row] = await db
+    .select({
+      id: generationRun.id,
+      userId: generationRun.userId,
+      tool: generationRun.tool,
+      platform: generationRun.platform,
+      model: generationRun.model,
+      folderName: generationRun.folderName,
+      filesTotal: generationRun.filesTotal,
+      filesDone: generationRun.filesDone,
+      fallbacks: generationRun.fallbacks,
+      status: generationRun.status,
+      startedAt: generationRun.startedAt,
+      finishedAt: generationRun.finishedAt,
+      resultExpiresAt: runRows.expiresAt,
+    })
+    .from(generationRun)
+    .leftJoin(runRows, eq(runRows.runId, generationRun.id))
+    .where(eq(generationRun.id, id))
+    .limit(1)
+
+  if (!row) throw new Error('That run no longer exists.')
+
+  const [owner] = await db
+    .select({ id: user.id, name: user.name, email: user.email })
+    .from(user)
+    .where(eq(user.id, row.userId))
+    .limit(1)
+
+  return {
+    ...row,
+    ownerName: owner?.name ?? row.userId,
+    ownerEmail: owner?.email ?? row.userId,
+  }
+}
+
+export const getRunForAdmin = createServerFn({ method: 'GET' })
+  .inputValidator(z.object({ id: z.string().min(1) }))
+  .handler(async ({ data }) => {
+    await requireAdmin()
+    const run = await runWithOwner(data.id)
+
+    const expires = run.resultExpiresAt?.getTime() ?? null
+
+    return {
+      ...run,
+      startedAt: run.startedAt.getTime(),
+      finishedAt: run.finishedAt?.getTime() ?? null,
+      resultExpiresAt: expires && expires > Date.now() ? expires : null,
+    }
+  })
+
+/**
+ * The rows one run produced, to the admin looking at it.
+ *
+ * The same bargain as `revealUserKey`: "the titles come out wrong" is a support
+ * question that cannot be answered without seeing the titles, and the
+ * alternative — asking a contributor to paste a CSV into a chat — is worse for
+ * them than an admin opening a screen that records the opening. Read-only:
+ * `updateRunRows` stays scoped to the owner's own session, because fixing
+ * somebody's metadata for them is not support, it is editing their work.
+ *
+ * The order is the safety, as it is for a key: find the rows, fail if there are
+ * none, then write the audit row, then answer. An expired result is refused
+ * here even though the row survives until the nightly prune reaches it — seven
+ * days is what the contributor was told, and an admin does not get a longer
+ * window than the owner.
+ */
+export const revealRunRows = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({ id: z.string().min(1) }))
+  .handler(async ({ data }): Promise<{ rows: string }> => {
+    const admin = await requireAdmin()
+    const run = await runWithOwner(data.id)
+
+    const db = getDb()
+    const [saved] = await db
+      .select({ rows: runRows.rows })
+      .from(runRows)
+      .where(and(eq(runRows.runId, run.id), gt(runRows.expiresAt, new Date())))
+      .limit(1)
+
+    // Nothing was revealed, so nothing is recorded.
+    if (!saved) throw new Error('That result has expired or was never saved.')
+
+    await recordAudit(admin.user.id, {
+      action: 'run.revealed',
+      targetType: 'run',
+      targetId: run.id,
+      targetLabel: run.folderName,
+      detail: `owner ${run.ownerEmail}`,
+    })
+
+    return { rows: saved.rows }
   })
