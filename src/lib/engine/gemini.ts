@@ -39,6 +39,12 @@ export async function generateContent(options: {
   mimeType: string
   base64: string
   signal?: AbortSignal
+  /**
+   * Structured output. Worth more than any prompt wording: a model told to
+   * fill a schema stops writing reasoning around the JSON, which is where all
+   * of Gemma's time went. Left off, the request is exactly what it always was.
+   */
+  responseSchema?: unknown
 }): Promise<GenerateResult> {
   const started = Date.now()
   const response = await fetch(`${ENDPOINT}/${options.model}:generateContent`, {
@@ -58,6 +64,14 @@ export async function generateContent(options: {
           ],
         },
       ],
+      ...(options.responseSchema
+        ? {
+            generationConfig: {
+              responseMimeType: 'application/json',
+              responseSchema: options.responseSchema,
+            },
+          }
+        : {}),
     }),
   })
 

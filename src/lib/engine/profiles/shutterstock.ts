@@ -13,7 +13,7 @@ import {
   normalizeCategories,
 } from '../shutterstock-categories'
 import type { MetadataRow, PromptContext, RunOptions } from '../types'
-import type { CsvTable, ParseOutcome, PlatformProfile } from './types'
+import type { CsvTable, ParseOutcome, PlatformProfile, ResponseSchema } from './types'
 
 const MAX_KEYWORDS = 50
 
@@ -77,6 +77,38 @@ function readableName(name: string): string {
     .trim()
 }
 
+/**
+ * The prompt's four fields, restated where the decoder can enforce them.
+ *
+ * `description` being required is also what settles an old quirk: Gemma used
+ * to answer with `title` here often enough that `parse` still accepts it.
+ */
+const RESPONSE_SCHEMA: ResponseSchema = {
+  type: 'OBJECT',
+  properties: {
+    description: {
+      type: 'STRING',
+      description:
+        'One clear sentence describing subject, action and setting. Ideal 60-150 characters, max 200.',
+    },
+    keywords: {
+      type: 'STRING',
+      description: `Exactly ${MAX_KEYWORDS} keywords separated by commas, ordered by relevance, no brand or trademarked names.`,
+    },
+    categories: {
+      type: 'STRING',
+      description:
+        'One or two category names from the list in the prompt, comma-separated. Names only, no numbers.',
+    },
+    illustration: {
+      type: 'STRING',
+      description: 'Exactly "yes" or "no".',
+    },
+  },
+  required: ['description', 'keywords', 'categories', 'illustration'],
+  propertyOrdering: ['description', 'keywords', 'categories', 'illustration'],
+}
+
 export const shutterstockProfile: PlatformProfile = {
   id: 'shutterstock',
   label: 'Shutterstock',
@@ -86,6 +118,7 @@ export const shutterstockProfile: PlatformProfile = {
   progressFile: '.shutterstock-progress.json',
   // Shutterstock only accepts EPS for vectors, so -vector and -eps are the same.
   vectorExtensions: ['.eps'],
+  responseSchema: RESPONSE_SCHEMA,
 
   buildPrompt({ kind, bracketKeywords }: PromptContext) {
     const hasBrackets = bracketKeywords.length > 0

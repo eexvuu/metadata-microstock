@@ -8,7 +8,7 @@ import {
   type MetadataObject,
 } from '../parse'
 import type { MetadataRow, PromptContext } from '../types'
-import type { CsvTable, ParseOutcome, PlatformProfile } from './types'
+import type { CsvTable, ParseOutcome, PlatformProfile, ResponseSchema } from './types'
 
 const MAX_KEYWORDS = 49
 
@@ -61,6 +61,28 @@ function readableName(name: string): string {
   return name.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' ')
 }
 
+/** The prompt's three fields, restated where the decoder can enforce them. */
+const RESPONSE_SCHEMA: ResponseSchema = {
+  type: 'OBJECT',
+  properties: {
+    title: {
+      type: 'STRING',
+      description:
+        'SEO-optimized title, ideal 60-80 characters, max 200. No commas and no quotation marks.',
+    },
+    keywords: {
+      type: 'STRING',
+      description: `Exactly ${MAX_KEYWORDS} keywords separated by commas, ordered by relevance, singular form where natural, no brand or trademarked names.`,
+    },
+    category: {
+      type: 'STRING',
+      description: 'A single category number from 1 to 21, digits only.',
+    },
+  },
+  required: ['title', 'keywords', 'category'],
+  propertyOrdering: ['title', 'keywords', 'category'],
+}
+
 export const adobeProfile: PlatformProfile = {
   id: 'adobe',
   label: 'Adobe Stock',
@@ -68,6 +90,7 @@ export const adobeProfile: PlatformProfile = {
   csvPrefix: 'metadata',
   progressFile: '.metadata-progress.json',
   vectorExtensions: ['.ai', '.eps'],
+  responseSchema: RESPONSE_SCHEMA,
 
   buildPrompt({ kind, bracketKeywords }: PromptContext) {
     const hasBrackets = bracketKeywords.length > 0

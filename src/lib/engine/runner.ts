@@ -39,6 +39,23 @@ interface Task {
   triedKeys: Set<number>
 }
 
+/**
+ * Models that answered a structured-output request with a 400.
+ *
+ * Module-level and deliberately so: the answer cannot change inside a run, and
+ * a model that has said no once should not be asked again on every file. It is
+ * bounded by the ladder — two entries — so it is a cache, not a leak.
+ */
+const schemaRefused = new Set<string>()
+
+/** A 400 about the schema itself, as opposed to a 400 about the media. */
+function isSchemaRejection(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  return (
+    message.startsWith('[400]') && /schema|response_?mime_?type|structured/i.test(message)
+  )
+}
+
 function contextFor(entry: MediaEntry): PromptContext {
   return {
     name: entry.name,
@@ -110,14 +127,42 @@ async function generateWithKey(
     if (signal?.aborted) throw new Error('aborted')
     keys.markRequest(keyIndex)
 
-    const result = await generateContent({
-      apiKey: keys.clients[keyIndex].key,
-      model: modelOverride ?? options.model,
-      prompt: extraInstruction ? `${prompt}\n\n${extraInstruction}` : prompt,
-      mimeType,
-      base64,
-      signal,
-    })
+    const model = modelOverride ?? options.model
+    const ask = (withSchema: boolean) =>
+      generateContent({
+        apiKey: keys.clients[keyIndex].key,
+        model,
+        prompt: extraInstruction ? `${prompt}\n\n${extraInstruction}` : prompt,
+        mimeType,
+        base64,
+        signal,
+        responseSchema: withSchema ? profile.responseSchema : undefined,
+      })
+
+    /*
+     * The schema is what keeps a model from writing its reasoning around the
+     * JSON, and that is most of a run's wall clock. A model that refuses it
+     * still has to do the work, so the refusal is remembered and the file is
+     * asked for again the plain way — the parser has handled prose since day
+     * one, and now only needs to.
+     */
+    let result
+    if (schemaRefused.has(model)) {
+      result = await ask(false)
+    } else {
+      try {
+        result = await ask(true)
+      } catch (error) {
+        if (!isSchemaRejection(error)) throw error
+        schemaRefused.add(model)
+        emit({
+          type: 'log',
+          level: 'warn',
+          message: 'Structured output refused — asking for plain JSON from here on',
+        })
+        result = await ask(false)
+      }
+    }
 
     keys.markSuccess(keyIndex)
     emit({

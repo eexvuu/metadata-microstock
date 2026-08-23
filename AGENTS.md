@@ -349,9 +349,16 @@ breaks real runs:
    ISOBMFF — so `canStrip()` decides, and both file sources skip AVI, MKV, WEBM,
    WMV and FLV at scan time rather than uploading a file Gemma will refuse.
 2. **Chain-of-thought JSON.** Gemma writes reasoning around the JSON no matter
-   what the prompt demands, and the reasoning contains its own brace blocks.
+   what the *prompt* demands, and the reasoning contains its own brace blocks.
    `parse.ts` walks candidates and rejects schema echoes (`"string — …"`) and
-   placeholders.
+   placeholders. What the prompt cannot do, `generationConfig.responseSchema`
+   can: measured 2026-08-23 on the same three images, Gemma went from 86.5 s
+   and 10,000 characters of reasoning per file to 6 s and 535 characters, and
+   `extracted` stopped firing. Every profile therefore carries a
+   `responseSchema`, and the descriptions inside it are load-bearing — a schema
+   with bare types costs keywords (33 against 42). `parse.ts` stays exactly as
+   it is: it is what catches a model that refuses the schema, and the runner
+   remembers that refusal per model rather than per file.
 3. **Transient 429s.** A 429 is usually the per-minute limit, not the daily one.
    Cool the key for 60 s; only five consecutive 429s with no success in between
    mean the day's quota is gone.
