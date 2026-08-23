@@ -67,6 +67,9 @@ function AdminRunDetail() {
     }
   }
 
+  /** Names need room; a number 1-21 does not. Both wrap either way. */
+  const categoryWidth = run.platform === 'shutterstock' ? 'w-44' : 'w-16'
+
   const days = run.resultExpiresAt
     ? Math.ceil((run.resultExpiresAt - Date.now()) / (24 * 60 * 60 * 1000))
     : 0
@@ -172,7 +175,14 @@ function AdminRunDetail() {
                   <TableHead className="w-72">Title</TableHead>
                   <TableHead>Keywords</TableHead>
                   <TableHead className="w-12 text-right">KW</TableHead>
-                  <TableHead className="w-16">Cat</TableHead>
+                  {/*
+                    Adobe's category is a number 1-21; Shutterstock's is one or
+                    two names, and "Abstract,Signs/Symbols" in a column sized
+                    for "12" was the second thing to run out of its cell and
+                    over the neighbour. Both widths wrap now — the platform
+                    only decides how much room to give it up front.
+                  */}
+                  <TableHead className={categoryWidth}>Cat</TableHead>
                   <TableHead className="w-44">Model</TableHead>
                 </TableRow>
               </TableHeader>
@@ -190,9 +200,15 @@ function AdminRunDetail() {
                         </Badge>
                       ) : null}
                     </TableCell>
+                    {/*
+                      Adobe writes a title, Shutterstock writes a description,
+                      and a Shutterstock row has no title at all — so whichever
+                      one the platform produced is the row's text, and the
+                      second line only appears when there really are two.
+                    */}
                     <TableCell className="align-top text-sm whitespace-normal">
-                      {row.title}
-                      {row.description ? (
+                      {row.title || row.description}
+                      {row.title && row.description ? (
                         <span className="text-muted-foreground mt-1 block text-xs">
                           {row.description}
                         </span>
@@ -209,7 +225,9 @@ function AdminRunDetail() {
                     <TableCell className="align-top text-right font-mono text-xs tabular-nums">
                       {countKeywords(row.keywords)}
                     </TableCell>
-                    <TableCell className="align-top font-mono text-xs tabular-nums">
+                    <TableCell
+                      className={`${categoryWidth} align-top font-mono text-xs break-words whitespace-normal tabular-nums`}
+                    >
                       {row.category}
                     </TableCell>
                     {/*
