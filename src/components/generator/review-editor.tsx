@@ -28,9 +28,20 @@ const MAX_KEYWORDS: Record<RunOptions['platform'], number> = {
 /**
  * What the CSV may have to say that the folder does not. Vector art is
  * analysed as a JPEG and uploaded as .eps or .ai; a video is often delivered
- * alongside the .mp4 or .avi the platform indexes. Nothing on disk moves.
+ * alongside the .mp4, .mov or .avi the platform indexes. Nothing on disk
+ * moves.
  */
-const EXTENSIONS = ['.eps', '.ai', '.svg', '.jpg', '.jpeg', '.png', '.mp4', '.avi']
+const EXTENSIONS = [
+  '.eps',
+  '.ai',
+  '.svg',
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.mp4',
+  '.mov',
+  '.avi',
+]
 
 function swapExtension(filename: string, extension: string): string {
   const dot = filename.lastIndexOf('.')
