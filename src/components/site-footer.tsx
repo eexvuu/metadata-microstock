@@ -1,16 +1,19 @@
 import { Link } from '@tanstack/react-router'
 
+import { useToolsHref } from '#/lib/auth-client'
 import { CONTAINER } from '#/components/shell'
 import { useMessages } from '#/lib/i18n'
 
 const LINKS = [
   { to: '/', key: 'overview' },
-  { to: '/dashboard', key: 'tools' },
+  // Same as the header's: filled in per render, see `useToolsHref`.
+  { to: null, key: 'tools' },
 ] as const
 
 /** The colophon — printed small at the bottom of the sheet, like a lab stamp. */
 export function SiteFooter() {
   const m = useMessages()
+  const toolsHref = useToolsHref()
 
   return (
     <footer className="border-(--line) mt-24 border-t">
@@ -23,9 +26,9 @@ export function SiteFooter() {
 
           <ul className="grid gap-2">
             {LINKS.map((link) => (
-              <li key={link.to}>
+              <li key={link.key}>
                 <Link
-                  to={link.to}
+                  to={link.to ?? toolsHref}
                   className="text-muted-foreground hover:text-foreground font-mono text-xs transition-colors"
                 >
                   {m.nav[link.key]}

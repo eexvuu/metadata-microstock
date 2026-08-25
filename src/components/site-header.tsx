@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '#/components/ui/dropdown-menu'
 import { Skeleton } from '#/components/ui/skeleton'
-import { signOut, useSession } from '#/lib/auth-client'
+import { signOut, useSession, useToolsHref } from '#/lib/auth-client'
 import { useMessages } from '#/lib/i18n'
 
 /**
@@ -25,7 +25,8 @@ import { useMessages } from '#/lib/i18n'
  */
 const NAV = [
   { to: '/', key: 'overview' },
-  { to: '/dashboard', key: 'tools' },
+  // `to` is filled in per render: see `useToolsHref`.
+  { to: null, key: 'tools' },
 ] as const
 
 const NAV_LINK =
@@ -33,6 +34,7 @@ const NAV_LINK =
 
 export function SiteHeader() {
   const m = useMessages()
+  const toolsHref = useToolsHref()
 
   return (
     <header className="bg-background/85 sticky top-0 z-50 w-full backdrop-blur-md">
@@ -55,17 +57,27 @@ export function SiteHeader() {
         </Link>
 
         <nav className="hidden items-center gap-6 sm:flex">
-          {NAV.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className={NAV_LINK}
-              activeProps={{ className: 'text-foreground after:w-full' }}
-              activeOptions={{ exact: item.to === '/' }}
-            >
-              {m.nav[item.key]}
-            </Link>
-          ))}
+          {NAV.map((item) => {
+            const to = item.to ?? toolsHref
+
+            return (
+              <Link
+                key={item.key}
+                to={to}
+                className={NAV_LINK}
+                // Standing on /login is not standing on Tools — the link that
+                // sent you there does not get to underline itself.
+                activeProps={
+                  to === '/login'
+                    ? {}
+                    : { className: 'text-foreground after:w-full' }
+                }
+                activeOptions={{ exact: to === '/' }}
+              >
+                {m.nav[item.key]}
+              </Link>
+            )
+          })}
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
