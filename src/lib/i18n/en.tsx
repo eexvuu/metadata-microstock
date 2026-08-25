@@ -300,7 +300,7 @@ export const en = {
     progress: (done: number, total: number) => `${done} / ${total} files`,
 
     keysInRotation: 'Keys in rotation',
-    manage: 'Manage',
+    manage: 'Manage keys',
     keysUsed: 'Use at once',
     keysAll: (keys: number) => `all ${keys} key${keys === 1 ? '' : 's'}`,
     keysExactly: (keys: number) => `${keys} key${keys === 1 ? '' : 's'}`,
@@ -391,9 +391,25 @@ export const en = {
     disable: 'Disable',
     status: { active: 'active', disabled: 'disabled' },
     empty: 'no keys yet — paste one above and the tool is ready',
+    firstTitle: 'One free key, then you can run this',
     firstBody:
-      'This tool runs on your own Google key, which is free and takes a minute to make. Nothing else is needed.',
+      'This tool runs on your own Google Gemini key. It is free, it takes about a minute to make, and nothing else is needed.',
     firstCta: 'Add your Gemini key',
+    firstWhere: (
+      <>
+        Do not have one? Sign in at{' '}
+        <a
+          href="https://aistudio.google.com/apikey"
+          target="_blank"
+          rel="noreferrer"
+          className="text-foreground underline underline-offset-4"
+        >
+          aistudio.google.com/apikey
+        </a>
+        , press <strong className="text-foreground">Create API key</strong>,
+        then paste it here.
+      </>
+    ) as ReactNode,
   },
 
   options: {

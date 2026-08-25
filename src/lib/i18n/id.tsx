@@ -278,7 +278,7 @@ export const id: Messages = {
     progress: (done: number, total: number) => `${done} / ${total} berkas`,
 
     keysInRotation: 'Kunci yang dirotasi',
-    manage: 'Kelola',
+    manage: 'Kelola kunci',
     keysUsed: 'Dipakai bersamaan',
     keysAll: (keys: number) => `semua ${keys} kunci`,
     keysExactly: (keys: number) => `${keys} kunci`,
@@ -367,9 +367,25 @@ export const id: Messages = {
     disable: 'Nonaktifkan',
     status: { active: 'aktif', disabled: 'nonaktif' },
     empty: 'belum ada kunci — tempel satu di atas dan perkakas siap dipakai',
+    firstTitle: 'Satu kunci gratis, lalu perkakas ini siap jalan',
     firstBody:
-      'Perkakas ini berjalan dengan kunci Google milik Anda sendiri, gratis dan cuma perlu semenit untuk membuatnya. Tidak perlu yang lain.',
+      'Perkakas ini berjalan dengan kunci Google Gemini milik Anda sendiri. Gratis, cuma perlu semenit untuk membuatnya, dan tidak perlu yang lain.',
     firstCta: 'Tambahkan kunci Gemini Anda',
+    firstWhere: (
+      <>
+        Belum punya? Masuk ke{' '}
+        <a
+          href="https://aistudio.google.com/apikey"
+          target="_blank"
+          rel="noreferrer"
+          className="text-foreground underline underline-offset-4"
+        >
+          aistudio.google.com/apikey
+        </a>
+        , tekan <strong className="text-foreground">Create API key</strong>,
+        lalu tempelkan di sini.
+      </>
+    ),
   },
 
   options: {

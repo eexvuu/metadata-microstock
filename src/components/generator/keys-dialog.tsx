@@ -212,21 +212,40 @@ export function KeysDialog({
   )
 }
 
-/** The empty state on the rail: the one thing standing between you and a run. */
+/**
+ * The empty state on the rail: the one thing standing between you and a run.
+ *
+ * It is drawn loud on purpose. A first-time contributor arrives without a key
+ * and without knowing there is one to get, so this block has to say what is
+ * missing, where it comes from and what it costs — before the dialog, not
+ * inside it. The quiet version of this box was read as a footnote and skipped.
+ */
 export function AddFirstKey({ keys }: { keys: KeySummary[] }) {
   const m = useMessages()
 
   return (
-    <div className="border-(--line) flex flex-col items-center gap-3 border border-dashed px-4 py-6 text-center">
+    <div className="border-primary/40 bg-primary/5 flex flex-col items-center gap-3 border border-dashed px-4 py-7 text-center">
+      <span className="border-primary/50 text-primary flex size-9 items-center justify-center border">
+        <KeyRound className="size-4.5" strokeWidth={1.5} />
+      </span>
+
+      <p className="font-display text-lg font-medium text-balance">
+        {m.keys.firstTitle}
+      </p>
       <p className="text-muted-foreground max-w-md text-sm text-pretty">
         {m.keys.firstBody}
       </p>
+
       <KeysDialog keys={keys}>
-        <Button className="eyebrow">
+        <Button size="lg" className="eyebrow h-11 px-5">
           <KeyRound className="size-4" />
           {m.keys.firstCta}
         </Button>
       </KeysDialog>
+
+      <p className="text-muted-foreground max-w-md text-xs text-pretty">
+        {m.keys.firstWhere}
+      </p>
     </div>
   )
 }

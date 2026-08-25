@@ -1,6 +1,6 @@
 import { createFileRoute, getRouteApi } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
-import { Check, Loader2, Play, RotateCcw, Square } from 'lucide-react'
+import { Check, KeyRound, Loader2, Play, RotateCcw, Square } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { KeyRail } from '#/components/generator/key-rail'
@@ -504,6 +504,19 @@ function MetadataTool() {
         </>
       ) : (
         <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
+          {/*
+            Without a key nothing below this line can run, so the ask goes
+            first and spans both columns. It used to sit in the run panel,
+            which stacks under the picker on anything narrower than xl — a new
+            contributor met "pick a folder" and never scrolled far enough to
+            find out what was actually missing.
+          */}
+          {activeKeys.length === 0 ? (
+            <div className="xl:col-span-2">
+              <AddFirstKey keys={keys} />
+            </div>
+          ) : null}
+
           <div className="space-y-6">
             {pending && !selected ? (
               <section className="border-primary/50 bg-accent/20 space-y-3 border p-4">
@@ -685,24 +698,29 @@ function MetadataTool() {
               ) : null}
 
               <div className="space-y-2">
-                <div className="flex items-baseline justify-between">
+                <div className="flex items-center justify-between gap-3">
                   <p className="eyebrow text-muted-foreground">
                     {m.tool.keysInRotation}
                   </p>
+                  {/*
+                    A bare text link here read as a caption, and people with a
+                    working key could not find the way back to add a second
+                    one. It is a button now, because that is what it does.
+                  */}
                   {activeKeys.length > 0 ? (
                     <KeysDialog keys={keys}>
-                      <button
-                        type="button"
-                        className="text-muted-foreground hover:text-foreground eyebrow transition-colors"
-                      >
+                      <Button variant="outline" size="xs" className="eyebrow">
+                        <KeyRound className="size-3.5" />
                         {m.tool.manage}
-                      </button>
+                      </Button>
                     </KeysDialog>
                   ) : null}
                 </div>
 
                 {activeKeys.length === 0 ? (
-                  <AddFirstKey keys={keys} />
+                  <p className="border-(--line) text-muted-foreground border border-dashed px-3 py-4 text-center font-mono text-xs">
+                    {m.keys.railEmpty}
+                  </p>
                 ) : (
                   <>
                     {/*
