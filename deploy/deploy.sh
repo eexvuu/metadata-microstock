@@ -40,8 +40,14 @@ rm -f .release-package.json
 
 # The build bundles everything except libsql, which ships a native binary per
 # platform and so cannot come from a Windows laptop.
+#
+# The box points npm at a Tencent mirror, which on 2026-08-25 served a
+# truncated metadata document for a transitive dependency and stopped the
+# deploy with the release shipped but never switched to. One retry against
+# npm's own registry costs nothing on the happy path and turns somebody else's
+# cache corruption back into a deploy.
 echo "==> installing the one runtime dependency"
-ssh "$TARGET" "cd '$RELEASE' && npm install --no-audit --no-fund --loglevel=error"
+ssh "$TARGET" "cd '$RELEASE' && npm install --no-audit --no-fund --loglevel=error || npm install --no-audit --no-fund --loglevel=error --registry=https://registry.npmjs.org"
 
 echo "==> backing up the database before migrating"
 ssh "$TARGET" "test ! -f '$REMOTE_DIR/data/stockflow.db' || cp '$REMOTE_DIR/data/stockflow.db' '$REMOTE_DIR/data/stockflow.db.$(date -u +%Y%m%d%H%M%S).bak'"
