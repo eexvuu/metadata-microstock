@@ -17,12 +17,15 @@ import { Route as ToolsRouteRouteImport } from './routes/tools/route'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as DashboardResourceRouteImport } from './routes/dashboard/$resource'
 import { Route as ToolsMetadataRouteRouteImport } from './routes/tools/metadata/route'
+import { Route as ToolsVectorizerRouteRouteImport } from './routes/tools/vectorizer/route'
 import { Route as DashboardAdminIndexRouteImport } from './routes/dashboard/admin/index'
 import { Route as ToolsMetadataIndexRouteImport } from './routes/tools/metadata/index'
 import { Route as ToolsMetadataHistoryRouteImport } from './routes/tools/metadata/history'
+import { Route as ToolsVectorizerIndexRouteImport } from './routes/tools/vectorizer/index'
 import { Route as DashboardAdminRunsRunIdRouteImport } from './routes/dashboard/admin/runs.$runId'
 import { Route as DashboardAdminUsersUserIdRouteImport } from './routes/dashboard/admin/users.$userId'
 import { Route as ToolsMetadataHistoryRunIdRouteImport } from './routes/tools/metadata/history_.$runId'
+import { Route as ToolsVectorizerJobsJobIdRouteImport } from './routes/tools/vectorizer/jobs.$jobId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -64,6 +67,11 @@ const ToolsMetadataRouteRoute = ToolsMetadataRouteRouteImport.update({
   path: '/metadata',
   getParentRoute: () => ToolsRouteRoute,
 } as any)
+const ToolsVectorizerRouteRoute = ToolsVectorizerRouteRouteImport.update({
+  id: '/vectorizer',
+  path: '/vectorizer',
+  getParentRoute: () => ToolsRouteRoute,
+} as any)
 const DashboardAdminIndexRoute = DashboardAdminIndexRouteImport.update({
   id: '/admin/',
   path: '/admin/',
@@ -78,6 +86,11 @@ const ToolsMetadataHistoryRoute = ToolsMetadataHistoryRouteImport.update({
   id: '/history',
   path: '/history',
   getParentRoute: () => ToolsMetadataRouteRoute,
+} as any)
+const ToolsVectorizerIndexRoute = ToolsVectorizerIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ToolsVectorizerRouteRoute,
 } as any)
 const DashboardAdminRunsRunIdRoute = DashboardAdminRunsRunIdRouteImport.update({
   id: '/admin/runs/$runId',
@@ -96,6 +109,12 @@ const ToolsMetadataHistoryRunIdRoute =
     path: '/history/$runId',
     getParentRoute: () => ToolsMetadataRouteRoute,
   } as any)
+const ToolsVectorizerJobsJobIdRoute =
+  ToolsVectorizerJobsJobIdRouteImport.update({
+    id: '/jobs/$jobId',
+    path: '/jobs/$jobId',
+    getParentRoute: () => ToolsVectorizerRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -104,14 +123,17 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/tools/metadata': typeof ToolsMetadataRouteRouteWithChildren
+  '/tools/vectorizer': typeof ToolsVectorizerRouteRouteWithChildren
   '/dashboard/$resource': typeof DashboardResourceRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/tools/metadata/history': typeof ToolsMetadataHistoryRoute
   '/dashboard/admin/': typeof DashboardAdminIndexRoute
   '/tools/metadata/': typeof ToolsMetadataIndexRoute
+  '/tools/vectorizer/': typeof ToolsVectorizerIndexRoute
   '/dashboard/admin/runs/$runId': typeof DashboardAdminRunsRunIdRoute
   '/dashboard/admin/users/$userId': typeof DashboardAdminUsersUserIdRoute
   '/tools/metadata/history/$runId': typeof ToolsMetadataHistoryRunIdRoute
+  '/tools/vectorizer/jobs/$jobId': typeof ToolsVectorizerJobsJobIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -123,9 +145,11 @@ export interface FileRoutesByTo {
   '/tools/metadata/history': typeof ToolsMetadataHistoryRoute
   '/dashboard/admin': typeof DashboardAdminIndexRoute
   '/tools/metadata': typeof ToolsMetadataIndexRoute
+  '/tools/vectorizer': typeof ToolsVectorizerIndexRoute
   '/dashboard/admin/runs/$runId': typeof DashboardAdminRunsRunIdRoute
   '/dashboard/admin/users/$userId': typeof DashboardAdminUsersUserIdRoute
   '/tools/metadata/history/$runId': typeof ToolsMetadataHistoryRunIdRoute
+  '/tools/vectorizer/jobs/$jobId': typeof ToolsVectorizerJobsJobIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -135,14 +159,17 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/tools/metadata': typeof ToolsMetadataRouteRouteWithChildren
+  '/tools/vectorizer': typeof ToolsVectorizerRouteRouteWithChildren
   '/dashboard/$resource': typeof DashboardResourceRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/tools/metadata/history': typeof ToolsMetadataHistoryRoute
   '/dashboard/admin/': typeof DashboardAdminIndexRoute
   '/tools/metadata/': typeof ToolsMetadataIndexRoute
+  '/tools/vectorizer/': typeof ToolsVectorizerIndexRoute
   '/dashboard/admin/runs/$runId': typeof DashboardAdminRunsRunIdRoute
   '/dashboard/admin/users/$userId': typeof DashboardAdminUsersUserIdRoute
   '/tools/metadata/history_/$runId': typeof ToolsMetadataHistoryRunIdRoute
+  '/tools/vectorizer/jobs/$jobId': typeof ToolsVectorizerJobsJobIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -153,14 +180,17 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/tools/metadata'
+    | '/tools/vectorizer'
     | '/dashboard/$resource'
     | '/dashboard/'
     | '/tools/metadata/history'
     | '/dashboard/admin/'
     | '/tools/metadata/'
+    | '/tools/vectorizer/'
     | '/dashboard/admin/runs/$runId'
     | '/dashboard/admin/users/$userId'
     | '/tools/metadata/history/$runId'
+    | '/tools/vectorizer/jobs/$jobId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -172,9 +202,11 @@ export interface FileRouteTypes {
     | '/tools/metadata/history'
     | '/dashboard/admin'
     | '/tools/metadata'
+    | '/tools/vectorizer'
     | '/dashboard/admin/runs/$runId'
     | '/dashboard/admin/users/$userId'
     | '/tools/metadata/history/$runId'
+    | '/tools/vectorizer/jobs/$jobId'
   id:
     | '__root__'
     | '/'
@@ -183,14 +215,17 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/tools/metadata'
+    | '/tools/vectorizer'
     | '/dashboard/$resource'
     | '/dashboard/'
     | '/tools/metadata/history'
     | '/dashboard/admin/'
     | '/tools/metadata/'
+    | '/tools/vectorizer/'
     | '/dashboard/admin/runs/$runId'
     | '/dashboard/admin/users/$userId'
     | '/tools/metadata/history_/$runId'
+    | '/tools/vectorizer/jobs/$jobId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -259,6 +294,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ToolsMetadataRouteRouteImport
       parentRoute: typeof ToolsRouteRoute
     }
+    '/tools/vectorizer': {
+      id: '/tools/vectorizer'
+      path: '/vectorizer'
+      fullPath: '/tools/vectorizer'
+      preLoaderRoute: typeof ToolsVectorizerRouteRouteImport
+      parentRoute: typeof ToolsRouteRoute
+    }
     '/dashboard/admin/': {
       id: '/dashboard/admin/'
       path: '/admin'
@@ -280,6 +322,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ToolsMetadataHistoryRouteImport
       parentRoute: typeof ToolsMetadataRouteRoute
     }
+    '/tools/vectorizer/': {
+      id: '/tools/vectorizer/'
+      path: '/'
+      fullPath: '/tools/vectorizer/'
+      preLoaderRoute: typeof ToolsVectorizerIndexRouteImport
+      parentRoute: typeof ToolsVectorizerRouteRoute
+    }
     '/dashboard/admin/runs/$runId': {
       id: '/dashboard/admin/runs/$runId'
       path: '/admin/runs/$runId'
@@ -300,6 +349,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/tools/metadata/history/$runId'
       preLoaderRoute: typeof ToolsMetadataHistoryRunIdRouteImport
       parentRoute: typeof ToolsMetadataRouteRoute
+    }
+    '/tools/vectorizer/jobs/$jobId': {
+      id: '/tools/vectorizer/jobs/$jobId'
+      path: '/jobs/$jobId'
+      fullPath: '/tools/vectorizer/jobs/$jobId'
+      preLoaderRoute: typeof ToolsVectorizerJobsJobIdRouteImport
+      parentRoute: typeof ToolsVectorizerRouteRoute
     }
   }
 }
@@ -339,12 +395,27 @@ const ToolsMetadataRouteRouteChildren: ToolsMetadataRouteRouteChildren = {
 const ToolsMetadataRouteRouteWithChildren =
   ToolsMetadataRouteRoute._addFileChildren(ToolsMetadataRouteRouteChildren)
 
+interface ToolsVectorizerRouteRouteChildren {
+  ToolsVectorizerIndexRoute: typeof ToolsVectorizerIndexRoute
+  ToolsVectorizerJobsJobIdRoute: typeof ToolsVectorizerJobsJobIdRoute
+}
+
+const ToolsVectorizerRouteRouteChildren: ToolsVectorizerRouteRouteChildren = {
+  ToolsVectorizerIndexRoute: ToolsVectorizerIndexRoute,
+  ToolsVectorizerJobsJobIdRoute: ToolsVectorizerJobsJobIdRoute,
+}
+
+const ToolsVectorizerRouteRouteWithChildren =
+  ToolsVectorizerRouteRoute._addFileChildren(ToolsVectorizerRouteRouteChildren)
+
 interface ToolsRouteRouteChildren {
   ToolsMetadataRouteRoute: typeof ToolsMetadataRouteRouteWithChildren
+  ToolsVectorizerRouteRoute: typeof ToolsVectorizerRouteRouteWithChildren
 }
 
 const ToolsRouteRouteChildren: ToolsRouteRouteChildren = {
   ToolsMetadataRouteRoute: ToolsMetadataRouteRouteWithChildren,
+  ToolsVectorizerRouteRoute: ToolsVectorizerRouteRouteWithChildren,
 }
 
 const ToolsRouteRouteWithChildren = ToolsRouteRoute._addFileChildren(

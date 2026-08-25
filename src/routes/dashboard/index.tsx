@@ -1,5 +1,5 @@
-import { Link, createFileRoute } from '@tanstack/react-router'
-import { ArrowRight, KeyRound, Sparkles } from 'lucide-react'
+import { Link, createFileRoute, getRouteApi } from '@tanstack/react-router'
+import { ArrowRight, KeyRound, PenTool, Sparkles } from 'lucide-react'
 
 import { PageHead } from '#/components/page-head'
 import { Button } from '#/components/ui/button'
@@ -15,6 +15,12 @@ import { listGeminiKeys } from '#/lib/server/gemini-keys'
  * shared, and the only thing this page loads, is the keys they all spend.
  *
  * Adding a tool is one entry in `TOOLS` and one line of copy per locale.
+ *
+ * A tool can be `adminOnly` while it is being built. That flag decides whether
+ * a CARD renders and nothing else — the tool's own loader calls `requireAdmin`,
+ * which is the gate. Hiding a card from someone who could still reach the
+ * route would be theatre; hiding one from someone the route already refuses is
+ * just not advertising a door they cannot open.
  */
 export const Route = createFileRoute('/dashboard/')({
   loader: () => listGeminiKeys(),
@@ -28,13 +34,33 @@ const TOOLS = [
     icon: Sparkles,
     name: 'metadata',
     body: 'metadataBody',
+    badge: 'free',
+    adminOnly: false,
+  },
+  {
+    id: 'vectorizer',
+    to: '/tools/vectorizer',
+    icon: PenTool,
+    name: 'vectorizer',
+    body: 'vectorizerBody',
+    badge: 'adminOnly',
+    adminOnly: true,
   },
 ] as const
+
+/**
+ * The same signal the dashboard shell uses: `getPanelNav` returns nothing at
+ * all for a non-admin, because every panel resource is admin-gated. Reading
+ * the parent's loader data costs no second round trip.
+ */
+const shell = getRouteApi('/dashboard')
 
 function CatalogPage() {
   const m = useMessages()
   const keys = Route.useLoaderData()
+  const isAdmin = shell.useLoaderData().length > 0
   const activeKeys = keys.filter((key) => key.status === 'active').length
+  const visible = TOOLS.filter((tool) => isAdmin || !tool.adminOnly)
 
   return (
     <div className="space-y-8">
@@ -43,7 +69,7 @@ function CatalogPage() {
       </PageHead>
 
       <div className="grid gap-px sm:grid-cols-2 xl:grid-cols-3">
-        {TOOLS.map((tool) => {
+        {visible.map((tool) => {
           const Icon = tool.icon
 
           return (
@@ -54,7 +80,7 @@ function CatalogPage() {
               <div className="flex items-center justify-between">
                 <Icon className="text-primary size-5" strokeWidth={1.5} />
                 <span className="border-primary/40 text-primary border px-1.5 py-0.5 font-mono text-[0.6rem] tracking-[0.1em] uppercase">
-                  {m.catalog.free}
+                  {m.catalog[tool.badge]}
                 </span>
               </div>
 

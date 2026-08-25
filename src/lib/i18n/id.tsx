@@ -14,6 +14,7 @@ export const id: Messages = {
     tools: 'Perkakas',
     catalog: 'Katalog',
     metadata: 'Metadata',
+    vectorizer: 'Vectorizer',
     monitoring: 'Pemantauan',
   },
 
@@ -149,7 +150,10 @@ export const id: Messages = {
     title: 'Perkakas Anda',
     lead: 'Satu akun, satu set kunci, dan ruang sendiri untuk tiap perkakas. Buka salah satu dan bekerjalah di dalamnya — run, riwayat dan pengaturannya tinggal di situ.',
     free: 'gratis',
+    adminOnly: 'khusus admin',
     planned: 'direncanakan',
+    vectorizerBody:
+      'Gambar raster ditelusuri menjadi SVG dan EPS 4000 px, satu batch sekali jalan, dengan pengaturan yang diterima Shutterstock dan Adobe Stock. Berjalan dengan token, bukan dengan kunci Anda sendiri.',
     metadataBody:
       'Judul, 49 kata kunci dan kategori yang tepat untuk satu folder penuh gambar dan video, ditulis ke CSV yang diminta Adobe Stock dan Shutterstock.',
     open: 'Buka',

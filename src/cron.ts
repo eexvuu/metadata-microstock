@@ -2,6 +2,7 @@ import { count, gte, lt, sum } from 'drizzle-orm'
 
 import { getDb } from '#/db/index'
 import { auditLog, generationRun, runRows, usageDaily } from '#/db/schema'
+import { reclaimStaleLeases, refundAbandonedUploads } from '#/lib/server/vector-queue'
 
 /**
  * The nightly housekeeping, run by `stockflow-cron.timer`.
@@ -57,8 +58,26 @@ export async function runNightly() {
     .where(lt(runRows.expiresAt, new Date()))
     .returning({ runId: runRows.runId })
 
+  // The vectorizer's two, and both hand tokens back: a worker died holding a
+  // file, or a tab was closed mid-upload. A night these do not run is a night
+  // somebody is short, so they are wrapped rather than awaited bare — R2 being
+  // unreachable must not take the rollup down with it.
+  //
+  // There is no result pruner here. Retention is an R2 lifecycle rule now; see
+  // the note at the top of `src/lib/server/vector.ts`.
+  let vectors = { reclaimed: 0, refunded: 0 }
+  try {
+    vectors = {
+      reclaimed: await reclaimStaleLeases(),
+      refunded: await refundAbandonedUploads(),
+    }
+  } catch (error) {
+    console.error('[cron] vector housekeeping failed', error)
+  }
+
   console.log(
     `[cron] ${day}: ${today?.runs ?? 0} runs, ${Number(today?.files ?? 0)} files; ` +
-      `${expired.length} expired results removed; audit pruned before ${cutoff.toISOString().slice(0, 10)}`,
+      `${expired.length} expired results removed; audit pruned before ${cutoff.toISOString().slice(0, 10)}; ` +
+      `vector: ${vectors.reclaimed} leases reclaimed, ${vectors.refunded} uploads refunded`,
   )
 }

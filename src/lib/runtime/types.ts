@@ -26,4 +26,24 @@ export interface AppEnv {
 
   /** libsql URL for the Node build. Ignored on workerd, which has a binding. */
   DATABASE_URL?: string
+
+  /**
+   * Cloudflare R2, over its S3 API — the only place vectorizer originals and
+   * results ever live. Optional here and checked at USE, not at boot: a deploy
+   * of the metadata tool alone must not fail to start because a tool nobody
+   * has enabled is missing a bucket.
+   */
+  R2_ACCOUNT_ID?: string
+  R2_ACCESS_KEY_ID?: string
+  R2_SECRET_ACCESS_KEY?: string
+  R2_BUCKET?: string
+  /** Optional override; defaults to `<account>.r2.cloudflarestorage.com`. */
+  R2_ENDPOINT?: string
+
+  /**
+   * The shared secret the vectorize worker presents. It is a bearer token for
+   * a machine, so it is long, random and rotatable — losing it costs one
+   * `systemctl restart`, not a migration.
+   */
+  VECTOR_WORKER_SECRET?: string
 }

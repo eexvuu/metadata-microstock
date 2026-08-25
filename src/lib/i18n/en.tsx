@@ -19,6 +19,7 @@ export const en = {
     tools: 'Tools',
     catalog: 'Catalog',
     metadata: 'Metadata',
+    vectorizer: 'Vectorizer',
     monitoring: 'Monitoring',
   },
 
@@ -152,7 +153,10 @@ export const en = {
     title: 'Your tools',
     lead: 'One account, one set of keys, and a room of its own for every tool. Open one to work inside it — its runs, its history and its settings stay there.',
     free: 'free',
+    adminOnly: 'admin only',
     planned: 'planned',
+    vectorizerBody:
+      'Raster art traced to 4000 px SVG and EPS, batch at a time, on the settings Shutterstock and Adobe Stock accept. Runs on tokens rather than on your own key.',
     metadataBody:
       'Titles, 49 keywords and the right category for a whole folder of images and videos, written into the CSV Adobe Stock and Shutterstock ask for.',
     open: 'Open',

@@ -175,6 +175,13 @@ Don't "fix" these by accident; they are documented choices or known debt.
   agree; there is no second target to drift from.
 - Panel limits (read-only joins, no relation picker, offset pagination, no
   per-row rules, actions always visible) are listed at the end of PANEL.md.
+- **`bun run start` does not give the built server your `.env`.** Bun loads it
+  for its own process, not for the `node` it spawns, and
+  `src/db/client.ts` has a hardcoded `file:./data/stockflow.db` fallback that
+  hides it — the app boots, answers `/api/health`, and every env-dependent
+  feature is silently off. Production is unaffected (`stockflow.service` uses
+  `EnvironmentFile`). Locally, export first:
+  `set -a && . ./.env && set +a && node dist/server/server.js`.
 
 ---
 
@@ -444,3 +451,84 @@ file into the folder it is given.
 
 The signed-in path (signup -> add key -> run -> `generation_run` row) needs a
 real account, so it is a human step. Ask rather than creating accounts.
+
+---
+
+# The vectorizer
+
+The second tool on the shelf, and the first one that does not play by the
+metadata tool's rules. **Admin-only and not released** — `requireAdmin()` at the
+top of every server function is the gate; the catalog card not rendering for a
+non-admin is a courtesy.
+
+Raster art in, 4000 px SVG and EPS out, at the settings
+`D:/microstock/vector/vectorizer` uses for microstock. That repo is the source
+of the tracing behaviour, and none of it was ported.
+
+## Hard constraints
+
+**This box does not vectorize anything.** The web backend is a real Chromium
+signed in to vectorizer.ai plus a Whisper CAPTCHA solver, and the unit is
+capped at 768 MB beside MySQL and a dozen vhosts. So Stockflow holds the queue,
+the tokens and the bucket, and a worker on the machine that already runs
+`vectorize.js` claims one file at a time over `/api/v1/vector/*`
+(`worker/README.md`, `worker/vector-worker.mjs`). A claim is a **lease**: a
+worker that dies has its file put back, and `attempts` is what stops a file
+that keeps killing workers from cycling forever.
+
+**The media proxy rule does not apply here, and that is deliberate.** The
+metadata engine forbids a server route that proxies media because the user's
+own key talks to Google from their own tab. This tool spends OUR vectorizer.ai
+credits, so the bytes have to reach a machine that is not the user's browser.
+They still never pass through this process: `src/lib/server/r2.ts` mints
+presigned URLs and the browser and the worker both talk to R2 directly. That
+module is the only door to the bucket.
+
+**Tokens are a ledger, never a column.** `token_ledger` is append-only for the
+same reason `audit_log` is, and there is no `balance` anywhere — it is
+`SUM(delta)`, so the number on the screen cannot drift from the rows that
+explain it. Granting is writing a row; a mistake is undone by writing a
+negative one.
+
+**A file that fails gives its token back.** One image costs one token, charged
+when the batch is created — before the upload, so a batch that cannot be paid
+for is refused before anyone waits ten minutes for it. Every path back is a
+refund: bytes that never uploaded (`startVectorJob`, or `refundAbandonedUploads`
+for the closed tab), a worker that gave up (`failFile` past `MAX_ATTEMPTS`), a
+lease nobody reclaimed. Refunds are idempotent by the unique index on
+(`file_id`, `reason`) — a duplicate report hits a constraint, not the balance.
+
+**A finished file is three objects — the original, the SVG and the EPS** — and
+the batch screen saves all three into a folder the user picks, reusing the
+metadata tool's `pickDirectory()` seam rather than a second one. A zip was the
+alternative and is worse twice over: a dependency, and a whole batch held in
+the tab before a byte is written.
+
+**Retention is an R2 object lifecycle rule and nothing else.** An earlier
+version stamped a 30-day expiry, refused expired downloads and pruned nightly;
+all of it is gone. One bucket setting beats three code paths that have to agree
+with it, and two mechanisms deleting the same bytes on different clocks is how
+a row ends up promising a file that is not there. `vector_file.expires_at`
+survives as an unused nullable column so putting it back is a code change, not
+a migration. The trade — a row can outlive its objects, and that download fails
+with R2's own 404 — is written down in `deploy/README.md`.
+
+The one deletion the app still does is the original of a permanently failed
+file (`failFile`): nobody will ever download it.
+
+**The copy is English and hardcoded**, like `src/routes/dashboard/admin/*`.
+Releasing this tool means an i18n pass, and that is the point at which the
+wording is worth settling.
+
+## Where things go
+
+| Change | File |
+|---|---|
+| The screens | `src/routes/tools/vectorizer/`, `src/components/vectorizer/` |
+| What the browser may ask for | `src/lib/server/vector.ts` |
+| Queue state, leases, refunds, retention | `src/lib/server/vector-queue.ts` |
+| The worker protocol | `src/api/vector.ts` + `worker/vector-worker.mjs` |
+| Presigning, object keys | `src/lib/server/r2.ts` |
+| Balances, grants, refunds | `src/lib/server/tokens.ts` |
+| Admin screens over any of it | `src/resources/vector-jobs.ts`, `src/resources/tokens.ts` |
+| How an image is actually traced | not here — `D:/microstock/vector/vectorizer` |

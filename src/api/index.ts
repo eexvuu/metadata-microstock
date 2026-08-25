@@ -3,6 +3,7 @@ import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 
 import { getAuth } from '#/lib/auth'
+import { vectorApi } from '#/api/vector'
 import { polarWebhook } from '#/api/webhooks/polar'
 
 /**
@@ -30,6 +31,10 @@ api.get('/api/health', (c) => c.json({ ok: true }))
 api.on(['GET', 'POST'], '/api/auth/*', (c) => getAuth().handler(c.req.raw))
 
 api.route('/', polarWebhook)
+
+// The vectorize worker. Not our React code and not a browser — a Node process
+// on somebody's own machine, polling with a bearer secret. See the file.
+api.route('/', vectorApi)
 
 // Your public, versioned API goes here. Kept separate from /api/auth and the
 // webhooks so it can have its own auth scheme (API keys/JWT) and versioning.

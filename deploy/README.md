@@ -92,6 +92,63 @@ sqlite3 /srv/stockflow/data/stockflow.db \
 
 Scope it with a WHERE. Without one, every account on the box becomes an admin.
 
+## The vectorizer tool (optional, admin-only)
+
+Unset, it is simply absent: `/api/v1/vector/*` answers **503** and the tool's
+screen says storage is not configured. Nothing else on the box notices — those
+variables are checked at use, never at startup, so a deploy without them still
+boots and still serves the metadata tool.
+
+To turn it on, add to `/etc/stockflow/stockflow.env` and restart:
+
+```bash
+R2_ACCOUNT_ID=…
+R2_ACCESS_KEY_ID=…
+R2_SECRET_ACCESS_KEY=…
+R2_BUCKET=stockflow-vector
+VECTOR_WORKER_SECRET=$(openssl rand -base64 48)
+```
+
+The R2 token wants **Object Read & Write on that one bucket** and nothing else.
+
+**The bucket also needs a CORS policy, or nothing uploads.** The browser PUTs
+its originals straight to R2 from a page on another origin, so without this the
+preflight fails and every file is refunded as "upload did not complete" — the
+accounting is right and the cause is invisible. R2 → the bucket → Settings →
+CORS policy:
+
+```json
+[{ "AllowedOrigins": ["https://tools.eexvuu.eu.org"],
+   "AllowedMethods": ["GET", "PUT"],
+   "AllowedHeaders": ["*"],
+   "ExposeHeaders": ["ETag"],
+   "MaxAgeSeconds": 86400 }]
+```
+
+Add `http://localhost:3000` to `AllowedOrigins` while developing. The worker
+does not need this — it is a Node process, not a browser.
+
+**Retention is a bucket lifecycle rule, and it is the only one.** R2 → the
+bucket → Settings → Object lifecycle → expire objects under the prefix
+`vector/` after however long you want to keep results. The application deletes
+nothing on a schedule and refuses nothing for being old: one setting is easier
+to keep true than three code paths that have to agree with it, and two
+mechanisms deleting the same bytes on different clocks is how a row ends up
+promising a file that is not there.
+
+The trade is that a row can outlive its objects. A download of something the
+lifecycle rule has already reclaimed fails with R2's own 404 rather than a
+friendly message — worth knowing before you set the window short.
+
+Nothing vectorizes on this box. The work happens on a machine running the
+`vectorizer` repo, which polls for it — see `worker/README.md`. That is not a
+preference: the web backend is Chromium plus a CAPTCHA solver, and
+`stockflow.service` caps this unit at 768 MB.
+
+Tokens are granted from the panel (`/dashboard/tokens`), which writes an
+append-only ledger row. There is no balance column to correct — a mistake is
+undone by writing a negative entry, not by editing the first one.
+
 ## When something is wrong
 
 ```bash
