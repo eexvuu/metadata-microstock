@@ -32,7 +32,7 @@ const keys = readFileSync(keyPath, 'utf8')
 
 // MODEL overrides the ladder with a single rung, for trying one candidate.
 const ladder = process.env.MODEL
-  ? [{ model: process.env.MODEL, rpm: 15 }]
+  ? [{ model: process.env.MODEL, rpm: 15, perFileMs: 3800 }]
   : MODEL_LADDER
 
 const emit = (event: EngineEvent) => {

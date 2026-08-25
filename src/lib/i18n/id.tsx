@@ -441,8 +441,8 @@ export const id: Messages = {
       `${total} berkas media (${images} gambar, ${videos} video); ${skipped} berkas lain diabaikan`,
     fileFailed: (name: string, message: string, requeued: boolean) =>
       `${name}: ${message}${requeued ? ' — dicoba ulang' : ' — pakai baris cadangan'}`,
-    keyCooldown: (index: number, consecutive: number) =>
-      `Kunci ${index} kena limit (429) — istirahat 60 detik (${consecutive}/5)`,
+    keyCooldown: (index: number, consecutive: number, seconds: number) =>
+      `Kunci ${index} kena limit (429) — istirahat ${seconds} detik (${consecutive}/5)`,
     keyDead: (index: number) => `Kunci ${index} kuotanya habis untuk hari ini`,
     keyDemoted: (index: number) =>
       `Kunci ${index} sudah habis jatah cepatnya hari ini — lanjut pakai model cadangan: lebih lambat, tapi jatahnya jauh lebih besar`,

@@ -43,6 +43,8 @@ export interface RunResult {
 interface Task {
   entry: MediaEntry
   triedKeys: Set<number>
+  /** Set when the deeper model has already refused this file for what it is. */
+  fastRungOnly?: boolean
 }
 
 /**
@@ -82,14 +84,16 @@ async function generateWithKey(
   deps: RunnerDeps,
   entry: MediaEntry,
   keyIndex: number,
-  modelOverride?: string,
+  rungOverride?: number,
 ): Promise<MetadataRow> {
   const { keys, profile, options, emit, source, video, image, signal } = deps
   const ctx = contextFor(entry)
   const prompt = profile.buildPrompt(ctx)
-  // Read once, so the row records the model that actually answered even if the
-  // key demotes while this file is in flight.
-  const model = modelOverride ?? keys.modelFor(keyIndex)
+  // Read once, so the row records the model that actually answered — and so
+  // every clock this call touches belongs to the rung it is really spending,
+  // even when that is one borrowed from below.
+  const rung = rungOverride ?? keys.clients[keyIndex].rung
+  const model = keys.modelFor(keyIndex, rung)
 
   let bytes = await source.readBytes(entry)
   let mimeType = mimeTypeOf(entry.name)
@@ -135,7 +139,7 @@ async function generateWithKey(
    */
   const byUpload = uploadVideo || bytes.length > INLINE_MAX_BYTES
 
-  if (byUpload && audioSurvived && model !== keys.ladder[0].model) {
+  if (byUpload && audioSurvived && rung !== 0) {
     throw new WrongRungError(
       `${entry.name} keeps its audio track — nothing here can strip a codec this browser cannot open — and the backup model refuses audio. It needs a key that is still on the fast rung.`,
     )
@@ -164,7 +168,7 @@ async function generateWithKey(
 
   try {
     const callOnce = async (extraInstruction?: string) => {
-      const wait = keys.waitFor(keyIndex)
+      const wait = keys.waitFor(keyIndex, rung)
       if (wait > 0) {
         emit({
           type: 'log',
@@ -174,7 +178,7 @@ async function generateWithKey(
         await sleep(wait)
       }
       if (signal?.aborted) throw new Error('aborted')
-      keys.markRequest(keyIndex)
+      keys.markRequest(keyIndex, rung)
 
       const ask = (withSchema: boolean) =>
         generateContent({
@@ -213,7 +217,7 @@ async function generateWithKey(
         }
       }
 
-      keys.markSuccess(keyIndex)
+      keys.markSuccess(keyIndex, rung)
       emit({
         type: 'log',
         level: 'info',
@@ -292,9 +296,9 @@ async function tryNextRung(
   keyIndex: number,
 ): Promise<MetadataRow | null> {
   const { emit, keys, signal } = deps
-  const deeper = keys.nextModelFor(keyIndex)
+  const deeper = keys.nextRungFor(keyIndex)
 
-  if (!deeper) return null
+  if (deeper === null) return null
   if (signal?.aborted || keys.clients[keyIndex].quotaExceeded) return null
 
   emit({ type: 'model-fallback', name: entry.name })
@@ -392,16 +396,47 @@ export async function runFolder(deps: RunnerDeps): Promise<RunResult> {
     return null
   }
 
-  const worker = async (keyIndex: number): Promise<void> => {
-    while (!keys.clients[keyIndex].quotaExceeded) {
+  /** No point handing a worker a key every queued file has already refused. */
+  const canServeQueue = (keyIndex: number) =>
+    queue.some((task) => !task.triedKeys.has(keyIndex))
+
+  /**
+   * Which key a worker is spending. A slot rather than a parameter because the
+   * answer changes mid-run: a worker whose key starts cooling down trades it
+   * for one off the bench and carries on with the same queue.
+   */
+  interface KeySlot {
+    index: number
+  }
+
+  const worker = async (slot: KeySlot): Promise<void> => {
+    while (!keys.clients[slot.index].quotaExceeded) {
       if (signal?.aborted) return
+      const keyIndex = slot.index
       const task = takeTaskFor(keyIndex)
       if (!task) return
+
+      /*
+       * The key has to wait and the rung below it does not, so this file
+       * spends that instead of the minute — the deep rung's daily allowance is
+       * the big one, which is what makes it the right thing to spend on a file
+       * that would otherwise sit still. The key keeps its own rung and goes
+       * back to it as soon as the cooldown passes; `borrowRung` answers null
+       * the rest of the time, which is why this is asked per file.
+       */
+      const borrowed = task.fastRungOnly ? null : keys.borrowRung(keyIndex)
+      if (borrowed !== null) {
+        emit({
+          type: 'log',
+          level: 'info',
+          message: `Key ${keyIndex + 1} is cooling down — ${task.entry.name} goes to the backup model rather than waiting`,
+        })
+      }
 
       emit({ type: 'file-start', name: task.entry.name, keyIndex })
 
       try {
-        const row = await generateWithKey(deps, task.entry, keyIndex)
+        const row = await generateWithKey(deps, task.entry, keyIndex, borrowed ?? undefined)
         rows.push(row)
         await withProgressLock(async () => {
           emit({ type: 'file-done', row, done: rows.length, total, keyIndex })
@@ -425,6 +460,23 @@ export async function runFolder(deps: RunnerDeps): Promise<RunResult> {
         )
 
         /*
+         * A file the borrowed rung will not take is not a file that failed and
+         * not a key that misbehaved — it is a file that has to wait for the
+         * fast model. Give it back untouched and remember that about it, or
+         * the next worker to pick it up borrows again for the same reason.
+         */
+        if (borrowed !== null && isWrongRung(error)) {
+          task.fastRungOnly = true
+          queue.push(task)
+          emit({
+            type: 'log',
+            level: 'info',
+            message: `${task.entry.name} needs the fast model — it waits for one rather than taking the backup`,
+          })
+          continue
+        }
+
+        /*
          * The rung mismatch has to be asked about first. `isQuotaExceededError`
          * falls back to matching the word "quota" anywhere in a message, and a
          * WrongRungError caught by that branch is requeued without being marked
@@ -437,7 +489,41 @@ export async function runFolder(deps: RunnerDeps): Promise<RunResult> {
           // stays eligible for this same key once the cooldown passes.
           queue.push(task)
           emit({ type: 'file-failed', name: task.entry.name, message, requeued: true })
-          if (keys.handleRateLimit(keyIndex, error)) return
+          const rungBefore = keys.clients[keyIndex].rung
+          if (keys.handleRateLimit(keyIndex, error, borrowed ?? undefined)) return
+
+          /*
+           * A key that has to wait is not a run that has to wait. Trade it for
+           * one off the bench and the minute costs a swap — which is the whole
+           * reason somebody pastes thirty keys and runs eight workers.
+           *
+           * A demotion is the same trade with one condition: only a key still
+           * on the rung this one just lost is worth swapping for, because
+           * "fast quota first" is the point of the ladder. Anything else and
+           * the worker keeps the key it has — demoted is not waiting, it is
+           * working a rung lower, and it can do that right now.
+           */
+          const demoted = keys.clients[keyIndex].rung !== rungBefore
+          const relief = keys.swap(keyIndex, {
+            usable: canServeQueue,
+            maxRung: demoted ? rungBefore : undefined,
+          })
+
+          if (relief !== null) {
+            emit({
+              type: 'log',
+              level: 'info',
+              message: `Key ${keyIndex + 1} steps aside — key ${relief + 1} takes over while it waits`,
+            })
+            slot.index = relief
+            continue
+          }
+
+          // Nobody to swap with, but there may still be somewhere to spend:
+          // the top of the loop borrows a rung below when this one has to
+          // wait, and sleeping first would throw away the minute it saves.
+          if (keys.borrowRung(keyIndex) !== null) continue
+
           await sleep(keys.waitFor(keyIndex))
           continue
         }
@@ -452,8 +538,9 @@ export async function runFolder(deps: RunnerDeps): Promise<RunResult> {
         // differently. Straight to the fallback row, with the reason in it.
         const terminal = isUnsendableMedia(error)
         // A rung down is the one model guaranteed to refuse this file, and
-        // trying costs another upload of it.
-        const noDeeperModel = terminal || isWrongRung(error)
+        // trying costs another upload of it. A borrowed rung is that same rung
+        // already tried, which is the other way to know there is nothing below.
+        const noDeeperModel = terminal || isWrongRung(error) || borrowed !== null
 
         if (untried > 0 && !terminal) {
           queue.push(task)
@@ -486,34 +573,45 @@ export async function runFolder(deps: RunnerDeps): Promise<RunResult> {
   if (initialWorkers === 0) {
     emit({ type: 'log', level: 'error', message: 'Every API key is out of quota.' })
   } else if (queue.length > 0) {
-    // Keys beyond the worker cap stay in reserve and are swapped in when an
-    // active key is marked dead, so a run does not lose throughput to a 429.
-    const reserves = alive.slice(initialWorkers)
+    /*
+     * Keys beyond the worker cap sit on the pool's bench, and a worker takes
+     * one whenever the key it was holding has to wait — see the 429 branch
+     * above. A worker that finishes hands its key back and pulls another, so a
+     * dead key costs a swap too rather than a worker.
+     */
     let active = 0
 
     await new Promise<void>((resolve) => {
       const spawn = (keyIndex: number) => {
         active++
-        void worker(keyIndex).finally(() => {
+        const slot = { index: keyIndex }
+        void worker(slot).finally(() => {
           active--
-          if (queue.length > 0) {
-            while (reserves.length > 0) {
-              const next = reserves.shift()!
-              if (!keys.clients[next].quotaExceeded) {
-                emit({
-                  type: 'log',
-                  level: 'info',
-                  message: `Swapping in reserve key ${next + 1} (${reserves.length} left)`,
-                })
-                spawn(next)
-                return
-              }
+          keys.release(slot.index)
+          if (queue.length > 0 && !signal?.aborted) {
+            // Not `readyNow`: a key that is merely cooling is still worth a
+            // worker here. Losing the last one over a sixty-second wait ends
+            // the run as partial, which costs the CSV.
+            const next = keys.lease({ usable: canServeQueue })
+            if (next !== null) {
+              emit({
+                type: 'log',
+                level: 'info',
+                message: `Swapping in reserve key ${next + 1}`,
+              })
+              spawn(next)
+              return
             }
           }
           if (active === 0) resolve()
         })
       }
-      for (const index of alive.slice(0, initialWorkers)) spawn(index)
+      for (let i = 0; i < initialWorkers; i++) {
+        const index = keys.lease()
+        if (index !== null) spawn(index)
+      }
+      // A pool with nothing to lease spawns nobody, and nobody resolves this.
+      if (active === 0) resolve()
     })
   }
 

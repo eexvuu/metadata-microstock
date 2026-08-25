@@ -470,8 +470,8 @@ export const en = {
       `${total} media files (${images} images, ${videos} videos); ${skipped} other files ignored`,
     fileFailed: (name: string, message: string, requeued: boolean) =>
       `${name}: ${message}${requeued ? ' — requeued' : ' — using fallback row'}`,
-    keyCooldown: (index: number, consecutive: number) =>
-      `Key ${index} rate-limited (429) — cooling down 60s (${consecutive}/5)`,
+    keyCooldown: (index: number, consecutive: number, seconds: number) =>
+      `Key ${index} rate-limited (429) — waiting ${seconds}s (${consecutive}/5)`,
     keyDead: (index: number) => `Key ${index} is out of quota for today`,
     keyDemoted: (index: number) =>
       `Key ${index} has spent today's fast quota — it carries on with the backup model, which is slower but has far more of it`,

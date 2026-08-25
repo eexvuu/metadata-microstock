@@ -29,8 +29,8 @@ const SETTINGS_STORAGE = 'microstock.settings'
  * commit somebody made on purpose.
  */
 export const MODEL_LADDER: LadderRung[] = [
-  { model: 'gemini-3.5-flash-lite', rpm: 15 },
-  { model: 'gemma-4-26b-a4b-it', rpm: 30 },
+  { model: 'gemini-3.5-flash-lite', rpm: 15, perFileMs: 3800 },
+  { model: 'gemma-4-26b-a4b-it', rpm: 30, perFileMs: 6000 },
 ]
 
 /** What the history row records — the whole ladder, since a run may use both. */

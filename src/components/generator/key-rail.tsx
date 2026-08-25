@@ -13,9 +13,9 @@ export interface RailKey {
  * The rotation rail.
  *
  * Rotation is the part of this tool people do not believe until they watch it:
- * every key gets its own worker, a 429 cools one key for a minute while the
- * others keep going, and a key that dies is replaced from the reserves. So the
- * keys are drawn as a rail of meters rather than described in prose.
+ * a 429 cools one key down and the file it was holding moves to a key that is
+ * ready, so one meter counts down while the others keep working. So the keys
+ * are drawn as a rail of meters rather than described in prose.
  *
  * `live[i]` and `keys[i]` line up because both come from the same
  * created-at-ascending, active-only list the run was started with.

@@ -407,6 +407,43 @@ One thing did not change: a file that every key refused still gets one try a
 rung down before an `errorFallback` row is written (`tryNextRung`). That is
 about the file, not the quota — the key keeps its rung.
 
+**A worker holds a key only until that key has to wait.** `KeyPool` owns the
+lease: keys past the worker cap sit on its bench, and a per-minute 429 makes
+the worker trade its cooling key for a ready one (`swap`) instead of sleeping
+through the cooldown. Thirty keys and eight workers used to lose a worker for
+a full minute per 429 — measured at 60.0 s against 0.5 s for the same six
+files afterwards (`test/resume-harness.ts … ratelimit`). The cooled key keeps
+its clock, its rung and its 429 count on the bench and is picked up again by
+whoever needs a key next, so nothing is lost and nobody waits for it. A
+demotion trades too, but only for a key still on the rung this one just lost:
+demoted is working, not waiting. Two things this must not do — hand the same
+key to two workers (choosing and marking taken is one synchronous step, which
+is why the bench lives in `KeyPool` and not in the runner) and let a worker
+exit over a cooldown, because losing the last one ends the run `partial` and
+costs the CSV.
+
+**And when there is nobody to swap with, the rung below is borrowed.** Quota
+is per project per model, so a per-minute 429 on the fast rung says nothing
+about the deep one — it has its own clock and the far bigger daily allowance,
+which is what makes it the right thing to spend on a file that would
+otherwise sit still. `borrowRung` is about the file, not the key: the key
+keeps its own rung and returns to it the moment the cooldown passes. Two
+conditions, both learned from real runs on 2026-08-25 and both load-bearing —
+the key has to be **stopped** rather than merely pacing itself (`waitFor`
+also covers the seconds between requests on one key, and the first real run
+sent four files out of ten to the slower model to save 0.7 s of them), and
+the trade has to be **worth it** (Google’s `retryDelay` is the distance to
+the next per-minute window, so a real 429 costs anywhere from one second to
+fifty-nine; waiting 1 s and taking 3.8 s beats a 6 s answer). That second
+rule is why `LadderRung` carries `perFileMs` — the decision is arithmetic
+over measured numbers rather than a magic threshold.
+
+Order of preference, cheapest quota first: **swap to a ready key, borrow the
+rung below, then wait.** A file the deep rung refuses for what it is (a
+mastering codec with audio) sets `fastRungOnly` on the task and waits for the
+fast rung instead, or the next worker borrows again for the same reason.
+`test/history-2026-08-25-key-rotation.md` has every measurement.
+
 Worker count follows the keys: `workersFor(keyCount, settings.maxWorkers)`.
 One worker per key is what makes rotation visible on the Generate screen, and
 it is why the ceiling is the number of keys in play — a worker without a key of

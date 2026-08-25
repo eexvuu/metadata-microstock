@@ -10,6 +10,11 @@
  *   bun test/resume-harness.ts <folder> abort      # Stop button on the last file
  *   bun test/resume-harness.ts <folder> ladder 3   # daily quota gone after 3
  *   bun test/resume-harness.ts <folder> noschema   # a model that refuses structured output
+ *   bun test/resume-harness.ts <folder> ratelimit  # key 1's fast rung is rate-limited
+ *
+ * `ratelimit` is two tests in one, and KEYS decides which: with keys to spare
+ * the worker swaps to one of them, and with KEYS=1 there is nobody to swap
+ * with, so it borrows the deep rung instead of sitting out the minute.
  *
  * KEYS and WORKERS override the pool, which is how the worker setting is
  * checked: the mock reports the peak number of requests in flight at once.
@@ -33,8 +38,8 @@ const keyCount = Number(process.env.KEYS ?? '1')
 const workers = Number(process.env.WORKERS ?? '1')
 /** Two rungs with no rate limit worth waiting for — this mock answers instantly. */
 const LADDER = [
-  { model: 'fast-fake', rpm: 600 },
-  { model: 'deep-fake', rpm: 600 },
+  { model: 'fast-fake', rpm: 600, perFileMs: 3800 },
+  { model: 'deep-fake', rpm: 600, perFileMs: 6000 },
 ]
 
 const controller = new AbortController()
@@ -73,6 +78,37 @@ const DAILY_429 = JSON.stringify({
   },
 })
 
+/**
+ * The other 429: the per-minute one, with the sixty seconds Google asks for.
+ *
+ * This is the case the bench exists for. A run that answers it by sleeping
+ * takes a minute longer than it should; a run that swaps keys takes the 150 ms
+ * the mock costs. The harness prints its own wall clock so the difference is
+ * not a matter of opinion.
+ */
+const MINUTE_429 = JSON.stringify({
+  error: {
+    code: 429,
+    message: 'Resource has been exhausted (e.g. check quota).',
+    status: 'RESOURCE_EXHAUSTED',
+    details: [
+      {
+        '@type': 'type.googleapis.com/google.rpc.QuotaFailure',
+        violations: [
+          {
+            quotaId: 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier',
+            quotaDimensions: { location: 'global', model: 'fast-fake' },
+            quotaValue: '15',
+          },
+        ],
+      },
+      { '@type': 'type.googleapis.com/google.rpc.RetryInfo', retryDelay: '60s' },
+    ],
+  },
+})
+
+const startedAt = Date.now()
+
 globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
   calls++
   const n = calls
@@ -96,6 +132,13 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
       }),
       { status: 400, headers: { 'content-type': 'application/json' } },
     )
+  }
+
+  // One key is over its per-minute limit for the whole run. Nothing about the
+  // files is wrong, so every one of them must still land — on another key.
+  const apiKey = new Headers(init?.headers).get('x-goog-api-key') ?? ''
+  if (mode === 'ratelimit' && apiKey === 'fake-key-1' && model === 'fast-fake') {
+    return new Response(MINUTE_429, { status: 429, headers: { 'content-type': 'application/json' } })
   }
 
   // The fast rung's daily quota runs out; the key should walk down, not die.
@@ -176,6 +219,7 @@ const result = await runFolder({
   signal: mode === 'abort' ? controller.signal : undefined,
 })
 
+console.log(`[harness] wall clock: ${((Date.now() - startedAt) / 1000).toFixed(1)}s`)
 console.log(`[harness] fetch calls: ${calls}, peak in flight: ${peak}`)
 console.log(
   `[harness] per model: ${JSON.stringify(perModel)}, demotions: ${demotions}, schema asks: ${schemaAsks}`,

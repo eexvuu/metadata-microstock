@@ -213,7 +213,13 @@ export function useGenerator() {
             patchKey(event.keyIndex, { cooldownUntil: event.untilMs, current: undefined })
             append(
               'warn',
-              m.log.keyCooldown(event.keyIndex + 1, event.consecutive429s),
+              m.log.keyCooldown(
+                event.keyIndex + 1,
+                event.consecutive429s,
+                // Google's own retryDelay when it sent one, so the log agrees
+                // with what the key rail is counting down.
+                Math.max(1, Math.round((event.untilMs - Date.now()) / 1000)),
+              ),
             )
             break
           case 'key-demoted':
