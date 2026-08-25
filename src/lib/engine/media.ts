@@ -63,6 +63,27 @@ export const UNSUPPORTED_MEDIA_EXTENSIONS = [
   '.flv',
 ]
 
+/**
+ * The media itself is the problem, and no key, model or retry changes that.
+ *
+ * The runner treats every other failure as maybe-transient — it requeues the
+ * file, walks it through every remaining key and then tries a rung down. That
+ * is right for a 429 and wrong for a codec: the answer is identical eight keys
+ * later, and the only thing the loop buys is eight re-reads of a 68 MB file and
+ * eight identical lines in the run log. Thrown by the preprocessors, caught in
+ * `runner.ts`, which writes the fallback row immediately and says why.
+ */
+export class UnsendableMediaError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'UnsendableMediaError'
+  }
+}
+
+export function isUnsendableMedia(error: unknown): boolean {
+  return error instanceof UnsendableMediaError
+}
+
 export function extname(name: string): string {
   const dot = name.lastIndexOf('.')
   if (dot <= 0) return ''

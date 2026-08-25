@@ -253,6 +253,45 @@ File" (the default since Illustrator 9) *is* a PDF. White is painted under both,
 because JPEG has no alpha. pdf.js is behind a dynamic import and one shared
 worker, so a run of photographs never downloads it.
 
+**Oversized photographs are downscaled in the tab too.** `src/lib/image/raster-downscale.ts`
+is the last step of the browser chain and the only one that touches a format
+Gemini already reads. A 65 MB JPEG is not a compatibility problem, it is a cost
+one: `inline_data` means it is base64 first (+33%), and the API bills images in
+768x768 tiles, so an 8000px original buys nothing a 2048px one does not. Over
+2048px on either side or over 4 MB, the file is decoded at reduced size
+(`createImageBitmap` resize options, so a 100 MP photo never becomes 400 MB of
+RGBA) and re-encoded to the same 2048px JPEG the vector steps produce. Anything
+this browser cannot decode is sent untouched rather than failed — unlike the two
+steps above it, this one is an optimisation, not a conversion the API requires.
+
+**Mastering video codecs are refused rather than uploaded.** ProRes, DNxHD and
+uncompressed are edit-suite intermediates: a seven-second 4K ProRes clip is
+68 MB, and the same seven seconds as H.264 is 65 KB. `SENDABLE_CODECS` in
+`src/lib/video/mp4box-strip.ts` is an allowlist of what can be remuxed
+(avc1/avc3, hvc1/hev1, av01, vp08/vp09) and therefore of what can be sent, and
+anything else gets a message naming the codec and the fix. Two things measured
+on a real 68 MB ProRes .mov, 2026-08-25, that decide the shape of this: Chrome
+on Windows has no ProRes decoder at all (`canPlayType` empty,
+`MediaSource.isTypeSupported` false, a `<video>` that never reaches readyState
+1), so a tab cannot transcode it, sample frames from it or even draw its
+thumbnail; and mp4box does not classify the track as video, so it arrives in
+`otherTracks` as `codec: "apcn"` — the check has to look there, or the
+contributor gets "no video track found" for a file that is perfectly fine.
+
+The refusal is an `UnsendableMediaError` (`src/lib/engine/media.ts`), which the
+runner treats as terminal: no requeue, no walk through the other keys, no rung
+down. Everything else it catches may be transient; this one is the same answer
+eight keys later, and the loop would only buy eight re-reads of a 68 MB file.
+
+**Video is still sent inline, and that has not been solved.** A large H.264 clip
+goes up as base64 in one `generateContent` call like everything else, so the
+request-size ceiling is still there for anyone with a genuinely big finished
+file. The Files API would lift it without making the upload any faster, and it
+would need a CORS answer nobody has checked — the browser-only architecture is
+not negotiable for media. Sampling frames and sending those instead is the
+cheaper idea, and it changes what the model sees, so it is a product decision
+rather than a refactor.
+
 **EPS stays unsupported, deliberately.** It is real PostScript: the only browser
 answers are a multi-megabyte ghostscript build or the low-resolution TIFF
 preview Illustrator sometimes embeds, and "works for some files" is worse than

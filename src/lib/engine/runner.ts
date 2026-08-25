@@ -7,6 +7,7 @@ import { isQuotaExceededError, KeyPool, sleep } from './keys'
 import {
   cleanFilenameForExport,
   extractBracketKeywords,
+  isUnsendableMedia,
   mimeTypeOf,
   outputFilename,
   stem,
@@ -89,6 +90,7 @@ async function generateWithKey(
   let mimeType = mimeTypeOf(entry.name)
 
   if (entry.kind === 'image' && image) {
+    const before = bytes.length
     const raster = await image.toRaster(bytes, entry.name, mimeType)
     bytes = raster.bytes
     mimeType = raster.mimeType
@@ -96,7 +98,7 @@ async function generateWithKey(
       emit({
         type: 'log',
         level: 'info',
-        message: `Rendered ${entry.name} to a ${(bytes.length / 1024).toFixed(0)} KB JPEG for the model`,
+        message: `Prepared ${entry.name} for the model: ${(before / 1048576).toFixed(2)}MB → ${(bytes.length / 1048576).toFixed(2)}MB JPEG`,
       })
     }
   }
@@ -386,7 +388,12 @@ export async function runFolder(deps: RunnerDeps): Promise<RunResult> {
           (client, index) => !client.quotaExceeded && !task.triedKeys.has(index),
         ).length
 
-        if (untried > 0) {
+        // A file the preprocessors will not send never reached the API, so
+        // there is nothing for another key or another model to answer
+        // differently. Straight to the fallback row, with the reason in it.
+        const terminal = isUnsendableMedia(error)
+
+        if (untried > 0 && !terminal) {
           queue.push(task)
           emit({ type: 'file-failed', name: task.entry.name, message, requeued: true })
         } else {
@@ -395,7 +402,7 @@ export async function runFolder(deps: RunnerDeps): Promise<RunResult> {
           // Every key has refused this file on the primary model. One last try
           // on the fallback family before writing a row nobody can upload.
           const row =
-            (await tryNextRung(deps, task.entry, keyIndex)) ??
+            (terminal ? null : await tryNextRung(deps, task.entry, keyIndex)) ??
             {
               ...profile.errorFallback(contextFor(task.entry), message, options),
               model: keys.modelFor(keyIndex),

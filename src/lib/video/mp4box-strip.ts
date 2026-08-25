@@ -1,4 +1,4 @@
-import { extname } from '#/lib/engine/media'
+import { extname, UnsendableMediaError } from '#/lib/engine/media'
 import type { StripResult, VideoPreprocessor } from './types'
 
 /**
@@ -17,6 +17,44 @@ export const MP4BOX_CONTAINERS = ['.mp4', '.m4v', '.mov']
 
 export function canStrip(name: string): boolean {
   return MP4BOX_CONTAINERS.includes(extname(name))
+}
+
+/**
+ * The video codecs this app can actually put in front of the model.
+ *
+ * An allowlist, not a list of things to reject, and deliberately the same set
+ * `decoderConfig` below knows how to describe: a track we cannot write a
+ * configuration record for remuxes into a file nobody can play, so "supported"
+ * and "remuxable" have to mean the same thing.
+ *
+ * What it keeps out is the mastering formats. ProRes and DNxHD are why a
+ * seven-second 4K clip is 68 MB — they are edit-suite intermediates, ten to a
+ * thousand times the size of the finished file — and Chrome on Windows ships
+ * no decoder for either, so there is nothing a tab can do with one: not send
+ * it, not shrink it, not even draw a thumbnail of it. Measured 2026-08-25 on a
+ * 68 MB ProRes .mov: `canPlayType` empty, `MediaSource.isTypeSupported` false,
+ * and a `<video>` element that never reached readyState 1.
+ */
+const SENDABLE_CODECS = ['avc1', 'avc3', 'hvc1', 'hev1', 'av01', 'vp08', 'vp09']
+
+/**
+ * The one thing a contributor can do about it, said in one line: export the
+ * clip again as H.264. Nothing is lost — the model looks at the picture, and
+ * the master stays on their disk for the platform to receive.
+ */
+function unsendable(name: string, codec: string): UnsendableMediaError {
+  return new UnsendableMediaError(
+    `${name} is ${codecName(codec)}, a mastering format — this browser cannot read it and it is far too big to upload as it is. Export an H.264 MP4 of the same clip and run that: the model sees the same picture.`,
+  )
+}
+
+/** So the message says "ProRes" rather than "apcn" at somebody. */
+function codecName(type: string): string {
+  if (type.startsWith('ap')) return `ProRes (${type})`
+  if (type.startsWith('AVd')) return `DNxHD/DNxHR (${type})`
+  if (type === 'mjpa' || type === 'mjpb' || type === 'jpeg') return `Motion JPEG (${type})`
+  if (type === 'raw ' || type === '2vuy' || type === 'v210') return `uncompressed video (${type})`
+  return type
 }
 
 interface Mp4boxModule {
@@ -39,6 +77,8 @@ interface Mp4boxSample {
 
 interface Mp4boxTrackInfo {
   id: number
+  /** The fourcc, and the only thing an unclassified track tells us about itself. */
+  codec: string
   timescale: number
   duration: number
   track_width: number
@@ -48,7 +88,12 @@ interface Mp4boxTrackInfo {
 }
 
 interface Mp4boxFile {
-  onReady: (info: { videoTracks: Mp4boxTrackInfo[]; audioTracks: unknown[] }) => void
+  onReady: (info: {
+    videoTracks: Mp4boxTrackInfo[]
+    audioTracks: unknown[]
+    /** Anything mp4box could not place, which is where a ProRes track lands. */
+    otherTracks?: Mp4boxTrackInfo[]
+  }) => void
   onError: (error: unknown) => void
   onSamples: (id: number, user: unknown, samples: Mp4boxSample[]) => void
   appendBuffer: (buffer: ArrayBuffer) => void
@@ -101,7 +146,7 @@ function decoderConfig(
 export const mp4boxPreprocessor: VideoPreprocessor = {
   async stripAudio(bytes, name, mimeType): Promise<StripResult> {
     if (!canStrip(name)) {
-      throw new Error(
+      throw new UnsendableMediaError(
         `${extname(name)} cannot be remuxed in the browser — run this folder in local mode, where ffmpeg strips the audio.`,
       )
     }
@@ -121,7 +166,28 @@ export const mp4boxPreprocessor: VideoPreprocessor = {
       input.onReady = (info) => {
         try {
           const track = info.videoTracks[0]
-          if (!track) throw new Error('no video track found')
+
+          /*
+           * A missing video track is usually not a broken file — it is a
+           * codec mp4box does not classify. Measured on a 68 MB ProRes .mov:
+           * `videoTracks` is empty and the picture is in `otherTracks` as
+           * `codec: "apcn"`, 3840x2160, typed "metadata". So look there before
+           * calling the file unreadable, and say which codec it actually is.
+           */
+          if (!track) {
+            const unclassified = (info.otherTracks ?? []).find(
+              (other) => other.track_width > 0 && other.track_height > 0,
+            )
+            if (unclassified) throw unsendable(name, unclassified.codec)
+            throw new Error('no video track found')
+          }
+
+          // Checked before the audio question, because the answer to that one
+          // does not matter: a mastering codec is unsendable whether or not
+          // anybody recorded sound over it.
+          const entry = input.getTrackById(track.id).mdia.minf.stbl.stsd.entries[0]
+          if (!SENDABLE_CODECS.includes(entry.type)) throw unsendable(name, entry.type)
+
           // Nothing to strip — send the original bytes, exactly like the CLI
           // would have after a no-op remux.
           if (info.audioTracks.length === 0) {
@@ -129,7 +195,6 @@ export const mp4boxPreprocessor: VideoPreprocessor = {
             return
           }
 
-          const entry = input.getTrackById(track.id).mdia.minf.stbl.stsd.entries[0]
           const description = decoderConfig(mp4box, entry)
 
           const options: Record<string, unknown> = {
