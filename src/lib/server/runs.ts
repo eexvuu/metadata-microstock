@@ -3,7 +3,7 @@ import { and, desc, eq, gt, sql } from 'drizzle-orm'
 import { z } from 'zod'
 
 import { getDb } from '#/db/index'
-import { generationRun, runRows } from '#/db/schema'
+import { generationRun, runRows, user } from '#/db/schema'
 import { readSession, requireSession } from '#/lib/server/session'
 
 /**
@@ -148,25 +148,37 @@ export const checkpointRun = createServerFn({ method: 'POST' })
   })
 
 /**
- * The one number on the public landing page.
+ * The numbers on the public landing page.
  *
- * Deliberately unauthenticated and deliberately two integers: how many runs
- * have happened and how many files came out of them, across everybody. No
- * session, no folder names, no owner — nothing here narrows to a person.
+ * Deliberately unauthenticated and deliberately three integers: how many
+ * accounts exist, how many runs have happened and how many files came out of
+ * them, across everybody. No session, no folder names, no email, no owner —
+ * nothing here narrows to a person.
  *
- * Same warning as the rest of this file applies: the browser reports the
- * counts, so this is a marketing number, not an audited one.
+ * Same warning as the rest of this file applies to the run figures: the
+ * browser reports the counts, so they are marketing numbers, not audited ones.
+ * `users` is the exception — that one is a row count we own.
  */
 export const getPublicStats = createServerFn({ method: 'GET' }).handler(
-  async (): Promise<{ runs: number; files: number }> => {
-    const [row] = await getDb()
+  async (): Promise<{ users: number; runs: number; files: number }> => {
+    const db = getDb()
+
+    const [runRow] = await db
       .select({
         runs: sql<number>`count(*)`,
         files: sql<number>`coalesce(sum(${generationRun.filesDone}), 0)`,
       })
       .from(generationRun)
 
-    return { runs: Number(row?.runs ?? 0), files: Number(row?.files ?? 0) }
+    const [userRow] = await db
+      .select({ users: sql<number>`count(*)` })
+      .from(user)
+
+    return {
+      users: Number(userRow?.users ?? 0),
+      runs: Number(runRow?.runs ?? 0),
+      files: Number(runRow?.files ?? 0),
+    }
   },
 )
 

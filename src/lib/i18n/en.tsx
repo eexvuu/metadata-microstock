@@ -54,8 +54,9 @@ export const en = {
     lead: 'Stockflow is a shelf of small tools for people who upload to microstock. One account, one set of your own Google API keys, and a room of its own for every job. The first tool writes the metadata CSV for a whole folder; the ones after it take on the rest of the routine.',
     ctaPrimary: 'Create a free account',
     ctaSecondary: 'Sign in',
+    ctaDashboard: 'Open your dashboard',
     stats: [
-      'bytes of your media on our servers',
+      'contributors with an account',
       'files given metadata so far',
       'of the work happens in your own browser',
     ],
@@ -71,6 +72,7 @@ export const en = {
     catalogMetadata:
       "A folder of images and videos in, an Adobe Stock or Shutterstock CSV out. Resumable, multi-key, and free for as long as Google's free tier exists.",
     catalogMetadataCta: 'Start with this one',
+    catalogMetadataOpen: 'Open the tool',
     catalogNextTitle: 'The next tool',
     catalogNext:
       'More of the upload routine belongs here. Whatever lands next shares the same account and the same keys, and plays by the same three rules below.',

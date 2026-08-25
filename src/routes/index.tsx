@@ -13,14 +13,16 @@ import {
 
 import { CONTAINER } from '#/components/shell'
 import { Button } from '#/components/ui/button'
+import { useSession } from '#/lib/auth-client'
 import { useLocale, useMessages } from '#/lib/i18n'
 import { getPublicStats } from '#/lib/server/runs'
 
 export const Route = createFileRoute('/')({
   /*
-   * One aggregate over `generation_run`, on a public page. It is the only
-   * thing here that is not a constant, and it is the only claim on the page a
-   * visitor cannot check for themselves — so it had better be the real count.
+   * Two aggregates — one over `user`, one over `generation_run` — on a public
+   * page. They are the only things here that are not constants, and the only
+   * claims a visitor cannot check for themselves, so they had better be the
+   * real counts.
    */
   loader: () => getPublicStats(),
   component: LandingPage,
@@ -41,13 +43,14 @@ const SHEET = [
 ]
 
 /**
- * Icons stay here; the words that go with them are translated.
- *
- * Two of the three numbers are promises about the shelf rather than facts
- * about one tool. The middle one is the real running total, so it is filled in
- * from the loader rather than sitting in this array.
+ * Whether the visitor already has an account, which is what every call to
+ * action on this page turns on. `isPending` renders as signed-out — the same
+ * frame the header already spends, and the same trade.
  */
-const STAT_VALUES = ['0', null, '100%']
+function useSignedIn() {
+  const { data: session } = useSession()
+  return Boolean(session)
+}
 
 /** The three that hold for every tool. */
 const RULE_ICONS = [ShieldCheck, KeyRound, PenLine]
@@ -86,7 +89,14 @@ function LandingPage() {
 function Hero() {
   const m = useMessages()
   const { tag } = useLocale()
-  const { files } = Route.useLoaderData()
+  const { users, files } = Route.useLoaderData()
+  const signedIn = useSignedIn()
+
+  /*
+   * Two counts and a promise. The third is a fact about how the tool is built
+   * rather than a measurement, which is why it is the only literal left.
+   */
+  const stats = [users.toLocaleString(tag), files.toLocaleString(tag), '100%']
 
   return (
     <section className="safelight sheet-grid border-(--line) relative overflow-hidden border-b">
@@ -107,24 +117,27 @@ function Hero() {
 
           <div className="reveal mt-9 flex flex-wrap items-center gap-6">
             <Button asChild size="lg" className="eyebrow h-11 px-5">
-              <Link to="/signup">
-                {m.landing.ctaPrimary}
+              <Link to={signedIn ? '/dashboard' : '/signup'}>
+                {signedIn ? m.landing.ctaDashboard : m.landing.ctaPrimary}
                 <ArrowRight className="size-4" />
               </Link>
             </Button>
-            <Link
-              to="/login"
-              className="eyebrow text-muted-foreground hover:text-foreground decoration-primary underline underline-offset-8 transition-colors"
-            >
-              {m.landing.ctaSecondary}
-            </Link>
+            {/* Nothing to sign in to when you already are. */}
+            {signedIn ? null : (
+              <Link
+                to="/login"
+                className="eyebrow text-muted-foreground hover:text-foreground decoration-primary underline underline-offset-8 transition-colors"
+              >
+                {m.landing.ctaSecondary}
+              </Link>
+            )}
           </div>
 
           <dl className="border-(--line) reveal mt-12 grid max-w-lg grid-cols-3 border-t pt-6">
             {m.landing.stats.map((label, index) => (
               <div key={label}>
                 <dt className="font-display text-3xl leading-none font-medium tabular-nums">
-                  {STAT_VALUES[index] ?? files.toLocaleString(tag)}
+                  {stats[index]}
                 </dt>
                 <dd className="text-muted-foreground mt-2 pr-4 font-mono text-[0.7rem] leading-snug">
                   {label}
@@ -199,6 +212,7 @@ function ContactSheet() {
 
 function Catalog() {
   const m = useMessages()
+  const signedIn = useSignedIn()
 
   return (
     <section className={`${CONTAINER} py-20`}>
@@ -222,10 +236,12 @@ function Catalog() {
             {m.landing.catalogMetadata}
           </p>
           <Link
-            to="/signup"
+            to={signedIn ? '/tools/metadata' : '/signup'}
             className="text-primary eyebrow mt-6 inline-flex items-center gap-1.5 hover:underline"
           >
-            {m.landing.catalogMetadataCta}
+            {signedIn
+              ? m.landing.catalogMetadataOpen
+              : m.landing.catalogMetadataCta}
             <ArrowRight className="size-3" />
           </Link>
         </article>
@@ -400,6 +416,7 @@ function FirstTool() {
 
 function Close() {
   const m = useMessages()
+  const signedIn = useSignedIn()
 
   return (
     <section className="safelight border-(--line) relative overflow-hidden border-t">
@@ -411,8 +428,8 @@ function Close() {
           {m.landing.closeLead}
         </p>
         <Button asChild size="lg" className="eyebrow mt-9 h-11 px-6">
-          <Link to="/signup">
-            {m.landing.closeCta}
+          <Link to={signedIn ? '/dashboard' : '/signup'}>
+            {signedIn ? m.landing.ctaDashboard : m.landing.closeCta}
             <ArrowRight className="size-4" />
           </Link>
         </Button>

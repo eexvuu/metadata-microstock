@@ -51,8 +51,9 @@ export const id: Messages = {
     lead: 'Stockflow adalah rak berisi perkakas kecil untuk orang yang mengunggah ke microstock. Satu akun, satu set kunci API Google milik Anda sendiri, dan ruang tersendiri untuk tiap pekerjaan. Perkakas pertama menulis CSV metadata untuk satu folder penuh; yang berikutnya mengambil sisa rutinitasnya.',
     ctaPrimary: 'Buat akun gratis',
     ctaSecondary: 'Masuk',
+    ctaDashboard: 'Buka dasbor Anda',
     stats: [
-      'byte file Anda di server kami',
+      'kontributor sudah punya akun',
       'berkas sudah dibuatkan metadata',
       'pekerjaan berjalan di browser Anda sendiri',
     ],
@@ -68,6 +69,7 @@ export const id: Messages = {
     catalogMetadata:
       'Satu folder gambar dan video masuk, CSV Adobe Stock atau Shutterstock keluar. Bisa dilanjutkan, multi-kunci, dan gratis selama kuota gratis Google masih ada.',
     catalogMetadataCta: 'Mulai dari yang ini',
+    catalogMetadataOpen: 'Buka perkakas',
     catalogNextTitle: 'Perkakas berikutnya',
     catalogNext:
       'Masih banyak bagian rutinitas unggah yang pantas ada di sini. Apa pun yang datang berikutnya memakai akun dan kunci yang sama, dan tunduk pada tiga aturan di bawah.',
