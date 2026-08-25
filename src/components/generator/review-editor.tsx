@@ -233,7 +233,7 @@ export function ReviewEditor({
                 ) : (
                   <div className="border-(--line) bg-muted aspect-square border" />
                 )}
-                {row.fallback ? (
+                {row.fallback && !row.error ? (
                   <p className="text-destructive font-mono text-[0.6rem]">
                     {m.review.fallbackNote}
                   </p>
@@ -241,6 +241,18 @@ export function ReviewEditor({
               </div>
 
               <div className="min-w-0 space-y-3">
+                {/*
+                  The reason the model never answered, next to the row it
+                  produced instead. It reads as a sentence rather than a note
+                  under the thumbnail because it usually is one — "export an
+                  H.264 and run that" is the whole fix, and the 8rem column
+                  cannot hold it.
+                */}
+                {row.error ? (
+                  <p className="border-destructive/40 text-destructive border-l-2 py-0.5 pl-2 font-mono text-[0.65rem] leading-relaxed">
+                    {m.review.notGenerated} {row.error}
+                  </p>
+                ) : null}
                 <div className="space-y-1.5">
                   <div className="flex items-baseline justify-between gap-3">
                     <Label htmlFor={`file-${row.sourceName}`}>

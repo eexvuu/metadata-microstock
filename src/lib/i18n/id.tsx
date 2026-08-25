@@ -412,6 +412,7 @@ export const id: Messages = {
     writeCsv: 'Tulis CSV ke folder',
     downloadCsv: 'Unduh CSV',
     fallbackNote: 'model cadangan — tulis manual atau jalankan ulang',
+    notGenerated: 'Tidak dibuat —',
     filenameInCsv: 'Nama berkas di CSV',
     onDisk: (name: string) => `di disk: ${name}`,
     titleLabel: 'Judul',

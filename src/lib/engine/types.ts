@@ -37,6 +37,16 @@ export interface MetadataRow {
   /** Set when the row is a fallback rather than a real model answer. */
   fallback?: 'parse' | 'error'
   /**
+   * Why the model never answered, when it never answered.
+   *
+   * An error fallback row looks like metadata — a plausible title and twenty
+   * generic keywords — and it exports to the CSV like metadata too. Without
+   * this the only place the reason existed was a log line on the previous
+   * step, so "ProRes, export an H.264" reached nobody and the contributor was
+   * left holding a row they had no way to read as broken.
+   */
+  error?: string
+  /**
    * Which model actually answered for this file.
    *
    * Per row, not per run: with the ladder a key can demote halfway through, so

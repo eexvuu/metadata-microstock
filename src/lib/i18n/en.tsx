@@ -436,6 +436,7 @@ export const en = {
     writeCsv: 'Write CSV to folder',
     downloadCsv: 'Download CSV',
     fallbackNote: 'backup model — written by hand or re-run',
+    notGenerated: 'Not generated —',
     filenameInCsv: 'Filename in the CSV',
     onDisk: (name: string) => `on disk: ${name}`,
     titleLabel: 'Title',

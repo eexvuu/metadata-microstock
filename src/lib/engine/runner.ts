@@ -406,6 +406,7 @@ export async function runFolder(deps: RunnerDeps): Promise<RunResult> {
             {
               ...profile.errorFallback(contextFor(task.entry), message, options),
               model: keys.modelFor(keyIndex),
+              error: message,
             }
           rows.push(row)
           await withProgressLock(async () => {
