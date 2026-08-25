@@ -137,7 +137,7 @@ async function generateWithKey(
 
   if (byUpload && audioSurvived && model !== keys.ladder[0].model) {
     throw new WrongRungError(
-      `${entry.name} keeps its audio track — nothing here can strip a codec this browser cannot open — and the backup model refuses audio. It needs a key that still has today's fast quota.`,
+      `${entry.name} keeps its audio track — nothing here can strip a codec this browser cannot open — and the backup model refuses audio. It needs a key that is still on the fast rung.`,
     )
   }
 
@@ -424,7 +424,15 @@ export async function runFolder(deps: RunnerDeps): Promise<RunResult> {
           keys,
         )
 
-        if (isQuotaExceededError(error)) {
+        /*
+         * The rung mismatch has to be asked about first. `isQuotaExceededError`
+         * falls back to matching the word "quota" anywhere in a message, and a
+         * WrongRungError caught by that branch is requeued without being marked
+         * tried — the same worker picks it up a minute later, five times, and
+         * then demotes a perfectly good key over a file it was never allowed to
+         * touch.
+         */
+        if (!isWrongRung(error) && isQuotaExceededError(error)) {
           // A 429 says nothing about the file, so it goes back untouched and
           // stays eligible for this same key once the cooldown passes.
           queue.push(task)
