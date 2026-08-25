@@ -163,11 +163,6 @@ export const id: Messages = {
         riwayatnya tinggal di ruangnya sendiri.
       </>
     ),
-    keysHeading: 'Kunci Anda',
-    keysNote: (active: number) =>
-      active === 0
-        ? 'Akun ini belum punya kunci Gemini. Semua perkakas di sini berjalan dengan kunci Anda sendiri — tambahkan satu di dalam perkakas dan berlaku untuk semuanya.'
-        : `${active} kunci aktif, dipakai bersama oleh semua perkakas di rak ini. Satu kunci kira-kira 15 permintaan per menit.`,
   },
 
   history: {

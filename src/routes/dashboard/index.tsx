@@ -11,8 +11,8 @@ import { listGeminiKeys } from '#/lib/server/gemini-keys'
  *
  * Stockflow is a set of tools, not one app with a dashboard, so this screen
  * says nothing about any single tool beyond its card. A tool's runs, its
- * history and its settings live inside the tool — the only thing genuinely
- * shared, and the only thing this page loads, is the keys they all spend.
+ * history and its settings live inside the tool — including its keys, which
+ * are only loaded here to say whether a card is ready to open.
  *
  * Adding a tool is one entry in `TOOLS` and one line of copy per locale.
  */
@@ -101,13 +101,6 @@ function CatalogPage() {
           </p>
         </article>
       </div>
-
-      <section className="border-(--line) space-y-2 border p-4">
-        <p className="eyebrow text-muted-foreground">{m.catalog.keysHeading}</p>
-        <p className="text-muted-foreground max-w-2xl text-sm text-pretty">
-          {m.catalog.keysNote(activeKeys)}
-        </p>
-      </section>
     </div>
   )
 }

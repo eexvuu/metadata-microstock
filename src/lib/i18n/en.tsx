@@ -166,11 +166,6 @@ export const en = {
         history stay in its own room.
       </>
     ) as ReactNode,
-    keysHeading: 'Your keys',
-    keysNote: (active: number) =>
-      active === 0
-        ? 'No Gemini key on this account yet. Every tool here runs on your own key — add one inside a tool and it counts for all of them.'
-        : `${active} active key${active === 1 ? '' : 's'}, shared by every tool on the shelf. Each one is worth about 15 requests a minute.`,
   },
 
   history: {
