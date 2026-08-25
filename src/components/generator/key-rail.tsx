@@ -33,65 +33,72 @@ export function KeyRail({ keys, live }: { keys: RailKey[]; live: KeyLive[] }) {
   }
 
   return (
-    <div className="grid gap-px sm:grid-cols-2 lg:grid-cols-3">
-      {keys.map((key, index) => {
-        const state = live[index]
-        const cooling = state ? Math.max(0, state.cooldownUntil - now) : 0
-        const status = !state
-          ? m.keys.idle
-          : state.dead
-            ? m.keys.outOfQuota
-            : cooling > 0
-              ? m.keys.cooling(Math.ceil(cooling / 1000))
-              : state.current
-                ? m.keys.busy
-                : m.keys.ready
+    /*
+     * Thirty keys is four rows at lg and a screen-and-a-half of scrolling
+     * before the run controls come back. The rail is a thing you glance at,
+     * not read, so it gets its own scrollbar and the page keeps its shape.
+     */
+    <div className="max-h-96 overflow-y-auto">
+      <div className="grid gap-px sm:grid-cols-2 lg:grid-cols-3">
+        {keys.map((key, index) => {
+          const state = live[index]
+          const cooling = state ? Math.max(0, state.cooldownUntil - now) : 0
+          const status = !state
+            ? m.keys.idle
+            : state.dead
+              ? m.keys.outOfQuota
+              : cooling > 0
+                ? m.keys.cooling(Math.ceil(cooling / 1000))
+                : state.current
+                  ? m.keys.busy
+                  : m.keys.ready
 
-        return (
-          <div
-            key={key.id}
-            data-state={state?.dead ? 'dead' : state?.current ? 'working' : 'idle'}
-            className="border-(--line) bg-card border p-3 data-[state=dead]:opacity-55"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="eyebrow text-muted-foreground">
-                {m.keys.keyN(index + 1)}
-              </span>
-              <span
-                className={
-                  state?.dead
-                    ? 'bg-destructive size-1.5'
-                    : state?.current
-                      ? 'bg-primary developing size-1.5'
-                      : cooling > 0
-                        ? 'bg-primary/40 size-1.5'
-                        : 'bg-muted-foreground/40 size-1.5'
-                }
-              />
-            </div>
+          return (
+            <div
+              key={key.id}
+              data-state={state?.dead ? 'dead' : state?.current ? 'working' : 'idle'}
+              className="border-(--line) bg-card border p-3 data-[state=dead]:opacity-55"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="eyebrow text-muted-foreground">
+                  {m.keys.keyN(index + 1)}
+                </span>
+                <span
+                  className={
+                    state?.dead
+                      ? 'bg-destructive size-1.5'
+                      : state?.current
+                        ? 'bg-primary developing size-1.5'
+                        : cooling > 0
+                          ? 'bg-primary/40 size-1.5'
+                          : 'bg-muted-foreground/40 size-1.5'
+                  }
+                />
+              </div>
 
-            <p className="mt-2 font-mono text-xs">{key.preview}</p>
-            <p className="text-muted-foreground truncate font-mono text-[0.65rem]">
-              {key.label}
-            </p>
-
-            <div className="border-(--line) mt-3 flex items-baseline justify-between border-t pt-2 font-mono text-[0.65rem]">
-              <span className={state?.dead ? 'text-destructive' : 'text-primary'}>
-                {status}
-              </span>
-              <span className="text-muted-foreground tabular-nums">
-                {m.keys.filesDone(state?.done ?? 0)}
-              </span>
-            </div>
-
-            {state?.current ? (
-              <p className="text-muted-foreground mt-1 truncate font-mono text-[0.65rem]">
-                → {state.current}
+              <p className="mt-2 font-mono text-xs">{key.preview}</p>
+              <p className="text-muted-foreground truncate font-mono text-[0.65rem]">
+                {key.label}
               </p>
-            ) : null}
-          </div>
-        )
-      })}
+
+              <div className="border-(--line) mt-3 flex items-baseline justify-between border-t pt-2 font-mono text-[0.65rem]">
+                <span className={state?.dead ? 'text-destructive' : 'text-primary'}>
+                  {status}
+                </span>
+                <span className="text-muted-foreground tabular-nums">
+                  {m.keys.filesDone(state?.done ?? 0)}
+                </span>
+              </div>
+
+              {state?.current ? (
+                <p className="text-muted-foreground mt-1 truncate font-mono text-[0.65rem]">
+                  → {state.current}
+                </p>
+              ) : null}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
