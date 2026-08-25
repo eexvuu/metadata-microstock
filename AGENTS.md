@@ -264,33 +264,49 @@ RGBA) and re-encoded to the same 2048px JPEG the vector steps produce. Anything
 this browser cannot decode is sent untouched rather than failed — unlike the two
 steps above it, this one is an optimisation, not a conversion the API requires.
 
-**Mastering video codecs are refused rather than uploaded.** ProRes, DNxHD and
+**Mastering video codecs are uploaded, not decoded here.** ProRes, DNxHD and
 uncompressed are edit-suite intermediates: a seven-second 4K ProRes clip is
 68 MB, and the same seven seconds as H.264 is 65 KB. `SENDABLE_CODECS` in
-`src/lib/video/mp4box-strip.ts` is an allowlist of what can be remuxed
-(avc1/avc3, hvc1/hev1, av01, vp08/vp09) and therefore of what can be sent, and
-anything else gets a message naming the codec and the fix. Two things measured
+`src/lib/video/mp4box-strip.ts` is an allowlist of what this tab can **remux**
+(avc1/avc3, hvc1/hev1, av01, vp08/vp09); anything else keeps its bytes and
+takes the Files API route instead (`StripResult.upload`). Two things measured
 on a real 68 MB ProRes .mov, 2026-08-25, that decide the shape of this: Chrome
-on Windows has no ProRes decoder at all (`canPlayType` empty,
-`MediaSource.isTypeSupported` false, a `<video>` that never reaches readyState
-1), so a tab cannot transcode it, sample frames from it or even draw its
-thumbnail; and mp4box does not classify the track as video, so it arrives in
-`otherTracks` as `codec: "apcn"` — the check has to look there, or the
-contributor gets "no video track found" for a file that is perfectly fine.
+on Windows has no ProRes decoder on any path (`canPlayType` empty,
+`MediaSource.isTypeSupported` false, `VideoDecoder.isConfigSupported` false, a
+`<video>` that never reaches readyState 1), so a tab cannot transcode it,
+sample frames from it or even draw its thumbnail — **which is why "just send
+frames" is not an option for exactly the files that need one**; and mp4box does
+not classify the track as video, so it arrives in `otherTracks` as
+`codec: "apcn"` — the check has to look there, or the contributor gets "no
+video track found" for a file that is perfectly fine.
 
-The refusal is an `UnsendableMediaError` (`src/lib/engine/media.ts`), which the
-runner treats as terminal: no requeue, no walk through the other keys, no rung
-down. Everything else it catches may be transient; this one is the same answer
-eight keys later, and the loop would only buy eight re-reads of a 68 MB file.
+`UnsendableMediaError` (`src/lib/engine/media.ts`) survives for what is left:
+a container this tab cannot parse, and a file over `UPLOAD_MAX_BYTES` where
+re-exporting really is faster than uploading. The runner treats it as terminal
+— no requeue, no walk through the other keys, no rung down — because it is the
+same answer eight keys later.
 
-**Video is still sent inline, and that has not been solved.** A large H.264 clip
-goes up as base64 in one `generateContent` call like everything else, so the
-request-size ceiling is still there for anyone with a genuinely big finished
-file. The Files API would lift it without making the upload any faster, and it
-would need a CORS answer nobody has checked — the browser-only architecture is
-not negotiable for media. Sampling frames and sending those instead is the
-cheaper idea, and it changes what the model sees, so it is a product decision
-rather than a refactor.
+**Big media goes up through the Files API, and a browser is allowed to do it.**
+Anything over `INLINE_MAX_BYTES` (14 MiB, which is about 19 MB of base64 in a
+request that may not exceed 20) and anything the tab could not remux is
+uploaded by `src/lib/engine/files-api.ts`, referenced as `file_data`, and
+deleted again when the file is done. Measured 2026-08-25, all of it from a tab
+on this origin: preflight answers 200, `X-Goog-Upload-URL` is in
+`Access-Control-Expose-Headers` (without that the resumable handshake is
+unreadable from JavaScript and none of this works), DELETE is allowed, 65 MB
+takes about 45 s, and Google decodes ProRes server-side — the model described
+that clip correctly on **both** rungs, at the same 462 video tokens an inline
+H.264 costs. Four sampled JPEG frames of the same clip cost 4,400 tokens and
+lose the motion, which is why frame sampling was measured and dropped rather
+than built.
+
+An upload belongs to the project behind the key that made it, so it happens
+inside `generateWithKey` and a requeue to another key uploads again. The one
+case that needs care is a mastering codec **with** an audio track: nothing here
+can strip audio out of a file it cannot rewrite, and the bottom rung answers
+`400: Audio input modality is not enabled` whether the media arrives inline or
+by reference (measured both ways). Such a file throws `WrongRungError`, which
+requeues to a key still on the fast rung and never tries a rung down.
 
 **EPS stays unsupported, deliberately.** It is real PostScript: the only browser
 answers are a multi-megabyte ghostscript build or the low-resolution TIFF

@@ -1,4 +1,4 @@
-import { extname, UnsendableMediaError } from '#/lib/engine/media'
+import { extname, UnsendableMediaError, UPLOAD_MAX_BYTES } from '#/lib/engine/media'
 import type { StripResult, VideoPreprocessor } from './types'
 
 /**
@@ -11,6 +11,9 @@ import type { StripResult, VideoPreprocessor } from './types'
  * structure to walk, and there is no companion ffmpeg any more — so the file
  * sources drop those containers at scan time rather than letting Gemma refuse
  * them one upload at a time.
+ *
+ * Parsing is also how a file earns the Files API route: what mp4box cannot
+ * rewrite, it can at least identify.
  */
 
 export const MP4BOX_CONTAINERS = ['.mp4', '.m4v', '.mov']
@@ -20,31 +23,38 @@ export function canStrip(name: string): boolean {
 }
 
 /**
- * The video codecs this app can actually put in front of the model.
+ * The video codecs this tab can rewrite.
  *
  * An allowlist, not a list of things to reject, and deliberately the same set
  * `decoderConfig` below knows how to describe: a track we cannot write a
  * configuration record for remuxes into a file nobody can play, so "supported"
  * and "remuxable" have to mean the same thing.
  *
- * What it keeps out is the mastering formats. ProRes and DNxHD are why a
- * seven-second 4K clip is 68 MB — they are edit-suite intermediates, ten to a
- * thousand times the size of the finished file — and Chrome on Windows ships
- * no decoder for either, so there is nothing a tab can do with one: not send
- * it, not shrink it, not even draw a thumbnail of it. Measured 2026-08-25 on a
- * 68 MB ProRes .mov: `canPlayType` empty, `MediaSource.isTypeSupported` false,
- * and a `<video>` element that never reached readyState 1.
+ * What it keeps out is the mastering formats. ProRes and DNxHD are edit-suite
+ * intermediates — ten to a thousand times the size of the finished file, which
+ * is why a seven-second 4K clip is 68 MB — and Chrome ships no decoder for
+ * either, so there is nothing a tab can do with one: not remux it, not shrink
+ * it, not even draw a thumbnail of it. Measured 2026-08-25 on a 68 MB ProRes
+ * .mov: `canPlayType` empty, `MediaSource.isTypeSupported` false, WebCodecs
+ * `VideoDecoder.isConfigSupported` false, and a `<video>` element that never
+ * reached readyState 1.
+ *
+ * It is no longer a list of what can be *sent*, though. Google decodes these
+ * server-side, so a file off this list goes up through the Files API untouched
+ * instead of being refused — see `StripResult.upload`.
  */
 const SENDABLE_CODECS = ['avc1', 'avc3', 'hvc1', 'hev1', 'av01', 'vp08', 'vp09']
 
 /**
- * The one thing a contributor can do about it, said in one line: export the
- * clip again as H.264. Nothing is lost — the model looks at the picture, and
- * the master stays on their disk for the platform to receive.
+ * What is left of the old refusal, now that a mastering codec is uploaded
+ * rather than rejected: the file is so large that uploading it costs more than
+ * exporting it again would. The one thing a contributor can do about it, said
+ * in one line — nothing is lost, the model looks at the picture, and the
+ * master stays on their disk for the platform to receive.
  */
-function unsendable(name: string, codec: string): UnsendableMediaError {
+function tooBigToUpload(name: string, codec: string, size: number): UnsendableMediaError {
   return new UnsendableMediaError(
-    `${name} is ${codecName(codec)}, a mastering format — this browser cannot read it and it is far too big to upload as it is. Export an H.264 MP4 of the same clip and run that: the model sees the same picture.`,
+    `${name} is ${codecName(codec)} at ${(size / 1048576).toFixed(0)} MB, a mastering format this browser cannot open — too big to upload as it is. Export an H.264 MP4 of the same clip and run that: the model sees the same picture.`,
   )
 }
 
@@ -165,6 +175,22 @@ export const mp4boxPreprocessor: VideoPreprocessor = {
 
       input.onReady = (info) => {
         try {
+          /*
+           * A codec this tab cannot rewrite still travels — as itself, through
+           * the Files API. `hasAudio` travels with it because nothing here can
+           * strip that audio, and the bottom rung refuses media that has any.
+           */
+          const byReference = (codec: string): StripResult => {
+            if (bytes.length > UPLOAD_MAX_BYTES) throw tooBigToUpload(name, codec, bytes.length)
+            return {
+              bytes,
+              mimeType,
+              changed: false,
+              upload: true,
+              hasAudio: info.audioTracks.length > 0,
+            }
+          }
+
           const track = info.videoTracks[0]
 
           /*
@@ -178,15 +204,21 @@ export const mp4boxPreprocessor: VideoPreprocessor = {
             const unclassified = (info.otherTracks ?? []).find(
               (other) => other.track_width > 0 && other.track_height > 0,
             )
-            if (unclassified) throw unsendable(name, unclassified.codec)
+            if (unclassified) {
+              resolve(byReference(unclassified.codec))
+              return
+            }
             throw new Error('no video track found')
           }
 
-          // Checked before the audio question, because the answer to that one
-          // does not matter: a mastering codec is unsendable whether or not
-          // anybody recorded sound over it.
+          // Checked before the audio question, because there is no answering it
+          // for these: the audio sits in a file this tab cannot rewrite, so it
+          // travels along and the runner keeps the file on the fast rung.
           const entry = input.getTrackById(track.id).mdia.minf.stbl.stsd.entries[0]
-          if (!SENDABLE_CODECS.includes(entry.type)) throw unsendable(name, entry.type)
+          if (!SENDABLE_CODECS.includes(entry.type)) {
+            resolve(byReference(entry.type))
+            return
+          }
 
           // Nothing to strip — send the original bytes, exactly like the CLI
           // would have after a no-op remux.

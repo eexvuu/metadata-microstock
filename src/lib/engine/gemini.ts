@@ -94,7 +94,10 @@ export async function generateContent(options: {
   model: string
   prompt: string
   mimeType: string
-  base64: string
+  /** Inline bytes. Left off when the media went up through the Files API. */
+  base64?: string
+  /** A `files/…` uri from `uploadMedia`, for media too big or too exotic to inline. */
+  fileUri?: string
   signal?: AbortSignal
   /**
    * Structured output. Worth more than any prompt wording: a model told to
@@ -117,7 +120,9 @@ export async function generateContent(options: {
           role: 'user',
           parts: [
             { text: options.prompt },
-            { inline_data: { mime_type: options.mimeType, data: options.base64 } },
+            options.fileUri
+              ? { file_data: { mime_type: options.mimeType, file_uri: options.fileUri } }
+              : { inline_data: { mime_type: options.mimeType, data: options.base64 } },
           ],
         },
       ],

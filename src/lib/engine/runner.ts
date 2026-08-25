@@ -2,15 +2,20 @@ import type { ImagePreprocessor } from '#/lib/image/types'
 import type { FileSource, ProgressFile } from '#/lib/sources/types'
 import type { VideoPreprocessor } from '#/lib/video/types'
 import { csvFileName, toCsv } from './csv'
+import type { UploadedMedia } from './files-api'
+import { deleteMedia, uploadMedia } from './files-api'
 import { bytesToBase64, generateContent } from './gemini'
 import { isQuotaExceededError, KeyPool, sleep } from './keys'
 import {
   cleanFilenameForExport,
   extractBracketKeywords,
+  INLINE_MAX_BYTES,
   isUnsendableMedia,
+  isWrongRung,
   mimeTypeOf,
   outputFilename,
   stem,
+  WrongRungError,
 } from './media'
 import { fromProgressRecord, toProgressRecord } from './progress'
 import type { PlatformProfile } from './profiles/types'
@@ -103,11 +108,16 @@ async function generateWithKey(
     }
   }
 
+  let uploadVideo = false
+  let audioSurvived = false
+
   if (entry.kind === 'video') {
     const before = bytes.length
     const stripped = await video.stripAudio(bytes, entry.name, mimeType)
     bytes = stripped.bytes
     mimeType = stripped.mimeType
+    uploadVideo = stripped.upload ?? false
+    audioSurvived = stripped.hasAudio ?? false
     if (stripped.changed) {
       emit({
         type: 'log',
@@ -117,98 +127,139 @@ async function generateWithKey(
     }
   }
 
-  const base64 = bytesToBase64(bytes)
+  /*
+   * Inline is still the normal way — one request, nothing left behind. Two
+   * kinds of file cannot go that way: a codec this tab could not rewrite
+   * (`upload`, and Google decodes those for us), and one whose base64 copy
+   * would not fit in a request. Both take the same detour.
+   */
+  const byUpload = uploadVideo || bytes.length > INLINE_MAX_BYTES
 
-  const callOnce = async (extraInstruction?: string) => {
-    const wait = keys.waitFor(keyIndex)
-    if (wait > 0) {
+  if (byUpload && audioSurvived && model !== keys.ladder[0].model) {
+    throw new WrongRungError(
+      `${entry.name} keeps its audio track — nothing here can strip a codec this browser cannot open — and the backup model refuses audio. It needs a key that still has today's fast quota.`,
+    )
+  }
+
+  let uploaded: UploadedMedia | null = null
+  let base64: string | undefined
+
+  if (byUpload) {
+    emit({
+      type: 'log',
+      level: 'info',
+      message: `Sending ${entry.name} (${(bytes.length / 1048576).toFixed(1)}MB) to the model by reference — this is the upload, not the thinking`,
+    })
+    uploaded = await uploadMedia({
+      apiKey: keys.clients[keyIndex].key,
+      bytes,
+      mimeType,
+      displayName: entry.name,
+      signal,
+    })
+    mimeType = uploaded.mimeType
+  } else {
+    base64 = bytesToBase64(bytes)
+  }
+
+  try {
+    const callOnce = async (extraInstruction?: string) => {
+      const wait = keys.waitFor(keyIndex)
+      if (wait > 0) {
+        emit({
+          type: 'log',
+          level: 'info',
+          message: `Key ${keyIndex + 1}: waiting ${Math.ceil(wait / 1000)}s for the rate limit`,
+        })
+        await sleep(wait)
+      }
+      if (signal?.aborted) throw new Error('aborted')
+      keys.markRequest(keyIndex)
+
+      const ask = (withSchema: boolean) =>
+        generateContent({
+          apiKey: keys.clients[keyIndex].key,
+          model,
+          prompt: extraInstruction ? `${prompt}\n\n${extraInstruction}` : prompt,
+          mimeType,
+          base64,
+          fileUri: uploaded?.uri,
+          signal,
+          responseSchema: withSchema ? profile.responseSchema : undefined,
+        })
+
+      /*
+       * The schema is what keeps a model from writing its reasoning around the
+       * JSON, and that is most of a run's wall clock. A model that refuses it
+       * still has to do the work, so the refusal is remembered and the file is
+       * asked for again the plain way — the parser has handled prose since day
+       * one, and now only needs to.
+       */
+      let result
+      if (schemaRefused.has(model)) {
+        result = await ask(false)
+      } else {
+        try {
+          result = await ask(true)
+        } catch (error) {
+          if (!isSchemaRejection(error)) throw error
+          schemaRefused.add(model)
+          emit({
+            type: 'log',
+            level: 'warn',
+            message: 'Structured output refused — asking for plain JSON from here on',
+          })
+          result = await ask(false)
+        }
+      }
+
+      keys.markSuccess(keyIndex)
       emit({
         type: 'log',
         level: 'info',
-        message: `Key ${keyIndex + 1}: waiting ${Math.ceil(wait / 1000)}s for the rate limit`,
+        message: `${entry.name} answered in ${(result.durationMs / 1000).toFixed(1)}s — ${result.usage.totalTokenCount ?? '?'} tokens [key ${keyIndex + 1}]`,
       })
-      await sleep(wait)
-    }
-    if (signal?.aborted) throw new Error('aborted')
-    keys.markRequest(keyIndex)
-
-    const ask = (withSchema: boolean) =>
-      generateContent({
-        apiKey: keys.clients[keyIndex].key,
-        model,
-        prompt: extraInstruction ? `${prompt}\n\n${extraInstruction}` : prompt,
-        mimeType,
-        base64,
-        signal,
-        responseSchema: withSchema ? profile.responseSchema : undefined,
-      })
-
-    /*
-     * The schema is what keeps a model from writing its reasoning around the
-     * JSON, and that is most of a run's wall clock. A model that refuses it
-     * still has to do the work, so the refusal is remembered and the file is
-     * asked for again the plain way — the parser has handled prose since day
-     * one, and now only needs to.
-     */
-    let result
-    if (schemaRefused.has(model)) {
-      result = await ask(false)
-    } else {
-      try {
-        result = await ask(true)
-      } catch (error) {
-        if (!isSchemaRejection(error)) throw error
-        schemaRefused.add(model)
-        emit({
-          type: 'log',
-          level: 'warn',
-          message: 'Structured output refused — asking for plain JSON from here on',
-        })
-        result = await ask(false)
-      }
+      return result.text
     }
 
-    keys.markSuccess(keyIndex)
-    emit({
-      type: 'log',
-      level: 'info',
-      message: `${entry.name} answered in ${(result.durationMs / 1000).toFixed(1)}s — ${result.usage.totalTokenCount ?? '?'} tokens [key ${keyIndex + 1}]`,
-    })
-    return result.text
-  }
+    let outcome = profile.parse(await callOnce(), ctx, options)
 
-  let outcome = profile.parse(await callOnce(), ctx, options)
+    if (outcome.extracted) {
+      emit({
+        type: 'log',
+        level: 'info',
+        message: `Extracted JSON from a verbose model response for ${entry.name}`,
+      })
+    }
+    if (outcome.parseFailed) {
+      emit({ type: 'log', level: 'warn', message: `No JSON in the response for ${entry.name} — using fallback` })
+    }
+    if (outcome.adjustedForBrackets.length > 0) {
+      emit({
+        type: 'log',
+        level: 'info',
+        message: `Bracket keywords forced into the text: ${outcome.adjustedForBrackets.join(', ')}`,
+      })
+    }
 
-  if (outcome.extracted) {
-    emit({
-      type: 'log',
-      level: 'info',
-      message: `Extracted JSON from a verbose model response for ${entry.name}`,
-    })
-  }
-  if (outcome.parseFailed) {
-    emit({ type: 'log', level: 'warn', message: `No JSON in the response for ${entry.name} — using fallback` })
-  }
-  if (outcome.adjustedForBrackets.length > 0) {
-    emit({
-      type: 'log',
-      level: 'info',
-      message: `Bracket keywords forced into the text: ${outcome.adjustedForBrackets.join(', ')}`,
-    })
-  }
+    if (outcome.irreparable) {
+      emit({
+        type: 'log',
+        level: 'warn',
+        message: `Keywords malformed for ${entry.name} — retrying once with a stricter instruction`,
+      })
+      const retried = profile.parse(await callOnce(profile.retryInstruction), ctx, options)
+      // Keep the first attempt's space-split output if the retry is no better.
+      if (retried.row.keywords && !retried.irreparable) outcome = retried
+    }
 
-  if (outcome.irreparable) {
-    emit({
-      type: 'log',
-      level: 'warn',
-      message: `Keywords malformed for ${entry.name} — retrying once with a stricter instruction`,
-    })
-    const retried = profile.parse(await callOnce(profile.retryInstruction), ctx, options)
-    // Keep the first attempt's space-split output if the retry is no better.
-    if (retried.row.keywords && !retried.irreparable) outcome = retried
+    return { ...outcome.row, model }
+  } finally {
+    // Best effort, and never in the way: an upload that survives this run
+    // expires on Google's side inside two days, so a failed delete must not
+    // turn a finished file into an error.
+    if (uploaded) void deleteMedia(keys.clients[keyIndex].key, uploaded.name)
   }
-
-  return { ...outcome.row, model }
 }
 
 /**
@@ -392,6 +443,9 @@ export async function runFolder(deps: RunnerDeps): Promise<RunResult> {
         // there is nothing for another key or another model to answer
         // differently. Straight to the fallback row, with the reason in it.
         const terminal = isUnsendableMedia(error)
+        // A rung down is the one model guaranteed to refuse this file, and
+        // trying costs another upload of it.
+        const noDeeperModel = terminal || isWrongRung(error)
 
         if (untried > 0 && !terminal) {
           queue.push(task)
@@ -402,7 +456,7 @@ export async function runFolder(deps: RunnerDeps): Promise<RunResult> {
           // Every key has refused this file on the primary model. One last try
           // on the fallback family before writing a row nobody can upload.
           const row =
-            (terminal ? null : await tryNextRung(deps, task.entry, keyIndex)) ??
+            (noDeeperModel ? null : await tryNextRung(deps, task.entry, keyIndex)) ??
             {
               ...profile.errorFallback(contextFor(task.entry), message, options),
               model: keys.modelFor(keyIndex),

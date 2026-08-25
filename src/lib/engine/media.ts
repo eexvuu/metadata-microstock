@@ -84,6 +84,51 @@ export function isUnsendableMedia(error: unknown): boolean {
   return error instanceof UnsendableMediaError
 }
 
+/**
+ * The most this app will put in a `generateContent` body.
+ *
+ * The request may not exceed about 20 MB and `inline_data` is base64, which
+ * costs a third on top — so 14 MiB of file is roughly 19 MB of request. Past
+ * this the same bytes go up through the Files API instead, which is a slower
+ * first step and no different to the model.
+ */
+export const INLINE_MAX_BYTES = 14 * 1024 * 1024
+
+/**
+ * The most this app will upload for one file.
+ *
+ * Measured on this connection, 2026-08-25: 65 MB took 45 s, and the worker
+ * holding the file is busy for all of it with no way to resume. A 4K ProRes
+ * master runs about 10 MB a second, so 200 MB is around twenty seconds of
+ * footage — past that, exporting an H.264 is genuinely the faster answer and
+ * the refusal says so.
+ */
+export const UPLOAD_MAX_BYTES = 200 * 1024 * 1024
+
+/**
+ * The file needs the fast rung and this key is not on it.
+ *
+ * Only one thing produces this: a mastering codec that also carries audio.
+ * The tab cannot remux it — mp4box will not touch a track it could not
+ * classify — so the audio travels with it, and the bottom rung answers
+ * `400: Audio input modality is not enabled` whether the media arrives inline
+ * or as a file reference (measured both ways, 2026-08-25).
+ *
+ * Unlike `UnsendableMediaError` this is about the key, not the file: another
+ * key still on the fast rung can do it, so the runner requeues. What it must
+ * not do is try a rung *down*, which is the one answer guaranteed to fail.
+ */
+export class WrongRungError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'WrongRungError'
+  }
+}
+
+export function isWrongRung(error: unknown): boolean {
+  return error instanceof WrongRungError
+}
+
 export function extname(name: string): string {
   const dot = name.lastIndexOf('.')
   if (dot <= 0) return ''
