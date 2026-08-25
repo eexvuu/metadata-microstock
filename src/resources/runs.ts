@@ -34,6 +34,13 @@ export const runs = defineResource({
 
   searchPlaceholder: 'Search by folder name…',
 
+  /**
+   * The counts are in the row; the metadata is not. Opening a run is how an
+   * admin gets from "500 files, 12 fallbacks" to the titles that came out —
+   * and the route is where the reveal is audited, so the link has to exist.
+   */
+  detailPath: '/dashboard/admin/runs/$runId',
+
   columns: [
     {
       name: 'folderName',
