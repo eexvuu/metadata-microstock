@@ -484,6 +484,21 @@ They still never pass through this process: `src/lib/server/r2.ts` mints
 presigned URLs and the browser and the worker both talk to R2 directly. That
 module is the only door to the bucket.
 
+**Throughput is accounts, not workers.** vectorizer.ai rate-limits per ACCOUNT
+(measured in that repo: rotating the exit IP changed nothing), so two workers on
+one login share a budget and get slower together — its own notes call that the
+main source of "suddenly rate-limited all the time". `vector_account` therefore
+lives here and `claimNextFile` hands each claim a login no in-flight file holds,
+which makes the number of accounts the real ceiling on parallelism and one
+worker per account the way to run it. Busy is *derived* — a `running`
+`vector_file` names the account — so `reclaimStaleLeases` frees a dead worker's
+login with no code of its own. The pick is serialized on a module-level promise
+chain (`vector-queue.ts`): the compare-and-set makes a FILE safe to race for,
+and without the lock two claims could still hand out one account. Passwords are
+AES-256-GCM like a Gemini key, decrypted only by the claim, and go to nothing
+but a caller that already presented `VECTOR_WORKER_SECRET` — there is no reveal
+path and no human ever reads one.
+
 **Tokens are a ledger, never a column.** `token_ledger` is append-only for the
 same reason `audit_log` is, and there is no `balance` anywhere — it is
 `SUM(delta)`, so the number on the screen cannot drift from the rows that
@@ -530,5 +545,6 @@ wording is worth settling.
 | The worker protocol | `src/api/vector.ts` + `worker/vector-worker.mjs` |
 | Presigning, object keys | `src/lib/server/r2.ts` |
 | Balances, grants, refunds | `src/lib/server/tokens.ts` |
-| Admin screens over any of it | `src/resources/vector-jobs.ts`, `src/resources/tokens.ts` |
+| Which login a claim gets | `src/lib/server/vector-accounts.ts` |
+| Admin screens over any of it | `src/resources/vector-jobs.ts`, `src/resources/tokens.ts`, `src/resources/vector-accounts.ts` |
 | How an image is actually traced | not here — `D:/microstock/vector/vectorizer` |

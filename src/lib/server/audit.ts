@@ -34,6 +34,7 @@ export const AUDIT_ACTIONS = {
   'key.disabled': 'Key disabled',
   'key.enabled': 'Key enabled',
   'run.revealed': 'Result opened by an admin',
+  'tokens.granted': 'Tokens granted',
 } as const
 
 export type AuditAction = keyof typeof AUDIT_ACTIONS

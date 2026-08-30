@@ -4,6 +4,7 @@ import {
   CreditCard,
   FolderOpen,
   Gauge,
+  KeyRound,
   Layers,
   Mail,
   Pause,
@@ -32,6 +33,7 @@ const ICONS: Record<PanelIconName, LucideIcon> = {
   archive: Archive,
   check: Check,
   send: Send,
+  key: KeyRound,
 }
 
 export function PanelIcon({

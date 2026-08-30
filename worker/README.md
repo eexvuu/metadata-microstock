@@ -1,9 +1,17 @@
 # The vectorize worker
 
-Stockflow does not vectorize anything. It holds the queue, the tokens and the
-bucket; a worker on a machine that already has the [`vectorizer`][repo] repo
-working pulls the files down, runs them through `vectorize.js` unchanged, and
-puts the results back.
+Stockflow does not vectorize anything. It holds the queue, the tokens, the
+bucket **and the vectorizer.ai logins**; a worker on a machine that already has
+the [`vectorizer`][repo] repo working pulls the files down, runs them through
+`vectorize.js` unchanged, and puts the results back.
+
+The accounts moved here on purpose. The limiter on vectorizer.ai is per
+ACCOUNT — that repo measured it; rotating the exit IP changed nothing — so more
+logins is the only thing that raises throughput, and two workers on ONE login
+is its documented cause of "suddenly rate-limited all the time". A claim
+therefore carries an account no other in-flight file holds. Adding a login is a
+form in the admin panel, not an ssh session, and **`accounts.json` on the worker
+machine is no longer read at all.**
 
 That split is not a preference. The web backend is a real Chromium signed in to
 vectorizer.ai plus a Whisper-based CAPTCHA solver — Playwright, ~130 MB of
@@ -28,6 +36,11 @@ R2_BUCKET=stockflow-vector
 
 Then `systemctl restart stockflow`. Until the secret is set the worker endpoints
 answer **503**, not 401 — the worker is not wrong, the box is not ready.
+
+Then add the logins under **Dashboard -> Vector accounts**. Until there is at
+least one active account every claim answers 204, which from the worker's side
+is indistinguishable from an empty queue — so the worker prints the count at
+startup and says so.
 
 On the **worker machine**, copy `vector-worker.mjs` next to `vectorize.js` (or
 leave it here and pass `--repo`), and check the vectorizer itself works first:
@@ -54,8 +67,16 @@ node vector-worker.mjs --repo D:/microstock/vector/vectorizer
 | `--poll SECONDS` | how often to ask for work when the queue is empty. Default: 15 |
 | `--once` | take one file (or none) and exit — for a cron-driven worker |
 
-Run more than one and they will not collide: a claim is a compare-and-set, so
-two workers racing for the same row produce one winner and one "try the next".
+**Run one worker per account.** Each holds one file and one login at a time, so
+eight accounts and eight workers is eight images at once; an extra worker past
+that just polls. They will not collide — a claim is a compare-and-set, so two
+workers racing for the same row produce one winner and one "try the next", and
+the account pick is serialized on the server for the same reason.
+
+Each run gets a throwaway `--accounts-file` in the temp directory (0600, deleted
+in a `finally`) rather than a password in argv, and `--no-digitalisazy` so the
+shared reseller account cannot be used by two workers at once behind the
+queue's back.
 
 ## The protocol
 
@@ -69,16 +90,29 @@ Four endpoints under `/api/v1/vector`, all bearer-authenticated with
 | `POST /complete` | `{fileId, formats:{svg,eps}}` — the bytes are in the bucket |
 | `POST /fail` | `{fileId, reason, retryable}` |
 
-A claim carries a presigned GET for the original and a presigned PUT for each
-output format. **The bytes never pass through the Stockflow process** — the
-worker talks to R2 directly, the same way the browser does when it uploads. See
+A claim carries a presigned GET for the original, a presigned PUT for each
+output format, and an `account` — `{label, email, password}`, decrypted for this
+one claim. **The bytes never pass through the Stockflow process** — the worker
+talks to R2 directly, the same way the browser does when it uploads. See
 `src/lib/server/r2.ts`.
+
+The password is the one thing in the protocol that is a credential, and the
+bearer secret is what guards it: it is AES-256-GCM at rest
+(`src/lib/server/crypto.ts`), decrypted only by the claim, never logged and
+never returned to a browser.
 
 ## What happens when things go wrong
 
 - **The worker dies mid-file.** A claim is a lease, not a handover. After 45
   minutes the file goes back on the queue — nightly, and again whenever any
   worker asks for work, so an evening's queue does not sit still until 3am.
+  The account frees itself with it: "busy" means a `running` file names it, so
+  there is no second flag to fall out of step with the lease.
+- **Every account is busy.** 204, the same as an empty queue. That is the
+  throttle working — a ninth worker on eight accounts has nothing to spend.
+- **No accounts configured.** Also 204, forever. `/health` reports
+  `accounts: {active, busy}` and the worker prints it at startup precisely so
+  this is one line of output rather than an afternoon.
 - **A file keeps failing.** Two attempts, then it is marked failed and its
   token is refunded. `retryable: false` skips straight to that.
 - **The same failure is reported twice.** The refund is idempotent — a unique

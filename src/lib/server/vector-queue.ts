@@ -2,6 +2,8 @@ import { and, asc, eq, lt, sql } from 'drizzle-orm'
 
 import { getDb } from '#/db/index'
 import { vectorFile, vectorJob } from '#/db/schema'
+import type { WorkerAccount } from '#/lib/server/vector-accounts'
+import { credentialsFor, markAccountClaimed, pickFreeAccount } from '#/lib/server/vector-accounts'
 import { deleteObject, objectKeys, presignGet, presignPut } from '#/lib/server/r2'
 import { refundFile } from '#/lib/server/tokens'
 
@@ -50,7 +52,27 @@ export interface ClaimedFile {
   source: string
   /** Where to PUT each result. */
   upload: { svg: string; eps: string }
+  /** The vectorizer.ai login to run this file as. Nobody else holds it. */
+  account: WorkerAccount
   leaseExpiresAt: number
+}
+
+/**
+ * Claims run one at a time.
+ *
+ * The compare-and-set below makes a FILE safe to race for. The account is not
+ * part of it: picking one is a separate read, so two claims interleaving at an
+ * await could both see the same account free and hand it to two workers —
+ * which is the one thing this whole mechanism exists to prevent. There is a
+ * single Node process (AGENTS.md), so a promise chain is the whole fix.
+ */
+let claimTurn: Promise<unknown> = Promise.resolve()
+
+function serialized<T>(work: () => Promise<T>): Promise<T> {
+  const next = claimTurn.then(work, work)
+  // A rejected claim must not poison the queue for the next one.
+  claimTurn = next.catch(() => {})
+  return next
 }
 
 /**
@@ -62,7 +84,17 @@ export interface ClaimedFile {
  * what turns the loser into "try the next row" instead of "come back later".
  */
 export async function claimNextFile(worker: string): Promise<ClaimedFile | null> {
+  return serialized(() => claimUnderLock(worker))
+}
+
+async function claimUnderLock(worker: string): Promise<ClaimedFile | null> {
   const db = getDb()
+
+  // Asked before a file is touched: with every account busy there is nothing
+  // to run the next one AS, and leasing a file we cannot start would only
+  // burn one of its two attempts.
+  const account = await pickFreeAccount()
+  if (!account) return null
 
   for (let attempt = 0; attempt < 5; attempt++) {
     const [next] = await db
@@ -82,12 +114,15 @@ export async function claimNextFile(worker: string): Promise<ClaimedFile | null>
         status: 'running',
         leasedAt,
         leaseBy: worker,
+        accountId: account.id,
         attempts: sql`${vectorFile.attempts} + 1`,
       })
       .where(and(eq(vectorFile.id, next.id), eq(vectorFile.status, 'queued')))
       .returning()
 
     if (!claimed) continue
+
+    await markAccountClaimed(account.id)
 
     await db
       .update(vectorJob)
@@ -106,6 +141,7 @@ export async function claimNextFile(worker: string): Promise<ClaimedFile | null>
         svg: await presignPut(keys.svg),
         eps: await presignPut(keys.eps),
       },
+      account: await credentialsFor(account),
       leaseExpiresAt: leasedAt.getTime() + LEASE_MINUTES * 60_000,
     }
   }

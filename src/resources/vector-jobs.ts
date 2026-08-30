@@ -26,9 +26,14 @@ const STATUS = [
  */
 export const vectorJobs = defineResource({
   name: 'vector-jobs',
-  label: 'Vector batch',
-  pluralLabel: 'Vector jobs',
+  /**
+   * "Batch", not "Vector batch": the group already says Vectorizer, and the
+   * URL segment (`vector-jobs`) is what has to stay stable, not the label.
+   */
+  label: 'Batch',
+  pluralLabel: 'Batches',
   icon: 'layers',
+  group: 'vectorizer',
   description: 'Every batch sent to the vectorize worker.',
 
   table: vectorJob,
@@ -45,7 +50,8 @@ export const vectorJobs = defineResource({
       primary: true,
       className: 'font-mono text-xs',
     },
-    { name: 'account', label: 'Account', column: user.email },
+    /** "Owner", not "Account" — in this group an account is a vectorizer.ai login. */
+    { name: 'account', label: 'Owner', column: user.email },
     {
       name: 'status',
       label: 'Status',

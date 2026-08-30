@@ -10,6 +10,7 @@ import { SEARCH_MIN, panelSearchSchema } from '#/lib/panel/search'
 import type {
   PanelAction,
   PanelNavItem,
+  PanelReferenceOption,
   PanelSearchGroup,
   PanelStat,
 } from '#/lib/panel/types'
@@ -92,6 +93,7 @@ export const getPanelNav = createServerFn({ method: 'GET' }).handler(
         name: resource.name,
         label: resource.pluralLabel,
         icon: resource.icon,
+        group: resource.group,
         description: resource.description,
         /** Only for resources that asked — each badge is its own COUNT. */
         badge: resource.badge
@@ -272,6 +274,47 @@ export const runResourceAction = createServerFn({ method: 'POST' })
  * the same scope filter and the same `searchable` allowlist the list screens
  * use. A resource with no searchable column simply is not searched.
  */
+/**
+ * What a `reference` field offers while somebody types in it.
+ *
+ * Gated by whether this role may WRITE the resource, not merely view it: the
+ * only reason to read this list is to fill a form in. The field name is looked
+ * up in the resource's own `references` map, so an unknown one returns nothing
+ * rather than reaching a table.
+ */
+export const lookupPanelReference = createServerFn({ method: 'GET' })
+  .inputValidator(
+    z.object({
+      resource: z.string().min(1),
+      field: z.string().min(1),
+      q: z.string().max(120).optional(),
+      /** Resolve one stored id back to its label, for an edit dialog. */
+      value: z.string().max(120).optional(),
+    }),
+  )
+  .handler(async ({ data }): Promise<PanelReferenceOption[]> => {
+    const { db, ctx } = await panelContext()
+
+    const resource = findResource(data.resource)
+    if (!resource) throw notFound()
+
+    const can = resource.can(ctx.roles)
+    if (!can.create && !can.update) throw notFound()
+
+    if (!data.value && (data.q ?? '').trim().length < SEARCH_MIN) return []
+
+    const rows = await query.lookupReference(db, resource, data.field, {
+      q: data.q?.trim(),
+      value: data.value,
+    })
+
+    return rows.map((row) => ({
+      value: row.value,
+      label: row.label ?? row.value,
+      detail: row.detail ?? undefined,
+    }))
+  })
+
 export const searchPanel = createServerFn({ method: 'GET' })
   .inputValidator(z.object({ q: z.string() }))
   .handler(async ({ data }): Promise<PanelSearchGroup[]> => {

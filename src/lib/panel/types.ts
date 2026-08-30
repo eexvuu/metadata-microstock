@@ -20,6 +20,20 @@ export type BadgeVariant =
  * Icons the sidebar and the action buttons can render. Keep the list small —
  * every entry is bundled whether a resource uses it or not.
  */
+/**
+ * Which tool a resource's screen belongs to.
+ *
+ * The nav groups by this and the screen header prints it, because "Runs" and
+ * "Batches" sitting side by side say nothing about which tool wrote them —
+ * every tool on this shelf owns its own space, and its admin screens are no
+ * exception. A resource with no group is platform-wide (accounts, the audit
+ * log) and renders flat.
+ *
+ * The values are keys into `m.nav`, so a new group needs a line of copy per
+ * locale and the type stops a typo from silently rendering nothing.
+ */
+export type PanelGroup = 'metadata' | 'vectorizer'
+
 export type PanelIcon =
   | 'folder'
   | 'users'
@@ -32,10 +46,25 @@ export type PanelIcon =
   | 'archive'
   | 'check'
   | 'send'
+  | 'key'
 
 export type PanelOption = { value: string; label: string }
 
-export type FieldKind = 'text' | 'textarea' | 'number' | 'select' | 'switch' | 'date'
+export type FieldKind =
+  | 'text'
+  | 'textarea'
+  | 'number'
+  | 'select'
+  | 'switch'
+  | 'date'
+  /** Same value as `text`, masked on screen. For a credential being typed in. */
+  | 'password'
+  /**
+   * A row in another table, searched by typing. Writes that row's id and shows
+   * a human label — the panel's answer to "which account?" being a question
+   * about an email and an answer about a UUID.
+   */
+  | 'reference'
 
 /** One input in the create/edit dialog. */
 export type PanelField = {
@@ -51,6 +80,14 @@ export type PanelField = {
   defaultValue?: string | number | boolean | null
   /** A field can be create-only (immutable afterwards) or edit-only. */
   on: { create: boolean; update: boolean }
+}
+
+/** One hit in a `reference` field's dropdown. Ids and labels, never columns. */
+export type PanelReferenceOption = {
+  value: string
+  label: string
+  /** The second line — an email under a name, a status under a title. */
+  detail?: string | null
 }
 
 export type ColumnKind = 'text' | 'badge' | 'number' | 'boolean' | 'date' | 'datetime'
@@ -116,6 +153,7 @@ export type PanelResourceMeta = {
   label: string
   pluralLabel: string
   icon: PanelIcon
+  group?: PanelGroup
   description?: string
   columns: PanelColumn[]
   fields: PanelField[]
@@ -139,6 +177,8 @@ export type PanelNavItem = {
   name: string
   label: string
   icon: PanelIcon
+  /** Which tool owns this screen. Absent = platform-wide. */
+  group?: PanelGroup
   description?: string
   /** Opt-in count next to the sidebar link. One COUNT per dashboard load. */
   badge?: number

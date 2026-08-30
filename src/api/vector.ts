@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 
 import { env } from '#/lib/runtime/env'
+import { accountSummary } from '#/lib/server/vector-accounts'
 import {
   claimNextFile,
   completeFile,
@@ -20,7 +21,7 @@ import {
  *
  * Four verbs and no state on this side:
  *
- *   POST /api/v1/vector/claim     -> one file + presigned URLs, or 204
+ *   POST /api/v1/vector/claim     -> one file + presigned URLs + a login, or 204
  *   POST /api/v1/vector/complete  -> the vectors are in the bucket
  *   POST /api/v1/vector/fail      -> it did not work, and whether to try again
  *   GET  /api/v1/vector/health    -> the worker checking it is talking to us
@@ -69,7 +70,14 @@ vectorApi.use(`${BASE}/*`, async (c, next) => {
   await next()
 })
 
-vectorApi.get(`${BASE}/health`, (c) => c.json({ ok: true }))
+/**
+ * The account counts ride along because zero of them is indistinguishable from
+ * an empty queue otherwise: every claim answers 204 and nothing says why. The
+ * worker prints this at startup.
+ */
+vectorApi.get(`${BASE}/health`, async (c) =>
+  c.json({ ok: true, accounts: await accountSummary() }),
+)
 
 const claimSchema = z.object({ worker: z.string().min(1).max(80) })
 

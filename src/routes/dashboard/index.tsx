@@ -1,5 +1,5 @@
 import { Link, createFileRoute, getRouteApi } from '@tanstack/react-router'
-import { ArrowRight, KeyRound, PenTool, Sparkles } from 'lucide-react'
+import { ArrowRight, KeyRound, Lock, PenTool, Sparkles } from 'lucide-react'
 
 import { PageHead } from '#/components/page-head'
 import { Button } from '#/components/ui/button'
@@ -16,11 +16,16 @@ import { listGeminiKeys } from '#/lib/server/gemini-keys'
  *
  * Adding a tool is one entry in `TOOLS` and one line of copy per locale.
  *
- * A tool can be `adminOnly` while it is being built. That flag decides whether
- * a CARD renders and nothing else — the tool's own loader calls `requireAdmin`,
- * which is the gate. Hiding a card from someone who could still reach the
- * route would be theatre; hiding one from someone the route already refuses is
- * just not advertising a door they cannot open.
+ * A tool can be `adminOnly` while it is being built. Everyone sees its card —
+ * an ordinary account sees it as **coming soon**, with no way in. The card is
+ * advertising, never access: the gate is the tool's own loader, which calls
+ * `requireAdmin` and redirects. So the worst a wrong answer here can do is
+ * show somebody a teaser or hide one, never open a door.
+ *
+ * It used to hide the card entirely, on the reasoning that advertising a door
+ * nobody can open is unkind. A tool that is genuinely coming is the other
+ * case: saying "coming soon" is the honest version of the same courtesy, and
+ * an empty shelf said less than a locked card does.
  */
 export const Route = createFileRoute('/dashboard/')({
   loader: () => listGeminiKeys(),
@@ -60,7 +65,6 @@ function CatalogPage() {
   const keys = Route.useLoaderData()
   const isAdmin = shell.useLoaderData().length > 0
   const activeKeys = keys.filter((key) => key.status === 'active').length
-  const visible = TOOLS.filter((tool) => isAdmin || !tool.adminOnly)
 
   return (
     <div className="space-y-8">
@@ -69,8 +73,10 @@ function CatalogPage() {
       </PageHead>
 
       <div className="grid gap-px sm:grid-cols-2 xl:grid-cols-3">
-        {visible.map((tool) => {
+        {TOOLS.map((tool) => {
           const Icon = tool.icon
+          /** Rendered, never reachable — the tool's own loader is the gate. */
+          const locked = tool.adminOnly && !isAdmin
 
           return (
             <article
@@ -79,8 +85,14 @@ function CatalogPage() {
             >
               <div className="flex items-center justify-between">
                 <Icon className="text-primary size-5" strokeWidth={1.5} />
-                <span className="border-primary/40 text-primary border px-1.5 py-0.5 font-mono text-[0.6rem] tracking-[0.1em] uppercase">
-                  {m.catalog[tool.badge]}
+                <span
+                  className={`border px-1.5 py-0.5 font-mono text-[0.6rem] tracking-[0.1em] uppercase ${
+                    locked
+                      ? 'border-(--line) text-muted-foreground'
+                      : 'border-primary/40 text-primary'
+                  }`}
+                >
+                  {locked ? m.catalog.comingSoon : m.catalog[tool.badge]}
                 </span>
               </div>
 
@@ -92,13 +104,25 @@ function CatalogPage() {
               </p>
 
               <div className="mt-6 flex flex-wrap items-center gap-3">
-                <Button asChild className="eyebrow">
-                  <Link to={tool.to}>
-                    {m.catalog.open}
-                    <ArrowRight className="size-4" />
-                  </Link>
-                </Button>
-                {activeKeys === 0 ? (
+                {/*
+                  * Disabled and NOT a link: a locked card must not put the
+                  * route in the DOM for a middle-click to find. The redirect
+                  * behind it is what actually refuses.
+                  */}
+                {locked ? (
+                  <Button disabled className="eyebrow">
+                    <Lock className="size-4" />
+                    {m.catalog.notYet}
+                  </Button>
+                ) : (
+                  <Button asChild className="eyebrow">
+                    <Link to={tool.to}>
+                      {m.catalog.open}
+                      <ArrowRight className="size-4" />
+                    </Link>
+                  </Button>
+                )}
+                {!locked && activeKeys === 0 ? (
                   <span className="text-muted-foreground inline-flex items-center gap-1.5 font-mono text-xs">
                     <KeyRound className="size-3.5" />
                     {m.catalog.needKey}

@@ -27,6 +27,7 @@ export const runs = defineResource({
   label: 'Run',
   pluralLabel: 'Runs',
   icon: 'play',
+  group: 'metadata',
   description: 'Every tool run reported by a signed-in browser.',
 
   table: generationRun,

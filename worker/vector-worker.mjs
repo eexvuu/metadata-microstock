@@ -13,6 +13,13 @@
  * `vectorize.js`, which this only shells out to. If tracing changes, nothing
  * here does.
  *
+ * WHICH vectorizer.ai account it signs in as is not this machine's business
+ * either. The claim carries one, chosen so no other in-flight file holds it,
+ * and this writes it to a throwaway `--accounts-file` for the one run. So
+ * `accounts.json` on this machine is unused: accounts are added and retired in
+ * Stockflow's admin panel, and starting a second worker is all it takes to
+ * spend a second login. Run one worker per account you have.
+ *
  * Copy this file into the vectorizer repo (or point --repo at it) and run:
  *
  *   STOCKFLOW_URL=https://tools.example.com \
@@ -93,18 +100,52 @@ async function upload(url, source, contentType) {
 }
 
 /**
- * One image through the real tool.
+ * The claimed login, in the shape `vectorize.js --accounts-file` reads.
+ *
+ * A file rather than an argv entry because a password in argv is visible to
+ * every process on the box (`ps`, Task Manager). It is written 0600, lives for
+ * one run and is deleted in a `finally` — including when the vectorize throws.
+ * This machine already stored such passwords in `accounts.json`; the point of
+ * moving them into Stockflow was never that this box is untrusted, it was that
+ * eight laptops should not each keep their own copy.
+ */
+async function writeAccountFile(account) {
+  const file = path.join(os.tmpdir(), `stockflow-account-${process.pid}-${Date.now()}.json`)
+
+  await fs.writeFile(
+    file,
+    JSON.stringify([{ email: account.email, password: account.password }]),
+    { mode: 0o600 },
+  )
+
+  return file
+}
+
+/**
+ * One image through the real tool, as one account.
  *
  * `--no-move` keeps the original where we put it so cleanup is ours to do, and
  * `--no-skip` stops a leftover `output/` from a previous attempt being mistaken
- * for a finished one. The exit code is read but not trusted alone: what
- * actually decides is whether the files exist.
+ * for a finished one. `--no-digitalisazy` keeps the shared reseller account out
+ * of it: the queue handed us a login, and a second source would be a second
+ * process on an account somebody else's worker may be holding. The exit code is
+ * read but not trusted alone: what actually decides is whether the files exist.
  */
-function vectorize(inputPath) {
+function vectorize(inputPath, accountsFile) {
   return new Promise((resolve) => {
     const child = spawn(
       process.execPath,
-      ['vectorize.js', '--no-move', '--no-skip', '--limit', '1', inputPath],
+      [
+        'vectorize.js',
+        '--accounts-file',
+        accountsFile,
+        '--no-digitalisazy',
+        '--no-move',
+        '--no-skip',
+        '--limit',
+        '1',
+        inputPath,
+      ],
       { cwd: REPO, stdio: ['ignore', 'inherit', 'inherit'] },
     )
 
@@ -120,17 +161,26 @@ async function handle(job) {
 
   await fs.mkdir(path.dirname(input), { recursive: true })
 
+  let accountsFile = null
+
   const cleanup = async () => {
-    for (const file of [input, path.join(outputDir, `${base}.svg`), path.join(outputDir, `${base}.eps`)]) {
+    for (const file of [
+      input,
+      path.join(outputDir, `${base}.svg`),
+      path.join(outputDir, `${base}.eps`),
+      ...(accountsFile ? [accountsFile] : []),
+    ]) {
       await fs.rm(file, { force: true })
     }
   }
 
   try {
-    log(`claim ${job.filename} (attempt ${job.attempt})`)
+    log(`claim ${job.filename} as ${job.account.label} (attempt ${job.attempt})`)
     await download(job.source, input)
 
-    const run = await vectorize(input)
+    accountsFile = await writeAccountFile(job.account)
+
+    const run = await vectorize(input, accountsFile)
 
     const produced = {}
     for (const format of ['svg', 'eps']) {
@@ -183,7 +233,18 @@ async function main() {
     process.exit(1)
   }
 
+  const { accounts } = await health.json()
+
   log(`worker ${NAME} -> ${BASE}, repo ${REPO}`)
+
+  // Zero accounts answers every claim with 204, which is indistinguishable
+  // from an empty queue. Say so once rather than idling silently forever.
+  if (accounts) {
+    log(`${accounts.active} vectorizer account(s) configured, ${accounts.busy} in use`)
+    if (accounts.active === 0) {
+      console.error('No accounts in Stockflow — add one under Dashboard -> Vector accounts, or this will poll forever.')
+    }
+  }
 
   for (;;) {
     const response = await api('claim', { worker: NAME })
