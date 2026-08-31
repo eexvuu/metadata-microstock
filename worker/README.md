@@ -13,12 +13,18 @@ therefore carries an account no other in-flight file holds. Adding a login is a
 form in the admin panel, not an ssh session, and **`accounts.json` on the worker
 machine is no longer read at all.**
 
-That split is not a preference. The web backend is a real Chromium signed in to
-vectorizer.ai plus a Whisper-based CAPTCHA solver — Playwright, ~130 MB of
-browser, and work that occasionally needs a human to look at a picture of a
-traffic light. `stockflow.service` caps the app at 768 MB on a box with two
-shared cores, MySQL, a gunicorn app and a dozen other vhosts. None of that fits,
-and none of it should.
+That split is not a preference: the app process must never become a browser
+host. `stockflow.service` caps it at 768 MB on a box with two shared cores,
+MySQL, a gunicorn app and a dozen other vhosts, and a real Chromium signed in
+to vectorizer.ai does not belong inside it.
+
+The split is between PROCESSES, though, not between machines — which is why the
+VPS can run a worker of its own after all (`deploy/stockflow-worker.service`,
+runbook in `deploy/README.md`). This script holds no browser: it spawns
+`vectorize.js` per file, so Chromium lives and dies with the file and an idle
+worker is one small Node poller. One file at a time is what fits there.
+Anything wider belongs on a machine with RAM to spare, and the two run side by
+side without coordinating — a claim is a compare-and-set.
 
 [repo]: ../../microstock/vector/vectorizer
 

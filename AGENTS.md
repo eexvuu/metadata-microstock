@@ -559,14 +559,23 @@ of the tracing behaviour, and none of it was ported.
 
 ## Hard constraints
 
-**This box does not vectorize anything.** The web backend is a real Chromium
-signed in to vectorizer.ai plus a Whisper CAPTCHA solver, and the unit is
-capped at 768 MB beside MySQL and a dozen vhosts. So Stockflow holds the queue,
-the tokens and the bucket, and a worker on the machine that already runs
-`vectorize.js` claims one file at a time over `/api/v1/vector/*`
-(`worker/README.md`, `worker/vector-worker.mjs`). A claim is a **lease**: a
-worker that dies has its file put back, and `attempts` is what stops a file
-that keeps killing workers from cycling forever.
+**The app process does not vectorize anything.** Stockflow holds the queue, the
+tokens and the bucket; a worker on a machine that already runs `vectorize.js`
+claims one file at a time over `/api/v1/vector/*` (`worker/README.md`,
+`worker/vector-worker.mjs`). A claim is a **lease**: a worker that dies has its
+file put back, and `attempts` is what stops a file that keeps killing workers
+from cycling forever.
+
+That worker may now be the VPS itself, which this file used to say was
+impossible — the correction is worth keeping rather than quietly deleting,
+because the reasoning that ruled it out was about the wrong thing. Chromium
+plus a CAPTCHA solver does not fit beside MySQL and a dozen vhosts *as a
+resident process*, and the worker is not one: it spawns `vectorize.js` per
+file, so the browser exists only while a file is in flight and an idle worker
+is one small Node poller. `deploy/stockflow-worker.service` runs exactly one,
+capped by its own cgroup. The ceiling there is memory, not accounts — parallel
+batches stay on a machine with RAM to spare, and the two need no coordination
+because a claim is a compare-and-set.
 
 **The media proxy rule does not apply here, and that is deliberate.** The
 metadata engine forbids a server route that proxies media because the user's

@@ -1,0 +1,29 @@
+# /etc/apparmor.d/vectorizer-chromium
+#
+#   apparmor_parser -r /etc/apparmor.d/vectorizer-chromium
+#
+# Ubuntu 24.04 ships kernel.apparmor_restrict_unprivileged_userns=1, which
+# stops an unprivileged process creating the user namespace Chromium's sandbox
+# is built on. Without this profile the worker's first file dies at launch with
+# a Playwright error that names neither AppArmor nor namespaces.
+#
+# The two alternatives are worse on a shared box. Flipping the sysctl to 0
+# lifts the restriction for every process on the machine, including the dozen
+# other vhosts. Passing --no-sandbox keeps the restriction but throws away the
+# sandbox itself, in the one process here that loads a remote site's
+# JavaScript. This grants the namespace to exactly one binary and changes
+# nothing else.
+#
+# The path is a glob because Playwright installs Chromium under a
+# build-numbered directory and re-installs on upgrade. Re-run apparmor_parser
+# after `npx playwright install chromium` if the profile stops matching.
+
+abi <abi/4.0>,
+
+include <tunables/global>
+
+profile vectorizer-chromium /srv/vectorizer/.playwright/chromium*/chrome-linux/{chrome,headless_shell} flags=(unconfined) {
+  userns,
+
+  include if exists <local/vectorizer-chromium>
+}

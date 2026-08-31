@@ -140,14 +140,88 @@ The trade is that a row can outlive its objects. A download of something the
 lifecycle rule has already reclaimed fails with R2's own 404 rather than a
 friendly message — worth knowing before you set the window short.
 
-Nothing vectorizes on this box. The work happens on a machine running the
-`vectorizer` repo, which polls for it — see `worker/README.md`. That is not a
-preference: the web backend is Chromium plus a CAPTCHA solver, and
-`stockflow.service` caps this unit at 768 MB.
+The tracing itself happens in a machine running the `vectorizer` repo, which
+polls for work — see `worker/README.md`. That machine can be this box (one file
+at a time, next section) or anything else with the repo working; the two
+coexist with no coordination.
 
 Tokens are granted from the panel (`/dashboard/tokens`), which writes an
 append-only ledger row. There is no balance column to correct — a mistake is
 undone by writing a negative entry, not by editing the first one.
+
+## A worker on this box
+
+Optional, and worth it only if you want the queue to drain without anyone
+opening a laptop. It is **one file at a time** — the ceiling here is memory,
+not accounts, so do not port the eight-worker pattern onto it.
+
+What makes it fit at all: the worker holds no browser. It spawns `vectorize.js`
+per file, so Chromium exists only while a file is in flight, and an idle worker
+is one small Node poller. Measure it yourself after the first batch —
+`systemctl show stockflow-worker -p MemoryPeak` is the number that decides
+whether `MemoryHigh` is set right.
+
+```bash
+adduser --system --group --home /srv/vectorizer vectorizer
+mkdir -p /srv/vectorizer && chown vectorizer:vectorizer /srv/vectorizer
+
+# From the machine that already has the repo working. .auth is the cookie jar
+# and is what saves a fresh login per account; .profiles is NOT copied (it is
+# large, and it regenerates).
+rsync -av --exclude node_modules --exclude .profiles --exclude output \
+      --exclude input --exclude logs --exclude debug \
+      ./ root@43.157.210.19:/srv/vectorizer/
+scp worker/vector-worker.mjs root@43.157.210.19:/srv/vectorizer/
+```
+
+Then on the box:
+
+```bash
+cd /srv/vectorizer
+mkdir -p input output
+export PLAYWRIGHT_BROWSERS_PATH=/srv/vectorizer/.playwright
+npm install                       # postinstall pulls Chromium (~500 MB)
+npx playwright install-deps chromium
+
+# Each account is a whole Chromium and this box runs one file at a time, so the
+# second session per account is pure overhead here.
+sed -i 's/accountConcurrency: 2/accountConcurrency: 1/' config.js
+
+cp deploy/vectorizer-chromium.apparmor /etc/apparmor.d/vectorizer-chromium
+apparmor_parser -r /etc/apparmor.d/vectorizer-chromium
+
+install -m 0600 /dev/null /etc/stockflow/worker.env
+cat >> /etc/stockflow/worker.env <<'EOF'
+STOCKFLOW_URL=http://127.0.0.1:3000
+STOCKFLOW_WORKER_SECRET=…
+EOF
+
+chown -R vectorizer:vectorizer /srv/vectorizer
+```
+
+`STOCKFLOW_URL` is loopback on purpose: the worker is on the same box, and
+going out through nginx and back buys nothing but a TLS handshake per poll.
+The secret is the same value as in `stockflow.env` — a second file so this user
+never reads the database URL or the R2 keys.
+
+**Prove the login survives the move before installing the unit.** This is the
+step that actually fails, and it fails for free:
+
+```bash
+sudo -u vectorizer PLAYWRIGHT_BROWSERS_PATH=/srv/vectorizer/.playwright \
+     node scripts/check-login.js
+```
+
+A datacenter IP signing in headless is a different proposition from a home one,
+and `config.js` says as much — it suggests `--headed` when a CAPTCHA is
+expected, which is not an option here. If this cannot establish a session, stop:
+the unit will fail the same way once a file is at stake.
+
+```bash
+cp deploy/stockflow-worker.service /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now stockflow-worker
+journalctl -u stockflow-worker -f
+```
 
 ## When something is wrong
 

@@ -1,0 +1,70 @@
+# /etc/systemd/system/stockflow-worker.service
+#
+#   systemctl daemon-reload && systemctl enable --now stockflow-worker
+#   journalctl -u stockflow-worker -f
+#
+# The vectorize worker, on the same box as the app. This reverses what
+# AGENTS.md and worker/README.md said for the first month — that this box never
+# vectorizes — and the reason it is now possible is worth writing down: the
+# worker does NOT hold a browser. It spawns `vectorize.js` per file, so
+# Chromium exists only while a file is in flight and the idle cost is one small
+# Node poller. One file at a time closes the arithmetic on a 3.7 GB box that
+# already runs MySQL, gunicorn and a dozen vhosts. Eight would not.
+#
+# THROUGHPUT IS DELIBERATELY ONE FILE. The ceiling here is memory, not accounts
+# — do not copy the local eight-worker pattern onto this unit. A bigger batch
+# is what the local machine is for; the two coexist with no coordination
+# because a claim is a compare-and-set and accounts are handed out disjointly.
+
+[Unit]
+Description=Stockflow vectorize worker
+# It talks to the app over loopback, so there is no point starting before it.
+After=stockflow.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=vectorizer
+Group=vectorizer
+WorkingDirectory=/srv/vectorizer
+
+# Only two variables, and neither belongs in stockflow.env: that file carries
+# the database URL and the R2 keys, and this user has no business reading them.
+EnvironmentFile=/etc/stockflow/worker.env
+
+# Keep the browser inside the one writable path rather than in ~/.cache, so
+# ProtectHome can stay on and there is exactly one directory to back up.
+Environment=PLAYWRIGHT_BROWSERS_PATH=/srv/vectorizer/.playwright
+
+ExecStart=/usr/bin/node vector-worker.mjs --repo /srv/vectorizer --name vps-1 --poll 30
+
+# A crash loses the file it held, not the run: the lease expires and the queue
+# hands it to whoever asks next. So restart, but slowly enough that a broken
+# login does not spin.
+Restart=on-failure
+RestartSec=30
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/srv/vectorizer
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+
+# MemoryHigh throttles and reclaims; MemoryMax kills. The gap between them is
+# deliberate — a Chromium that briefly overshoots should be slowed down, not
+# OOM-killed, and only a genuine runaway should hit the wall. An OOM kill is
+# survivable either way: it lands in fail -> requeue -> attempts, which is the
+# same path a dead worker already takes.
+MemoryHigh=768M
+MemoryMax=1G
+
+# Two cores, shared. MySQL and the vhosts are what people are waiting on; this
+# is a batch job and can have what is left.
+CPUWeight=20
+IOWeight=20
+
+[Install]
+WantedBy=multi-user.target
