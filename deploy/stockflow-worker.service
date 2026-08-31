@@ -53,6 +53,11 @@ ProtectKernelTunables=yes
 ProtectControlGroups=yes
 RestrictSUIDSGID=yes
 
+# Measured on the first real batch, 2026-08-31: 39 MB idle (the poller alone)
+# and a 396 MB peak with Chromium up and a 4000 px trace running. That is the
+# whole argument for this unit existing — the browser is not resident, so the
+# cost between files is rounding error on a 3.7 GB box.
+#
 # MemoryHigh throttles and reclaims; MemoryMax kills. The gap between them is
 # deliberate — a Chromium that briefly overshoots should be slowed down, not
 # OOM-killed, and only a genuine runaway should hit the wall. An OOM kill is

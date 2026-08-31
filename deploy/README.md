@@ -167,10 +167,14 @@ mkdir -p /srv/vectorizer && chown vectorizer:vectorizer /srv/vectorizer
 
 # From the machine that already has the repo working. .auth is the cookie jar
 # and is what saves a fresh login per account; .profiles is NOT copied (it is
-# large, and it regenerates).
-rsync -av --exclude node_modules --exclude .profiles --exclude output \
-      --exclude input --exclude logs --exclude debug \
-      ./ root@43.157.210.19:/srv/vectorizer/
+# large, and it regenerates). tar over ssh rather than rsync, because the
+# machine that has this repo is a Windows box and Git Bash ships no rsync.
+cd /path/to/vectorizer
+tar czf - --exclude=node_modules --exclude=.profiles --exclude=output \
+          --exclude=input --exclude=logs --exclude=debug --exclude=.git \
+          --exclude='*.log' --exclude='session.txt.decrypted.json' . \
+  | ssh root@43.157.210.19 'mkdir -p /srv/vectorizer && tar xzf - -C /srv/vectorizer'
+
 scp worker/vector-worker.mjs root@43.157.210.19:/srv/vectorizer/
 ```
 
@@ -187,9 +191,6 @@ npx playwright install-deps chromium
 # second session per account is pure overhead here.
 sed -i 's/accountConcurrency: 2/accountConcurrency: 1/' config.js
 
-cp deploy/vectorizer-chromium.apparmor /etc/apparmor.d/vectorizer-chromium
-apparmor_parser -r /etc/apparmor.d/vectorizer-chromium
-
 install -m 0600 /dev/null /etc/stockflow/worker.env
 cat >> /etc/stockflow/worker.env <<'EOF'
 STOCKFLOW_URL=http://127.0.0.1:3000
@@ -199,10 +200,28 @@ EOF
 chown -R vectorizer:vectorizer /srv/vectorizer
 ```
 
+**The secret has two names, and copying the line across gets it wrong.** The
+app reads `VECTOR_WORKER_SECRET`; the worker reads `STOCKFLOW_WORKER_SECRET`.
+Same value, different variable — `sed -n 's/^VECTOR_WORKER_SECRET=//p'` out of
+`stockflow.env` and write it under the other name. Get it wrong and the unit
+starts, exits 1, and says `STOCKFLOW_WORKER_SECRET is not set` — which is
+accurate and still takes a minute to place.
+
 `STOCKFLOW_URL` is loopback on purpose: the worker is on the same box, and
 going out through nginx and back buys nothing but a TLS handshake per poll.
-The secret is the same value as in `stockflow.env` — a second file so this user
-never reads the database URL or the R2 keys.
+A second env file rather than `stockflow.env` so this user never reads the
+database URL or the R2 keys.
+
+**No AppArmor profile is needed, and it is worth knowing why not.** Ubuntu
+24.04 ships `kernel.apparmor_restrict_unprivileged_userns=1`, which would stop
+an unprivileged Chromium building its sandbox — so this section originally
+carried a profile granting `userns` to the browser binary. It turned out to be
+dead weight: Playwright launches with `chromiumSandbox: false` by default, so
+the live process already carries `--no-sandbox` and never asks for a namespace.
+Verified in the running command line on 2026-08-31, not assumed. If anyone ever
+turns the sandbox on, this is the failure to expect and a per-binary profile is
+the fix — not flipping the sysctl, which would lift the restriction for every
+vhost on the box.
 
 **Prove the login survives the move before installing the unit.** This is the
 step that actually fails, and it fails for free:
