@@ -301,10 +301,11 @@ function UserDetail() {
         <div className="space-y-4 p-4">
           <p className="text-muted-foreground text-sm text-pretty">
             One token buys one image through the vectorizer, and a file that
-            fails gives its token back. The balance is the sum of the entries
-            below, never a stored number — so granting is writing a row, and a
-            mistake is undone by writing a negative one rather than by editing
-            anything.
+            fails gives its token back. Every account starts with a trial
+            credit; this is where one is topped up past it. The balance is the
+            sum of the entries below, never a stored number — so granting is
+            writing a row, and a mistake is undone by writing a negative one
+            rather than by editing anything.
           </p>
 
           <div className="flex flex-wrap items-end gap-3">
@@ -338,7 +339,7 @@ function UserDetail() {
           </div>
 
           <p className="text-muted-foreground font-mono text-xs">
-            negative takes tokens back · every entry names the admin who wrote it
+            negative takes tokens back · an entry names an admin only when one wrote it
           </p>
 
           {tokens.ledger.length === 0 ? (
@@ -367,7 +368,14 @@ function UserDetail() {
                         {entry.delta > 0 ? `+${entry.delta}` : entry.delta}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={entry.reason === 'grant' ? 'default' : 'secondary'}>
+                        {/* Credits stand out; spend and refund are the machine talking. */}
+                        <Badge
+                          variant={
+                            entry.reason === 'grant' || entry.reason === 'signup'
+                              ? 'default'
+                              : 'secondary'
+                          }
+                        >
                           {entry.reason}
                         </Badge>
                       </TableCell>
