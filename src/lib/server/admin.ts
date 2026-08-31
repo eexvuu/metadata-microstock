@@ -8,6 +8,7 @@ import type { AuditEntry } from '#/lib/server/audit'
 import { recordAudit } from '#/lib/server/audit'
 import { decryptSecret } from '#/lib/server/crypto'
 import { requireAdmin } from '#/lib/server/session'
+import { balanceOf, grantTokens, recentLedger } from '#/lib/server/tokens'
 
 /**
  * The admin surface.
@@ -151,6 +152,11 @@ export const getUserDetail = createServerFn({ method: 'GET' })
       .from(session)
       .where(and(eq(session.userId, data.id), gte(session.expiresAt, new Date())))
 
+    // The balance is SUM(delta) over the ledger, so it and the rows under it
+    // cannot disagree — see the note at the top of `tokens.ts`.
+    const balance = await balanceOf(data.id)
+    const ledger = await recentLedger(data.id, 10)
+
     return {
       user: {
         ...row,
@@ -173,6 +179,13 @@ export const getUserDetail = createServerFn({ method: 'GET' })
             ? run.resultExpiresAt.getTime()
             : null,
       })),
+      tokens: {
+        balance,
+        ledger: ledger.map((entry) => ({
+          ...entry,
+          createdAt: entry.createdAt.getTime(),
+        })),
+      },
       totals: {
         runs: totals?.runs ?? 0,
         files: Number(totals?.files ?? 0),
@@ -180,6 +193,64 @@ export const getUserDetail = createServerFn({ method: 'GET' })
         sessions: sessions?.value ?? 0,
       },
     }
+  })
+
+/**
+ * Putting vector tokens on an account, from the account's own screen.
+ *
+ * The `tokens` resource can already write a ledger row, but it asks for a user
+ * ID typed by hand — fine for a correction, useless as the way tokens are
+ * normally issued. This is the same insert with the account already chosen,
+ * which is the difference between a mechanism and a usable one.
+ *
+ * It stays a GRANT and never a "set balance to N": the ledger is append-only
+ * (see `src/db/schema.ts`), so the only honest way to reach a number is to add
+ * the difference. A negative amount is how tokens are taken back — same row,
+ * same audit trail, no second code path.
+ *
+ * `actorEmail` comes from the session, never from the form, and the audit row
+ * is written after the insert rather than before: unlike a reveal, nothing has
+ * been disclosed if this fails halfway — the ledger row simply is or is not
+ * there, and it carries the actor itself.
+ */
+export const grantUserTokens = createServerFn({ method: 'POST' })
+  .inputValidator(
+    z.object({
+      id: z.string().min(1),
+      /** Bounded so a slipped keystroke cannot mint a fortune in one click. */
+      amount: z.coerce.number().int().min(-100_000).max(100_000).refine((value) => value !== 0, {
+        message: 'Zero tokens is not a change.',
+      }),
+      note: z.string().max(200).optional(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const admin = await requireAdmin()
+
+    const [target] = await getDb()
+      .select({ id: user.id, email: user.email })
+      .from(user)
+      .where(eq(user.id, data.id))
+      .limit(1)
+
+    if (!target) throw new Error('That account no longer exists.')
+
+    await grantTokens({
+      userId: target.id,
+      amount: data.amount,
+      note: data.note?.trim() || undefined,
+      actorEmail: admin.user.email,
+    })
+
+    await recordAudit(admin.user.id, {
+      action: 'tokens.granted',
+      targetType: 'user',
+      targetId: target.id,
+      targetLabel: target.email,
+      detail: `${data.amount > 0 ? '+' : ''}${data.amount} tokens`,
+    })
+
+    return { balance: await balanceOf(target.id) }
   })
 
 export const updateUserAdmin = createServerFn({ method: 'POST' })

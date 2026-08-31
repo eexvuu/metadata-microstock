@@ -1,7 +1,10 @@
 import type { Resource } from '#/lib/panel/define'
 import { auditLogs } from '#/resources/audit-log'
 import { runs } from '#/resources/runs'
+import { tokens } from '#/resources/tokens'
 import { users } from '#/resources/users'
+import { vectorAccounts } from '#/resources/vector-accounts'
+import { vectorJobs } from '#/resources/vector-jobs'
 
 /**
  * The panel registry — sidebar order is this order.
@@ -15,7 +18,14 @@ import { users } from '#/resources/users'
  * these modules pull in Drizzle tables and authorisation rules, and the whole
  * point of the JSON meta layer is that none of it ships to the browser.
  */
-export const resources: Resource[] = [users, runs, auditLogs]
+export const resources: Resource[] = [
+  users,
+  runs,
+  vectorJobs,
+  vectorAccounts,
+  tokens,
+  auditLogs,
+]
 
 export function findResource(name: string) {
   return resources.find((resource) => resource.name === name)

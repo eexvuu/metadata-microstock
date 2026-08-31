@@ -6,6 +6,7 @@ import type {
   BadgeVariant,
   ColumnKind,
   FieldKind,
+  PanelGroup,
   PanelAction,
   PanelColumn,
   PanelCustomAction,
@@ -51,11 +52,30 @@ export type ResourceColumnInput = {
   primary?: boolean
 }
 
+/**
+ * What a `reference` field searches. Column references, so they stay on the
+ * server like every other allowlist in this file — the browser learns the
+ * field is a reference and nothing else about the table behind it.
+ */
+export type ResourceReferenceInput = {
+  table: SQLiteTable
+  /** What gets written — usually the other table's id. */
+  value: AnySQLiteColumn
+  /** What a human reads in the input and the dropdown. */
+  label: AnySQLiteColumn
+  /** The second line under each hit. */
+  detail?: AnySQLiteColumn
+  /** Columns the typed term is matched against, `LIKE %term%`. */
+  search: AnySQLiteColumn[]
+}
+
 export type ResourceFieldInput = {
   /** Must match a property on the resource's table. */
   name: string
   label: string
   kind?: FieldKind
+  /** Required by `kind: 'reference'`, meaningless otherwise. */
+  reference?: ResourceReferenceInput
   required?: boolean
   options?: PanelOption[]
   placeholder?: string
@@ -104,6 +124,11 @@ export type ResourceInput = {
   label: string
   pluralLabel: string
   icon: PanelIcon
+  /**
+   * Which tool's screens this belongs to — the nav groups by it and the screen
+   * header prints it. Omit for a platform-wide resource.
+   */
+  group?: PanelGroup
   description?: string
   /** The table rows are written to. Joined tables are read-only. */
   table: SQLiteTable
@@ -145,6 +170,27 @@ export type ResourceInput = {
   badge?: boolean
   /** Extra column values stamped on insert (id and tenant are automatic). */
   onCreate?: (ctx: ResourceContext) => Record<string, unknown>
+  /**
+   * The write-side twin of `beforeDelete`: the last thing between a validated
+   * form and the INSERT/UPDATE. It receives the column values the engine
+   * resolved from the resource's own field allowlist — never raw request
+   * input — and returns what to actually write.
+   *
+   * It exists for the case a column is not what the form asked for: a
+   * credential the browser typed in the clear and the database must hold
+   * encrypted. Throw to abort, exactly like `beforeDelete`; the message
+   * becomes the user's toast, which is how a field that is only required on
+   * create says so.
+   *
+   * A blank value never arrives here at all — `toColumnValues` drops it for a
+   * NOT NULL column — so "leave it empty to keep what is stored" is the
+   * default behaviour rather than something a hook has to implement.
+   */
+  beforeSave?: (
+    values: Record<string, unknown>,
+    ctx: ResourceContext,
+    mode: 'create' | 'update',
+  ) => Record<string, unknown> | Promise<Record<string, unknown>>
   /** Throw here to block a delete — the message reaches the user's toast. */
   beforeDelete?: (ids: string[], ctx: ResourceContext) => void | Promise<void>
 }
@@ -180,6 +226,22 @@ export function defineResource(input: ResourceInput) {
     variants: column.variants,
     primary: column.primary,
   }))
+
+  /**
+   * Field name -> what it may search. Server-only, exactly like `writable`:
+   * the lookup endpoint takes a field NAME from the browser and finds its
+   * columns here, so a request cannot name a table of its own.
+   */
+  const references: Record<string, ResourceReferenceInput> = {}
+  for (const field of input.fields ?? []) {
+    if (field.kind !== 'reference') continue
+    if (!field.reference) {
+      throw new Error(
+        `Resource "${input.name}": field "${field.name}" is a reference but names no table`,
+      )
+    }
+    references[field.name] = field.reference
+  }
 
   const fields: PanelField[] = (input.fields ?? []).map((field) => ({
     name: field.name,
@@ -333,6 +395,7 @@ export function defineResource(input: ResourceInput) {
     sortable,
     filterable,
     searchColumns,
+    references,
     titleColumn,
     detailColumn,
     detail,
@@ -350,6 +413,7 @@ export function defineResource(input: ResourceInput) {
         label: input.label,
         pluralLabel: input.pluralLabel,
         icon: input.icon,
+        group: input.group,
         description: input.description,
         columns,
         fields,

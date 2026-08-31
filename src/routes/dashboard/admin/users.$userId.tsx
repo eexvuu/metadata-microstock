@@ -1,6 +1,6 @@
 import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
-import { ArrowLeft, Eye, Loader2, LogOut, Pause, Play, Save, Trash2 } from 'lucide-react'
+import { ArrowLeft, Coins, Eye, Loader2, LogOut, Pause, Play, Save, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { PageHead } from '#/components/page-head'
@@ -37,6 +37,7 @@ import {
 import {
   deleteUserKey,
   getUserDetail,
+  grantUserTokens,
   revealUserKey,
   revokeUserSessions,
   setUserKeyStatus,
@@ -58,7 +59,7 @@ export const Route = createFileRoute('/dashboard/admin/users/$userId')({
 })
 
 function UserDetail() {
-  const { user, keys, runs, totals } = Route.useLoaderData()
+  const { user, keys, runs, tokens, totals } = Route.useLoaderData()
   const router = useRouter()
 
   const [name, setName] = useState(user.name)
@@ -68,6 +69,8 @@ function UserDetail() {
   const [busy, setBusy] = useState(false)
   /** Revealed plaintext, per key id. Never in the loader, never persisted. */
   const [shown, setShown] = useState<Record<string, string>>({})
+  const [grant, setGrant] = useState('')
+  const [grantNote, setGrantNote] = useState('')
   const [revealing, setRevealing] = useState<string | null>(null)
   /** The key a delete confirmation is open for. Null when the dialog is shut. */
   const [pendingDelete, setPendingDelete] = useState<
@@ -110,6 +113,23 @@ function UserDetail() {
       toast.error(error instanceof Error ? error.message : String(error))
     } finally {
       setRevealing(null)
+    }
+  }
+
+  const addTokens = async () => {
+    setBusy(true)
+    try {
+      const { balance } = await grantUserTokens({
+        data: { id: user.id, amount: Number(grant), note: grantNote || undefined },
+      })
+      toast.success(`Balance is now ${balance}`)
+      setGrant('')
+      setGrantNote('')
+      await router.invalidate()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error))
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -264,6 +284,105 @@ function UserDetail() {
               Sign out everywhere
             </Button>
           </div>
+        </div>
+      </section>
+
+      <section className="border-(--line) border">
+        <header className="border-(--line) flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+          <h2 className="font-display flex items-center gap-2 text-lg font-medium">
+            <Coins className="text-primary size-4" strokeWidth={1.5} />
+            Vector tokens
+          </h2>
+          <span className="font-display text-2xl leading-none font-light tabular-nums">
+            {tokens.balance.toLocaleString()}
+          </span>
+        </header>
+
+        <div className="space-y-4 p-4">
+          <p className="text-muted-foreground text-sm text-pretty">
+            One token buys one image through the vectorizer, and a file that
+            fails gives its token back. The balance is the sum of the entries
+            below, never a stored number — so granting is writing a row, and a
+            mistake is undone by writing a negative one rather than by editing
+            anything.
+          </p>
+
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="w-32 space-y-2">
+              <Label htmlFor="grant">Tokens</Label>
+              <Input
+                id="grant"
+                type="number"
+                value={grant}
+                disabled={busy}
+                placeholder="100"
+                onChange={(event) => setGrant(event.target.value)}
+              />
+            </div>
+
+            <div className="min-w-48 flex-1 space-y-2">
+              <Label htmlFor="grant-note">Note</Label>
+              <Input
+                id="grant-note"
+                value={grantNote}
+                disabled={busy}
+                placeholder="Why this entry exists"
+                onChange={(event) => setGrantNote(event.target.value)}
+              />
+            </div>
+
+            <Button onClick={() => void addTokens()} disabled={busy || grant === ''}>
+              {busy ? <Loader2 className="size-4 animate-spin" /> : <Coins className="size-4" />}
+              Add tokens
+            </Button>
+          </div>
+
+          <p className="text-muted-foreground font-mono text-xs">
+            negative takes tokens back · every entry names the admin who wrote it
+          </p>
+
+          {tokens.ledger.length === 0 ? (
+            <p className="border-(--line) text-muted-foreground border border-dashed py-8 text-center font-mono text-xs">
+              no token entries on this account
+            </p>
+          ) : (
+            <div className="border-(--line) overflow-x-auto border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-24 text-right">Delta</TableHead>
+                    <TableHead className="w-28">Reason</TableHead>
+                    <TableHead>Note</TableHead>
+                    <TableHead className="w-44 text-right">When</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {tokens.ledger.map((entry) => (
+                    <TableRow key={entry.id}>
+                      <TableCell
+                        className={`text-right font-mono tabular-nums ${
+                          entry.delta > 0 ? 'text-primary' : 'text-muted-foreground'
+                        }`}
+                      >
+                        {entry.delta > 0 ? `+${entry.delta}` : entry.delta}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={entry.reason === 'grant' ? 'default' : 'secondary'}>
+                          {entry.reason}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {entry.note ?? '—'}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-right font-mono text-xs">
+                        {new Date(entry.createdAt).toLocaleString()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </div>
       </section>
 

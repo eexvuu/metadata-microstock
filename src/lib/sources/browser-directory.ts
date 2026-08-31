@@ -28,6 +28,12 @@ export interface DirectoryHandle {
   name: string
   values(): AsyncIterableIterator<FileHandle | DirectoryHandle>
   getFileHandle(name: string, options?: { create?: boolean }): Promise<FileHandle>
+  /**
+   * Only the vectorizer uses this, to put a batch in a folder of its own so
+   * two batches with a `flower.png` in each cannot overwrite one another.
+   * The metadata tool writes into the folder it was given and never nests.
+   */
+  getDirectoryHandle(name: string, options?: { create?: boolean }): Promise<DirectoryHandle>
   removeEntry(name: string, options?: { recursive?: boolean }): Promise<void>
   queryPermission?(descriptor: { mode: 'read' | 'readwrite' }): Promise<PermissionState>
   requestPermission?(descriptor: { mode: 'read' | 'readwrite' }): Promise<PermissionState>

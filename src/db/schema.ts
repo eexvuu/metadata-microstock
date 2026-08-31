@@ -1,5 +1,11 @@
 import { relations, sql } from 'drizzle-orm'
-import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import {
+  index,
+  integer,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core'
 
 import { user } from './auth-schema'
 
@@ -243,4 +249,225 @@ export const geminiKeyRelations = relations(geminiKey, ({ one }) => ({
 
 export const generationRunRelations = relations(generationRun, ({ one }) => ({
   user: one(user, { fields: [generationRun.userId], references: [user.id] }),
+}))
+
+/**
+ * Tokens — the only thing on this shelf that is spent rather than brought.
+ *
+ * Every other tool runs on credentials the user supplies, so there is nothing
+ * to meter. The vectorizer does not: the vectorizer.ai account is ours, one
+ * image costs one credit of somebody's real quota, and the work happens on a
+ * worker we run. A balance is what makes that shareable.
+ *
+ * APPEND-ONLY, for the same reason `audit_log` is: a balance you can UPDATE is
+ * a balance that can silently disagree with its own history. There is no
+ * `balance` column anywhere — the balance is `SUM(delta)` and cannot drift
+ * from the rows that explain it. `grant` and `refund` are positive, `spend` is
+ * negative, and nothing here is ever edited or deleted.
+ *
+ * `fileId` + `reason` is UNIQUE, which is what makes a refund idempotent: a
+ * worker that reports the same failure twice — a retry, a duplicate delivery —
+ * writes the second row into a constraint rather than into the balance. Grants
+ * and spends leave `fileId` null, and SQLite treats NULLs in a unique index as
+ * distinct, so they are unaffected.
+ */
+export const tokenLedger = sqliteTable(
+  'token_ledger',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    /** Negative to spend, positive to grant or refund. Never zero. */
+    delta: integer('delta').notNull(),
+    // grant | spend | refund | adjust
+    reason: text('reason').notNull(),
+    /** Plain text, no reference — a deleted job must not erase its charge. */
+    jobId: text('job_id'),
+    fileId: text('file_id'),
+    /** One sentence for whoever reads the ledger. Never a secret. */
+    note: text('note'),
+    /** The admin who granted, when a human did it. Null for the machine. */
+    actorEmail: text('actor_email'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`),
+  },
+  (table) => [
+    index('token_ledger_userId_idx').on(table.userId),
+    index('token_ledger_createdAt_idx').on(table.createdAt),
+    uniqueIndex('token_ledger_file_reason_idx').on(table.fileId, table.reason),
+  ],
+)
+
+/**
+ * One vectorize batch: what the browser dropped, in one row.
+ *
+ * Unlike `generation_run`, these counts are NOT reported by a browser. Every
+ * one of them is written by the server as the queue moves, because the tokens
+ * come off the same numbers — see the warning at the top of
+ * `src/lib/server/runs.ts` for why that distinction matters.
+ */
+export const vectorJob = sqliteTable(
+  'vector_job',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    label: text('label').notNull(),
+    filesTotal: integer('files_total').notNull().default(0),
+    filesDone: integer('files_done').notNull().default(0),
+    filesFailed: integer('files_failed').notNull().default(0),
+    /** What was debited up front. Refunds do not decrement it — see the ledger. */
+    tokensCharged: integer('tokens_charged').notNull().default(0),
+    // uploading | queued | running | complete | partial | failed | canceled
+    status: text('status').notNull().default('uploading'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`),
+    finishedAt: integer('finished_at', { mode: 'timestamp_ms' }),
+  },
+  (table) => [
+    index('vector_job_userId_idx').on(table.userId),
+    index('vector_job_createdAt_idx').on(table.createdAt),
+  ],
+)
+
+/**
+ * One image, and everything the queue needs to know about it.
+ *
+ * `run_rows` earned its "one row per RUN, never per file" comment because
+ * nothing ever queried inside a metadata result. This is the opposite case and
+ * the rule does not apply: a worker claims ONE of these at a time, leases it,
+ * and reports on it alone. Per-file rows here are queue state, not analytics —
+ * there is no aggregation over them beyond the three counters on the job.
+ *
+ * The three `*_key` columns are R2 object keys, not URLs. A URL to R2 is
+ * always presigned and always short-lived, so storing one would be storing
+ * something already expired.
+ *
+ * `leasedAt` is what makes a dead worker recoverable: the claim is a lease, not
+ * a handover, and the nightly job puts an expired one back on the queue.
+ */
+export const vectorFile = sqliteTable(
+  'vector_file',
+  {
+    id: text('id').primaryKey(),
+    jobId: text('job_id')
+      .notNull()
+      .references(() => vectorJob.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    /** The contributor's own filename, kept exactly — it names the download. */
+    filename: text('filename').notNull(),
+    contentType: text('content_type').notNull(),
+    sizeBytes: integer('size_bytes').notNull().default(0),
+    // awaiting_upload | queued | running | done | failed | expired
+    status: text('status').notNull().default('awaiting_upload'),
+    attempts: integer('attempts').notNull().default(0),
+    /** One line from the worker. Never a credential, never a stack trace. */
+    error: text('error'),
+    sourceKey: text('source_key').notNull(),
+    svgKey: text('svg_key'),
+    epsKey: text('eps_key'),
+    leasedAt: integer('leased_at', { mode: 'timestamp_ms' }),
+    leaseBy: text('lease_by'),
+    /**
+     * Which vectorizer.ai login the claim was handed, so two workers never
+     * spend one account at once — the limiter is per account, and two
+     * processes on one login is the documented cause of a rate-limit storm.
+     *
+     * Plain text, no reference, for the same reason `token_ledger.jobId` is:
+     * retiring an account must not erase which account did a file.
+     */
+    accountId: text('account_id'),
+    /**
+     * UNUSED. Nothing writes this and nothing reads it.
+     *
+     * It held a 30-day expiry until retention moved to an R2 object lifecycle
+     * rule — one bucket setting instead of three code paths that had to agree
+     * with it. Kept nullable rather than dropped so putting an app-side
+     * retention rule back is a code change and not a migration.
+     */
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index('vector_file_jobId_idx').on(table.jobId),
+    index('vector_file_userId_idx').on(table.userId),
+    index('vector_file_status_idx').on(table.status),
+    index('vector_file_expiresAt_idx').on(table.expiresAt),
+  ],
+)
+
+/**
+ * One vectorizer.ai login, so the accounts are the panel's business rather
+ * than a file on somebody's laptop.
+ *
+ * These are OURS, not a user's — there is no `userId` here, the same way the
+ * R2 bucket has no owner. Our credits are what a token buys, so the logins
+ * that spend them belong to the platform and the resource is admin-only.
+ *
+ * **Why the app holds them at all.** The limiter on vectorizer.ai is per
+ * ACCOUNT (measured in the `vectorizer` repo: rotating the exit IP changed
+ * nothing), so more accounts is the only thing that raises throughput. A
+ * worker that reads its own `accounts.json` makes adding one an ssh session;
+ * handing the account out with the claim makes it a form.
+ *
+ * The password is AES-256-GCM like a Gemini key (`src/lib/server/crypto.ts`)
+ * and travels to exactly one place: a worker that has already presented
+ * `VECTOR_WORKER_SECRET`. It is never a column, never in the panel's SELECT
+ * and never returned to a browser — which is also why there is no audit row
+ * here and no `revealUserKey` twin: no human path to the plaintext exists.
+ *
+ * `email` is unique on purpose. Two rows publishing one login look like two
+ * accounts to the queue and like one rate-limit bucket to vectorizer.ai, and
+ * that mismatch is exactly what the worker repo calls the main source of
+ * "suddenly rate-limited all the time".
+ */
+export const vectorAccount = sqliteTable(
+  'vector_account',
+  {
+    id: text('id').primaryKey(),
+    /** What a human calls it, and what shows up beside a file. */
+    label: text('label').notNull(),
+    email: text('email').notNull(),
+    ciphertext: text('ciphertext').notNull(),
+    // active | disabled
+    status: text('status').notNull().default('active'),
+    /** Round-robin key: the queue hands out the account idle longest. */
+    lastClaimAt: integer('last_claim_at', { mode: 'timestamp_ms' }),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex('vector_account_email_idx').on(table.email),
+    index('vector_account_status_idx').on(table.status),
+  ],
+)
+
+export const tokenLedgerRelations = relations(tokenLedger, ({ one }) => ({
+  user: one(user, { fields: [tokenLedger.userId], references: [user.id] }),
+}))
+
+export const vectorJobRelations = relations(vectorJob, ({ one, many }) => ({
+  user: one(user, { fields: [vectorJob.userId], references: [user.id] }),
+  files: many(vectorFile),
+}))
+
+export const vectorFileRelations = relations(vectorFile, ({ one }) => ({
+  job: one(vectorJob, { fields: [vectorFile.jobId], references: [vectorJob.id] }),
 }))

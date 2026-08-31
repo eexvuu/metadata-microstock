@@ -1,10 +1,17 @@
-import { Link, Outlet, createFileRoute } from '@tanstack/react-router'
-import { LayoutGrid, ShieldCheck } from 'lucide-react'
+import { Link, Outlet, createFileRoute, useLocation } from '@tanstack/react-router'
+import { ChevronDown, LayoutGrid, ShieldCheck } from 'lucide-react'
 
 import { PanelIcon } from '#/components/panel/panel-icon'
 import { PanelSearch } from '#/components/panel/panel-search'
 import { CONTAINER } from '#/components/shell'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '#/components/ui/dropdown-menu'
 import { useMessages } from '#/lib/i18n'
+import type { PanelGroup, PanelNavItem } from '#/lib/panel/types'
 import { getPanelNav } from '#/lib/server/panel'
 
 /**
@@ -23,6 +30,14 @@ import { getPanelNav } from '#/lib/server/panel'
  * session's role may view, and every panel resource is admin-gated — so the
  * admin links are absent, not disabled, for an ordinary account, and the
  * bundle never mentions them. Global search is scoped the same way.
+ *
+ * It is grouped by TOOL, because a flat row stopped answering the only
+ * question it was being asked. "Runs" and "Batches" side by side say nothing
+ * about which tool wrote them, and the count kept growing — every tool that
+ * ships brings its own admin screens. So the platform-wide screens stay flat
+ * and each tool collapses into one menu named after itself: the row stops
+ * growing per tool, and a screen's owner is the label above it rather than a
+ * prefix repeated on every entry.
  */
 export const Route = createFileRoute('/dashboard')({
   loader: () => getPanelNav(),
@@ -34,10 +49,28 @@ const LINK_CLASS =
 
 const LINK_ACTIVE = 'text-foreground after:w-full'
 
+/** Groups in the order the registry first mentions them — one menu each. */
+function groupsOf(nav: PanelNavItem[]) {
+  const groups: { key: PanelGroup; items: PanelNavItem[] }[] = []
+
+  for (const item of nav) {
+    if (!item.group) continue
+    const existing = groups.find((group) => group.key === item.group)
+    if (existing) existing.items.push(item)
+    else groups.push({ key: item.group, items: [item] })
+  }
+
+  return groups
+}
+
 function DashboardLayout() {
   const m = useMessages()
   const nav = Route.useLoaderData()
   const isAdmin = nav.length > 0
+  const { pathname } = useLocation()
+
+  const flat = nav.filter((item) => !item.group)
+  const groups = groupsOf(nav)
 
   return (
     <>
@@ -69,7 +102,7 @@ function DashboardLayout() {
                 {m.nav.monitoring}
               </Link>
 
-              {nav.map((item) => (
+              {flat.map((item) => (
                 <Link
                   key={item.name}
                   to="/dashboard/$resource"
@@ -86,6 +119,49 @@ function DashboardLayout() {
                   )}
                 </Link>
               ))}
+
+              {groups.length > 0 ? (
+                <span className="bg-(--line) hidden h-4 w-px sm:block" aria-hidden />
+              ) : null}
+
+              {groups.map((group) => {
+                // The trigger is not a link, so it cannot use activeProps —
+                // it lights up when the open screen is one of its own.
+                const open = group.items.some(
+                  (item) => pathname === `/dashboard/${item.name}`,
+                )
+
+                return (
+                  <DropdownMenu key={group.key}>
+                    <DropdownMenuTrigger
+                      className={`${LINK_CLASS} ${open ? LINK_ACTIVE : ''} inline-flex items-center outline-none`}
+                    >
+                      {m.nav[group.key]}
+                      <ChevronDown className="ml-1 size-3" strokeWidth={1.5} />
+                    </DropdownMenuTrigger>
+
+                    <DropdownMenuContent align="start" className="min-w-44">
+                      {group.items.map((item) => (
+                        <DropdownMenuItem key={item.name} asChild>
+                          <Link
+                            to="/dashboard/$resource"
+                            params={{ resource: item.name }}
+                            className="cursor-pointer"
+                          >
+                            <PanelIcon name={item.icon} className="size-3.5" />
+                            {item.label}
+                            {item.badge === undefined ? null : (
+                              <span className="text-muted-foreground/70 ml-auto">
+                                {item.badge}
+                              </span>
+                            )}
+                          </Link>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )
+              })}
 
               <div className="ml-auto w-full sm:w-56">
                 <PanelSearch />

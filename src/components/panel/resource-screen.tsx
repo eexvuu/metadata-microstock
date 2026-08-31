@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '#/components/ui/select'
+import { useMessages } from '#/lib/i18n'
 import { FILTER_ALL } from '#/lib/panel/search'
 import type { PanelSearch } from '#/lib/panel/search'
 import type {
@@ -68,6 +69,7 @@ export function ResourceScreen({
     options?: { replace?: boolean },
   ) => void
 }) {
+  const m = useMessages()
   const router = useRouter()
   const { meta, items, total, page, pageCount, pageSize } = result
 
@@ -233,9 +235,14 @@ export function ResourceScreen({
     <div>
       <header className="border-(--line) mb-6 flex flex-wrap items-end justify-between gap-3 border-b pb-5">
         <div>
+          {/*
+            * The group, not "Workspace" — Stockflow has no workspaces, and the
+            * label has to carry what the nav no longer repeats: "Accounts"
+            * under a Vectorizer eyebrow is unambiguous, on its own it is not.
+            */}
           <p className="eyebrow text-primary flex items-center gap-2">
             <PanelIcon name={meta.icon} className="size-3.5" />
-            Workspace
+            {meta.group ? m.nav[meta.group] : m.nav.platform}
           </p>
           <h1 className="font-display mt-2 text-3xl leading-none font-light tracking-tight">
             {meta.pluralLabel}

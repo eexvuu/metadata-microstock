@@ -3,7 +3,7 @@ import type { SQL } from 'drizzle-orm'
 
 import type { AppDatabase } from '#/db/index'
 import type { Resource, ResourceContext } from '#/lib/panel/define'
-import { FILTER_ALL, PAGE_SIZE, SEARCH_LIMIT } from '#/lib/panel/search'
+import { FILTER_ALL, PAGE_SIZE, REFERENCE_LIMIT, SEARCH_LIMIT } from '#/lib/panel/search'
 import type { PanelSearch } from '#/lib/panel/search'
 import type { PanelRecord } from '#/lib/panel/types'
 
@@ -109,6 +109,44 @@ export async function getRecord(
     .limit(1)
 
   return (row as PanelRecord | undefined) ?? null
+}
+
+/**
+ * The rows a `reference` field may offer.
+ *
+ * The browser sends a field NAME; the columns come from the resource's own
+ * `references` map, which never leaves the server. So a request can ask "what
+ * can this field see" and cannot ask "what is in that other table".
+ *
+ * Passing `value` looks up exactly one row instead of searching — that is how
+ * an edit dialog turns a stored id back into the label a human recognises.
+ */
+export async function lookupReference(
+  db: AppDatabase,
+  resource: Resource,
+  field: string,
+  input: { q?: string; value?: string },
+) {
+  const reference = resource.references[field]
+  if (!reference) return []
+
+  const selection: Record<string, unknown> = {
+    value: reference.value,
+    label: reference.label,
+  }
+  if (reference.detail) selection.detail = reference.detail
+
+  const where = input.value
+    ? eq(reference.value, input.value)
+    : or(...reference.search.map((column) => like(column, `%${input.q ?? ''}%`)))
+
+  const rows = await db
+    .select(selection as never)
+    .from(reference.table)
+    .where(where)
+    .limit(input.value ? 1 : REFERENCE_LIMIT)
+
+  return rows as { value: string; label: string | null; detail?: string | null }[]
 }
 
 /** A handful of hits for the ⌘K palette. Same allowlist as the search box. */
@@ -256,6 +294,19 @@ export function toColumnValues(
   return values
 }
 
+/**
+ * The resource's own last word on what gets written. Runs after the field
+ * allowlist, so a hook can only ever see columns the resource declared.
+ */
+async function applyBeforeSave(
+  resource: Resource,
+  values: Record<string, unknown>,
+  ctx: ResourceContext,
+  mode: 'create' | 'update',
+) {
+  return resource.beforeSave ? await resource.beforeSave(values, ctx, mode) : values
+}
+
 export async function insertRecord(
   db: AppDatabase,
   resource: Resource,
@@ -264,7 +315,7 @@ export async function insertRecord(
 ) {
   const values: Record<string, unknown> = {
     ...(resource.onCreate?.(ctx) ?? {}),
-    ...toColumnValues(resource, data),
+    ...(await applyBeforeSave(resource, toColumnValues(resource, data), ctx, 'create')),
   }
 
   if (resource.tenantKey) {
@@ -287,7 +338,12 @@ export async function updateRecord(
   data: Record<string, unknown>,
   ctx: ResourceContext,
 ) {
-  const values = toColumnValues(resource, data)
+  const values = await applyBeforeSave(
+    resource,
+    toColumnValues(resource, data),
+    ctx,
+    'update',
+  )
 
   /** Nothing editable in the payload — treat as a no-op, not an error. */
   if (Object.keys(values).length === 0) return { id }

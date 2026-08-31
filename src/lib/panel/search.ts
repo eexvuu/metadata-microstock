@@ -34,5 +34,12 @@ export const SEARCH_MIN = 2
 /** Hits per resource in the ⌘K palette. Filament's equivalent default is 50. */
 export const SEARCH_LIMIT = 5
 
+/**
+ * Hits offered by a `reference` field. Higher than the palette's five because
+ * this list is the only way to the value — a picker that hides the row you
+ * want is worse than no picker.
+ */
+export const REFERENCE_LIMIT = 8
+
 /** The value a filter dropdown uses for "no filter". */
 export const FILTER_ALL = 'all'

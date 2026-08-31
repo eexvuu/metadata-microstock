@@ -69,11 +69,13 @@ That is the whole loop. `id` and the tenant column are stamped for you.
 
 | Key | Effect |
 |---|---|
+| `group` | Which tool owns the screen. The nav collapses each group into one menu named after the tool; the screen header prints it. Omit for a platform-wide resource, which renders flat |
 | `columns[].sortable` | Column header becomes a sort toggle, and `?sort=` accepts its name |
 | `columns[].searchable` | Included in the `LIKE %q%` search behind the search box |
 | `columns[].kind` | How the cell renders: `text` `badge` `number` `boolean` `date` `datetime` |
 | `columns[].primary` | The value used to name a record in dialogs ("Delete Acme migration?") |
 | `fields[]` | The create/edit dialog, and the Zod schema both sides validate with |
+| `fields[].kind` | The input: `text` `textarea` `number` `select` `switch` `date` `password` `reference` |
 | `fields[].on` | `{ create: false }` for values only set later; `{ update: false }` for immutables |
 | `filters[]` | A dropdown above the table, and a key `?filters=` accepts |
 | `actions` | Turn a whole action off — `create: false` makes a read-only screen |
@@ -82,9 +84,90 @@ That is the whole loop. `id` and the tenant column are stamped for you.
 | `detailPath` | A route to one record (`/dashboard/admin/users/$userId`). Links the primary column and adds an Open item to the row menu |
 | `joins` | Read extra columns from another table. Writes still go to `table` only |
 | `onCreate` | Extra column values stamped on insert (`createdById`, defaults, …) |
+| `beforeSave` | Last word before the INSERT/UPDATE. Returns the values to write; throw to block. For a column that is not what the form typed — see below |
 | `beforeDelete` | Throw to block a delete — the message becomes the user's toast |
 | `stats` | `false` to keep it off the overview |
 | `badge` | `true` to show a row count next to the sidebar link. One COUNT per load |
+
+## A field that picks a row
+
+A foreign key is a UUID in the table and a question about an email in a
+person's head. `kind: 'reference'` closes that gap: the input searches another
+table, shows a label, and writes the id.
+
+```ts
+{
+  name: 'userId',
+  label: 'Account',
+  kind: 'reference',
+  required: true,
+  placeholder: 'Search by email or name…',
+  reference: {
+    table: user,
+    value: user.id,      // what gets written
+    label: user.email,   // what a human reads
+    detail: user.name,   // the second line under each hit
+    search: [user.email, user.name],
+  },
+}
+```
+
+Those column references never leave the server. The browser sends a resource
+name, a field name and a typed term; `lookupPanelReference` finds the columns
+in the resource's own `references` map, so a request can ask what a field may
+see and cannot name a table of its own. It is gated on `create`/`update` rather
+than `view`, because the only reason to read the list is to fill a form in.
+
+Three details in `ReferenceInput` are load-bearing rather than decorative:
+typing clears the stored id (a box reading one account while the form holds
+another is the failure this must not have), an edit dialog resolves its stored
+id back to a label once so nobody is shown a UUID, and Enter is swallowed only
+when it is choosing something — otherwise it still submits, which is what a
+keyboard expects.
+
+## A write-only field
+
+`beforeSave(values, ctx, mode)` runs after the field allowlist and before the
+statement, so it only ever sees columns the resource declared. It exists for
+one shape: a value the browser types in the clear that the database must not
+store that way. `vector-accounts` is the whole example —
+
+```ts
+fields: [{ name: 'ciphertext', label: 'Password', kind: 'password' }],
+
+async beforeSave(values, _ctx, mode) {
+  const password = values.ciphertext
+  if (typeof password === 'string' && password.length > 0) {
+    values.ciphertext = await encryptSecret(password)
+  } else if (mode === 'create') {
+    throw new Error('A password is required.')
+  }
+  return values
+}
+```
+
+`tokens` uses the same hook for the other half of the idea — a field that asks
+for what a human *has* rather than what the column stores. Its `userId` field is
+labelled "Account" and takes an **email**; `beforeSave` looks the account up and
+swaps in the id, and refuses the row if nothing matches. The same hook stamps
+`actorEmail` from the session, which is why "Granted by" is not a field: asking
+an admin to type their own address made the one column that has to be a fact
+into a claim.
+
+Three things make the write-only case work, and they are the pattern rather than
+the example:
+
+- **A field is not a column.** `ciphertext` is declared as a field but never as
+  a `column`, so it is not in the resource's SELECT: it cannot be listed,
+  sorted, searched, or sent to the edit dialog. The input renders empty because
+  the browser genuinely does not have the value.
+- **Blank never reaches the hook.** The engine drops an empty value for a NOT
+  NULL column, so "leave it empty to keep what is stored" is the default
+  behaviour and not something the hook implements.
+- **Which is why the field is not `required`.** The edit dialog submits every
+  field, and a required one refuses to be blank — so `required: true` would mean
+  retyping the password to rename a row. `mode === 'create'` in the hook is what
+  makes it mandatory where it actually has to be.
 
 ## Custom actions
 
@@ -187,8 +270,10 @@ browser never sends a query, a column or a function.
 
 - **Joins are read-only.** Writes go to `table`. For editing across tables,
   write a normal server function.
-- **No relation picker yet.** A foreign key is a `select` with options you
-  supply, or a `text` field. Add a `relation` field kind when you need one.
+- **The relation picker is one level deep.** `kind: 'reference'` searches one
+  table by `LIKE %term%` on the columns you name — no filters, no scoping to
+  the current row, no create-as-you-type. That covers "which account?"; a
+  picker that has to narrow by something else is still a server function.
 - **Offset pagination.** Fine to tens of thousands of rows on D1; past that,
   move the resource to keyset pagination.
 - **No per-row rules.** `roles` is per resource and per action. Row-level

@@ -2,6 +2,7 @@ import { useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
+import { ReferenceInput } from '#/components/panel/reference-input'
 import { Button } from '#/components/ui/button'
 import { Checkbox } from '#/components/ui/checkbox'
 import {
@@ -133,6 +134,7 @@ export function ResourceFormDialog({
 
               <FieldInput
                 field={field}
+                resource={meta.name}
                 value={values[field.name]}
                 invalid={Boolean(errors[field.name])}
                 onChange={(value) => {
@@ -169,11 +171,14 @@ export function ResourceFormDialog({
 
 function FieldInput({
   field,
+  resource,
   value,
   invalid,
   onChange,
 }: {
   field: PanelField
+  /** Only a `reference` field needs it: the lookup is scoped to the resource. */
+  resource: string
   value: unknown
   invalid: boolean
   onChange: (value: unknown) => void
@@ -181,6 +186,19 @@ function FieldInput({
   const id = `field-${field.name}`
 
   switch (field.kind) {
+    case 'reference':
+      return (
+        <ReferenceInput
+          id={id}
+          resource={resource}
+          field={field.name}
+          value={value}
+          invalid={invalid}
+          placeholder={field.placeholder}
+          onChange={onChange}
+        />
+      )
+
     case 'textarea':
       return (
         <Textarea
@@ -231,6 +249,22 @@ function FieldInput({
           value={String(value ?? '')}
           min={field.min}
           max={field.max}
+          aria-invalid={invalid}
+          placeholder={field.placeholder}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      )
+
+    case 'password':
+      return (
+        <Input
+          id={id}
+          type="password"
+          // A shared credential typed into a laptop in an office. The value is
+          // never rendered back — the panel does not select the column it
+          // writes to — so this only has to cover the typing.
+          autoComplete="new-password"
+          value={String(value ?? '')}
           aria-invalid={invalid}
           placeholder={field.placeholder}
           onChange={(event) => onChange(event.target.value)}
