@@ -615,10 +615,20 @@ lease nobody reclaimed. Refunds are idempotent by the unique index on
 (`file_id`, `reason`) — a duplicate report hits a constraint, not the balance.
 
 **A finished file is three objects — the original, the SVG and the EPS** — and
-the batch screen saves all three into a folder the user picks, reusing the
-metadata tool's `pickDirectory()` seam rather than a second one. A zip was the
-alternative and is worse twice over: a dependency, and a whole batch held in
-the tab before a byte is written.
+the batch screen hands all three over as one zip. This reverses what the file
+said for the first month, and the old reasoning is kept rather than deleted
+because it was right about a zip built the obvious way: a dependency, and a
+whole batch held in the tab before a byte is written. `src/lib/vectorizer/zip.ts`
+is neither. Stored entries mean the format is arithmetic — a header, the bytes,
+a table at the end — so there is nothing to depend on, and the parts it
+assembles are the `Blob`s `fetch` already returned, which live in the browser's
+blob storage and page to disk. The JS heap holds one file per lane while it
+computes that file's CRC, which is exactly what the folder picker held.
+
+What the swap buys is Firefox and Safari: `showDirectoryPicker` is Chrome and
+Edge only, so half of everyone could previously take a batch one file at a time
+or not at all. The batch label becomes a folder **inside** the archive, which is
+the same collision the picker's per-batch subfolder was avoiding.
 
 **Retention is an R2 object lifecycle rule and nothing else.** An earlier
 version stamped a 30-day expiry, refused expired downloads and pruned nightly;
@@ -641,6 +651,7 @@ wording is worth settling.
 | Change | File |
 |---|---|
 | The screens | `src/routes/tools/vectorizer/`, `src/components/vectorizer/` |
+| The zip a batch downloads as | `src/lib/vectorizer/zip.ts` |
 | What the browser may ask for | `src/lib/server/vector.ts` |
 | Queue state, leases, refunds, retention | `src/lib/server/vector-queue.ts` |
 | The worker protocol | `src/api/vector.ts` + `worker/vector-worker.mjs` |

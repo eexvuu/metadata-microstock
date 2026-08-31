@@ -1,76 +1,42 @@
 import { useState } from 'react'
-import { FolderDown, Loader2 } from 'lucide-react'
+import { FileArchive, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '#/components/ui/button'
-import { isSupported, pickDirectory } from '#/lib/sources/browser-directory'
-import type { DirectoryHandle } from '#/lib/sources/browser-directory'
+import { crc32, zipBlob } from '#/lib/vectorizer/zip'
+import type { ZipEntry } from '#/lib/vectorizer/zip'
 import { getVectorJobDownloads } from '#/lib/server/vector'
 
 /**
- * Save a whole batch into a folder, three files per image.
+ * Download a whole batch as one zip, three files per image.
  *
- * This reuses the metadata tool's directory seam rather than inventing one —
- * `pickDirectory()` and the `DirectoryHandle` type in
- * `src/lib/sources/browser-directory.ts` are the same File System Access
- * wrapper that writes a CSV next to somebody's media. What differs is the
- * direction: metadata reads a folder and writes one file into it; this writes
- * many and reads none.
+ * This replaces a folder picker, and the reasoning that chose the picker is
+ * worth keeping rather than deleting: a zip was rejected because it would need
+ * a dependency and would hold an entire batch in the tab before writing a byte.
+ * Both objections were real, and neither survives contact with how this one is
+ * built. `src/lib/vectorizer/zip.ts` is fifty lines of arithmetic because the
+ * entries are stored rather than compressed, and the parts it assembles are the
+ * `Blob`s `fetch` already handed us — the browser keeps those in its own blob
+ * storage and pages them to disk, so the JS heap holds one file per lane and
+ * not two hundred.
  *
- * A zip was the obvious alternative and is the wrong one here. It would need a
- * dependency, and it would hold an entire batch — two hundred originals plus
- * their vectors — in the tab's memory before writing a byte. This holds one
- * file per lane instead, so a 200-file save costs four files of memory rather
- * than four hundred.
- *
- * Chrome and Edge only, like the metadata folder picker. Firefox and Safari
- * have no `showDirectoryPicker`, so the button says so instead of failing on
- * click, and the per-row buttons still work one file at a time.
+ * What it buys: every browser. The picker was Chrome and Edge only, so Firefox
+ * and Safari had no way to take a batch except one file at a time. It also
+ * fixes the naming: a presigned R2 URL is cross-origin and `download` cannot
+ * rename it, which is why the per-row buttons are best-effort — a blob URL is
+ * same-origin and the names inside the archive are simply what we wrote.
  */
 
 /** Four transfers at once: past this a home connection is the limit, not us. */
-const SAVE_CONCURRENCY = 4
-
-interface Saveable {
-  filename: string
-  source: string
-  svg: string | null
-  eps: string | null
-  svgName: string
-  epsName: string
-}
+const FETCH_CONCURRENCY = 4
 
 export function BulkDownload({ jobId, ready }: { jobId: string; ready: number }) {
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(0)
-  const supported = typeof window !== 'undefined' && isSupported()
 
   if (ready === 0) return null
 
-  if (!supported) {
-    return (
-      <p className="text-muted-foreground font-mono text-xs">
-        Saving a whole batch needs Chrome or Edge — this browser has no folder
-        picker. The per-file buttons below still work.
-      </p>
-    )
-  }
-
   const save = async () => {
-    let directory: DirectoryHandle | null = null
-
-    try {
-      // The picker must be the first thing the click does: it only opens
-      // inside a user gesture, and awaiting the server first would spend that
-      // gesture on a fetch and have the browser refuse the picker.
-      directory = await pickDirectory()
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error))
-      return
-    }
-
-    if (!directory) return
-
     setBusy(true)
     setDone(0)
 
@@ -82,54 +48,95 @@ export function BulkDownload({ jobId, ready }: { jobId: string; ready: number })
         return
       }
 
-      const folder = await directory.getDirectoryHandle(batch.folder, { create: true })
-
-      const queue: Saveable[] = [...batch.files]
-      let failed = 0
-
-      const lane = async () => {
-        for (;;) {
-          const file = queue.shift()
-          if (!file) return
-
-          // All three, and the original is one of them: the point of saving a
-          // batch is having what you sent next to what came back, so a later
-          // re-upload or a rejection from a stock site can be checked against
-          // the file that actually went in.
-          const wanted: [string, string | null][] = [
+      // All three, and the original is one of them: the point of taking a batch
+      // is having what you sent next to what came back, so a later re-upload or
+      // a rejection from a stock site can be checked against the file that
+      // actually went in.
+      //
+      // The batch name is a folder inside the archive rather than a flat list,
+      // so two batches that both hold a `flower.png` unpack side by side.
+      const wanted = batch.files.flatMap((file) =>
+        (
+          [
             [file.filename, file.source],
             [file.svgName, file.svg],
             [file.epsName, file.eps],
-          ]
+          ] as const
+        )
+          .filter((pair): pair is readonly [string, string] => pair[1] !== null)
+          .map(([name, url]) => ({ name: `${batch.folder}/${name}`, url })),
+      )
 
-          for (const [name, url] of wanted) {
-            if (!url) continue
+      // Fetched in parallel, placed by index: a zip's central directory records
+      // where each entry starts, so the order has to be the one we planned and
+      // not the order the network happened to finish in.
+      const entries = new Array<ZipEntry | null>(wanted.length).fill(null)
+      const queue = wanted.map((item, index) => ({ ...item, index }))
+      let failed = 0
+      let files = 0
 
-            try {
-              const response = await fetch(url)
-              if (!response.ok) throw new Error(`R2 answered ${response.status}`)
+      const lane = async () => {
+        for (;;) {
+          const item = queue.shift()
+          if (!item) return
 
-              const handle = await folder.getFileHandle(name, { create: true })
-              const writable = await handle.createWritable()
-              await writable.write(await response.blob())
-              await writable.close()
-            } catch (error) {
-              failed++
-              toast.error(`${name}: ${error instanceof Error ? error.message : 'could not save'}`)
+          try {
+            const response = await fetch(item.url)
+            if (!response.ok) throw new Error(`R2 answered ${response.status}`)
+
+            // The CRC is the one thing that needs the real bytes. Read them,
+            // hash them, and keep only the blob — the buffer is collectable
+            // before the next file in this lane starts.
+            const body = await response.blob()
+            const bytes = new Uint8Array(await body.arrayBuffer())
+
+            entries[item.index] = {
+              name: item.name,
+              crc: crc32(bytes),
+              size: bytes.length,
+              body,
             }
+          } catch (error) {
+            failed++
+            toast.error(
+              `${item.name}: ${error instanceof Error ? error.message : 'could not download'}`,
+            )
           }
 
-          setDone((current) => current + 1)
+          // Progress is counted in images, which is what the button promises.
+          files++
+          setDone(Math.min(ready, Math.ceil(files / 3)))
         }
       }
 
-      await Promise.all(Array.from({ length: SAVE_CONCURRENCY }, lane))
+      await Promise.all(Array.from({ length: FETCH_CONCURRENCY }, lane))
+
+      const packed = entries.filter((entry): entry is ZipEntry => entry !== null)
+      if (packed.length === 0) {
+        toast.error('Nothing downloaded — the batch may have passed its retention window.')
+        return
+      }
+
+      const url = URL.createObjectURL(zipBlob(packed))
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `${batch.folder}.zip`
+      anchor.rel = 'noopener'
+      // In the document rather than detached: Chrome fires a click on either,
+      // but the browsers this change exists for are historically the ones that
+      // ignore a click on an anchor that is not in the tree.
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      // Revoking immediately would race the download the click just started;
+      // a minute is longer than the browser needs to read a blob it owns.
+      setTimeout(() => URL.revokeObjectURL(url), 60_000)
 
       if (failed) {
-        toast.warning(`Saved to ${batch.folder}, but ${failed} file${failed === 1 ? '' : 's'} failed.`)
+        toast.warning(`Zipped ${packed.length} file${packed.length === 1 ? '' : 's'}, ${failed} failed.`)
       } else {
         toast.success(
-          `Saved ${batch.files.length} image${batch.files.length === 1 ? '' : 's'} — ${batch.files.length * 3} files in ${batch.folder}.`,
+          `${batch.files.length} image${batch.files.length === 1 ? '' : 's'} — ${packed.length} files in ${batch.folder}.zip`,
         )
       }
     } catch (error) {
@@ -142,8 +149,8 @@ export function BulkDownload({ jobId, ready }: { jobId: string; ready: number })
   return (
     <div className="flex flex-wrap items-center gap-3">
       <Button className="eyebrow" disabled={busy} onClick={save}>
-        {busy ? <Loader2 className="size-4 animate-spin" /> : <FolderDown className="size-4" />}
-        {busy ? `Saving ${done}/${ready}` : 'Save all to a folder'}
+        {busy ? <Loader2 className="size-4 animate-spin" /> : <FileArchive className="size-4" />}
+        {busy ? `Zipping ${done}/${ready}` : 'Download all as zip'}
       </Button>
       <span className="text-muted-foreground font-mono text-xs">
         {ready} image{ready === 1 ? '' : 's'} · {ready * 3} files (original + SVG + EPS)

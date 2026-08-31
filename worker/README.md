@@ -151,7 +151,7 @@ in `vectorize.js`.
 ## Retention
 
 Three objects survive per finished image — the **original**, the **SVG** and
-the **EPS** — and the batch screen saves all three into a folder you pick.
+the **EPS** — and the batch screen downloads all three as one zip.
 
 How long they live is an **R2 object lifecycle rule** on the `vector/` prefix
 and nothing else: this application has no retention code, deletes nothing on a
