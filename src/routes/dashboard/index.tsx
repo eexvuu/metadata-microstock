@@ -41,6 +41,8 @@ const TOOLS = [
     body: 'metadataBody',
     badge: 'free',
     adminOnly: false,
+    /** The only tool that runs on a key the user brings. */
+    needsKey: true,
   },
   {
     id: 'vectorizer',
@@ -48,8 +50,12 @@ const TOOLS = [
     icon: PenTool,
     name: 'vectorizer',
     body: 'vectorizerBody',
-    badge: 'adminOnly',
-    adminOnly: true,
+    badge: 'trial',
+    adminOnly: false,
+    // It spends our vectorizer.ai credit, not a key — so the "needs a Gemini
+    // key" hint below must not follow it. That hint used to be unconditional
+    // and it was only ever right because this card was locked.
+    needsKey: false,
   },
 ] as const
 
@@ -122,7 +128,7 @@ function CatalogPage() {
                     </Link>
                   </Button>
                 )}
-                {!locked && activeKeys === 0 ? (
+                {!locked && tool.needsKey && activeKeys === 0 ? (
                   <span className="text-muted-foreground inline-flex items-center gap-1.5 font-mono text-xs">
                     <KeyRound className="size-3.5" />
                     {m.catalog.needKey}

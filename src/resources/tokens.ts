@@ -5,11 +5,22 @@ import { tokenLedger, user } from '#/db/schema'
 import { defineResource } from '#/lib/panel/define'
 
 const REASONS = [
+  { value: 'signup', label: 'Signup' },
   { value: 'grant', label: 'Grant' },
   { value: 'spend', label: 'Spend' },
   { value: 'refund', label: 'Refund' },
   { value: 'adjust', label: 'Adjust' },
 ]
+
+/**
+ * What the form offers, which is not the same list.
+ *
+ * `signup` is the trial credit and there is a partial unique index that allows
+ * exactly one per account — an admin picking it from a dropdown would get a
+ * constraint error instead of a row, and "the database said no" is a worse
+ * answer than not offering it. A human adding tokens is granting.
+ */
+const WRITABLE_REASONS = REASONS.filter((reason) => reason.value !== 'signup')
 
 /**
  * The token ledger, and the only screen that can put tokens on an account.
@@ -22,6 +33,11 @@ const REASONS = [
  *
  * A negative delta is how tokens are taken back — the same row, the same
  * audit trail, no second code path.
+ *
+ * Most rows here are now written by the machine rather than by an admin: every
+ * account gets a `signup` entry the first time it is seen, and the queue writes
+ * `spend` and `refund` as batches move. This screen is where somebody tops an
+ * account up past its trial, and where the rest of it can be read.
  *
  * Global, so admin-gated like `users` and `runs`. There is no user-facing
  * version of this screen: an ordinary account sees its own balance and its
@@ -57,6 +73,7 @@ export const tokens = defineResource({
       column: tokenLedger.reason,
       kind: 'badge',
       variants: {
+        signup: 'default',
         grant: 'default',
         refund: 'secondary',
         spend: 'outline',
@@ -115,7 +132,7 @@ export const tokens = defineResource({
       label: 'Reason',
       kind: 'select',
       required: true,
-      options: REASONS,
+      options: WRITABLE_REASONS,
       defaultValue: 'grant',
     },
     { name: 'note', label: 'Note', placeholder: 'Why this entry exists' },

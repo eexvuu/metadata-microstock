@@ -48,6 +48,9 @@ least one active account every claim answers 204, which from the worker's side
 is indistinguishable from an empty queue — so the worker prints the count at
 startup and says so.
 
+The tool is public now, so the queue is not one person's any more: the number
+of logins here is the ceiling on how fast everybody's batches move.
+
 On the **worker machine**, copy `vector-worker.mjs` next to `vectorize.js` (or
 leave it here and pass `--repo`), and check the vectorizer itself works first:
 

@@ -3,6 +3,7 @@ import { FileArchive, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '#/components/ui/button'
+import { useMessages } from '#/lib/i18n'
 import { crc32, zipBlob } from '#/lib/vectorizer/zip'
 import type { ZipEntry } from '#/lib/vectorizer/zip'
 import { getVectorJobDownloads } from '#/lib/server/vector'
@@ -31,6 +32,7 @@ import { getVectorJobDownloads } from '#/lib/server/vector'
 const FETCH_CONCURRENCY = 4
 
 export function BulkDownload({ jobId, ready }: { jobId: string; ready: number }) {
+  const m = useMessages().vectorizer.bulk
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(0)
 
@@ -44,7 +46,7 @@ export function BulkDownload({ jobId, ready }: { jobId: string; ready: number })
       const batch = await getVectorJobDownloads({ data: { jobId } })
 
       if (batch.files.length === 0) {
-        toast.error('Nothing finished in this batch yet.')
+        toast.error(m.nothingReady)
         return
       }
 
@@ -82,7 +84,7 @@ export function BulkDownload({ jobId, ready }: { jobId: string; ready: number })
 
           try {
             const response = await fetch(item.url)
-            if (!response.ok) throw new Error(`R2 answered ${response.status}`)
+            if (!response.ok) throw new Error(m.r2Answered(response.status))
 
             // The CRC is the one thing that needs the real bytes. Read them,
             // hash them, and keep only the blob — the buffer is collectable
@@ -99,7 +101,10 @@ export function BulkDownload({ jobId, ready }: { jobId: string; ready: number })
           } catch (error) {
             failed++
             toast.error(
-              `${item.name}: ${error instanceof Error ? error.message : 'could not download'}`,
+              m.fileFailed(
+                item.name,
+                error instanceof Error ? error.message : m.couldNotDownload,
+              ),
             )
           }
 
@@ -113,7 +118,7 @@ export function BulkDownload({ jobId, ready }: { jobId: string; ready: number })
 
       const packed = entries.filter((entry): entry is ZipEntry => entry !== null)
       if (packed.length === 0) {
-        toast.error('Nothing downloaded — the batch may have passed its retention window.')
+        toast.error(m.nothingDownloaded)
         return
       }
 
@@ -133,11 +138,9 @@ export function BulkDownload({ jobId, ready }: { jobId: string; ready: number })
       setTimeout(() => URL.revokeObjectURL(url), 60_000)
 
       if (failed) {
-        toast.warning(`Zipped ${packed.length} file${packed.length === 1 ? '' : 's'}, ${failed} failed.`)
+        toast.warning(m.someFailed(packed.length, failed))
       } else {
-        toast.success(
-          `${batch.files.length} image${batch.files.length === 1 ? '' : 's'} — ${packed.length} files in ${batch.folder}.zip`,
-        )
+        toast.success(m.saved(batch.files.length, packed.length, batch.folder))
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error))
@@ -150,10 +153,10 @@ export function BulkDownload({ jobId, ready }: { jobId: string; ready: number })
     <div className="flex flex-wrap items-center gap-3">
       <Button className="eyebrow" disabled={busy} onClick={save}>
         {busy ? <Loader2 className="size-4 animate-spin" /> : <FileArchive className="size-4" />}
-        {busy ? `Zipping ${done}/${ready}` : 'Download all as zip'}
+        {busy ? m.zipping(done, ready) : m.button}
       </Button>
       <span className="text-muted-foreground font-mono text-xs">
-        {ready} image{ready === 1 ? '' : 's'} · {ready * 3} files (original + SVG + EPS)
+        {m.summary(ready, ready * 3)}
       </span>
     </div>
   )

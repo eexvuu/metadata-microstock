@@ -5,6 +5,7 @@ import { env } from '#/lib/runtime/env'
 
 import { getDb } from '#/db/index'
 import * as schema from '#/db/schema'
+import { SIGNUP_GRANT, ensureSignupGrant } from '#/lib/server/tokens'
 
 /**
  * IMPORTANT: if you change the `plugins` array here, mirror it in
@@ -61,6 +62,39 @@ function createAuth() {
          */
         enabled: true,
         trustedProviders: ['google'],
+      },
+    },
+
+    databaseHooks: {
+      user: {
+        create: {
+          /**
+           * Every new account starts with SIGNUP_GRANT vectorizer tokens.
+           *
+           * Here rather than in the sign-in route because "a user row was
+           * created" is the event, and Better Auth is the only thing that
+           * knows when that happened — account linking, which is how an
+           * account from before Google sign-in keeps its data, deliberately
+           * does NOT create one, so a returning owner does not collect a
+           * second trial.
+           *
+           * The try/catch is the important half. A ledger write that fails
+           * must not fail the sign-up: the person would be told their account
+           * could not be created when in fact it exists, and the next visit to
+           * the tool writes the same row anyway — `ensureSignupGrant` is
+           * idempotent, so the backstop costs nothing and loses nothing.
+           */
+          async after(created) {
+            try {
+              await ensureSignupGrant(created.id)
+            } catch (error) {
+              console.error(
+                `Could not grant ${SIGNUP_GRANT} signup tokens to ${created.id}:`,
+                error,
+              )
+            }
+          },
+        },
       },
     },
 

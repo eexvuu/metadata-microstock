@@ -153,11 +153,12 @@ export const id: Messages = {
     title: 'Perkakas Anda',
     lead: 'Satu akun, satu set kunci, dan ruang sendiri untuk tiap perkakas. Buka salah satu dan bekerjalah di dalamnya — run, riwayat dan pengaturannya tinggal di situ.',
     free: 'gratis',
+    trial: 'coba gratis',
     adminOnly: 'khusus admin',
     comingSoon: 'segera hadir',
     planned: 'direncanakan',
     vectorizerBody:
-      'Gambar raster ditelusuri menjadi SVG dan EPS 4000 px, satu batch sekali jalan, dengan pengaturan yang diterima Shutterstock dan Adobe Stock. Berjalan dengan token, bukan dengan kunci Anda sendiri.',
+      'Gambar raster ditelusuri menjadi SVG dan EPS 4000 px, satu batch sekali jalan, dengan pengaturan yang diterima Shutterstock dan Adobe Stock. Berjalan dengan token, bukan dengan kunci Anda sendiri, dan tiap akun baru dapat beberapa token untuk mencoba.',
     metadataBody:
       'Judul, 49 kata kunci dan kategori yang tepat untuk satu folder penuh gambar dan video, ditulis ke CSV yang diminta Adobe Stock dan Shutterstock.',
     open: 'Buka',
@@ -459,5 +460,112 @@ export const id: Messages = {
       `Run sebagian: ${done}/${total} selesai, ${remaining} tersisa. Belum ada CSV — jalankan lagi untuk melanjutkan.`,
     finished: (csvName: string, rows: number) =>
       `${csvName} ditulis (${rows} baris)`,
+  },
+
+  vectorizer: {
+    index: 'Vectorizer',
+    title: 'Gambar jadi SVG dan EPS',
+    badge: 'beta',
+    vectorize: 'Vectorize',
+    tokens: (count: number) => `${count} token`,
+    lead: (trial: number) =>
+      `Gambar raster masuk, SVG dan EPS 4000 px keluar, dengan pengaturan yang diterima Shutterstock dan Adobe Stock. Satu gambar memakai satu token, dan berkas yang gagal tokennya dikembalikan. Tiap akun mulai dengan ${trial} token, dan tiap berkas yang selesai menyimpan ketiganya: gambar asli Anda, SVG dan EPS.`,
+    queueNote:
+      'Penelusurannya dikerjakan di mesin kami, beberapa gambar sekaligus, jadi satu batch bisa mengantre dulu sebelum jalan. Halaman ini memperbarui dirinya sendiri — boleh ditutup lalu dibuka lagi nanti.',
+    storageMissing: (
+      <>
+        Penyimpanan belum diatur di server ini, jadi tidak ada yang bisa
+        diunggah. Isi variabel <code className="font-mono text-xs">R2_*</code> —
+        lihat <code className="font-mono text-xs">.env.example</code>.
+      </>
+    ),
+
+    picker: {
+      drop: 'Jatuhkan gambar di sini, atau pilih dari berkas.',
+      hint: (mb: number) => `PNG · JPEG · GIF · BMP · WebP · maksimal ${mb} MB per berkas`,
+      choose: 'Pilih gambar',
+      notRaster: (name: string) =>
+        `${name} — alat ini menerima gambar raster (PNG, JPEG, GIF, BMP, WebP)`,
+      tooBig: (name: string, mb: number) => `${name} — lebih dari ${mb} MB`,
+      empty: (name: string) => `${name} — kosong`,
+      sameStem: (name: string, other: string) =>
+        `${name} — namanya sama dengan ${other} sebelum ekstensi; keduanya akan tersimpan jadi satu .svg`,
+      onlyFirst: (max: number) =>
+        `Hanya ${max} berkas pertama yang diambil — itu satu batch.`,
+    },
+
+    batch: {
+      label: 'Beri nama batch ini',
+      placeholder: (count: number) => `${count} gambar`,
+      cost: (files: number, cost: number, balance: number) =>
+        `${files} berkas · ${cost} token · sisa ${balance}`,
+      queue: 'Antrekan batch',
+      uploading: (done: number, total: number) => `Mengunggah ${done}/${total}`,
+      cantAfford: (cost: number, balance: number) =>
+        `Batch ini butuh ${cost} token dan sisa Anda ${balance}. Hubungi kami kalau perlu tambahan, nanti kami isikan ke akun Anda.`,
+      remove: (name: string) => `Hapus ${name}`,
+      uploadFailed: (name: string, detail: string) => `${name}: ${detail}`,
+      uploadFailedStatus: (status: number) => `gagal diunggah (${status})`,
+      uploadFailedPlain: 'gagal diunggah',
+    },
+
+    jobs: {
+      heading: 'Batch',
+      empty: 'Belum ada antrean. Jatuhkan beberapa gambar di atas.',
+      batch: 'Batch',
+      status: 'Status',
+      done: 'Selesai',
+      failed: 'Gagal',
+      tokens: 'Token',
+      created: 'Dibuat',
+      open: 'Buka',
+    },
+
+    job: {
+      back: 'Semua batch',
+      progress: (done: number, total: number) => `${done} dari ${total} selesai`,
+      refunded: (count: number) => `, ${count} gagal dan tokennya dikembalikan`,
+      charged: (count: number) => `${count} token terpakai`,
+      refreshing: 'halaman ini menyegarkan dirinya sendiri selama worker bekerja',
+      file: 'Berkas',
+      note: 'Catatan',
+      download: 'Unduh',
+      original: 'Asli',
+      svg: 'SVG',
+      eps: 'EPS',
+    },
+
+    bulk: {
+      button: 'Unduh semua sebagai zip',
+      zipping: (done: number, ready: number) => `Membungkus ${done}/${ready}`,
+      summary: (images: number, files: number) =>
+        `${images} gambar · ${files} berkas (asli + SVG + EPS)`,
+      nothingReady: 'Belum ada yang selesai di batch ini.',
+      nothingDownloaded:
+        'Tidak ada yang terunduh — batch ini mungkin sudah lewat masa simpannya.',
+      someFailed: (packed: number, failed: number) =>
+        `${packed} berkas dibungkus, ${failed} gagal.`,
+      saved: (images: number, files: number, folder: string) =>
+        `${images} gambar — ${files} berkas di ${folder}.zip`,
+      fileFailed: (name: string, detail: string) => `${name}: ${detail}`,
+      couldNotDownload: 'tidak bisa diunduh',
+      r2Answered: (status: number) => `penyimpanan menjawab ${status}`,
+    },
+
+    toast: {
+      refunded: (count: number) =>
+        `${count} berkas gagal diunggah — ${count} token dikembalikan.`,
+      nothingQueued: 'Tidak ada yang terunggah, jadi tidak ada yang diantrekan.',
+      queued: (count: number) => `${count} berkas masuk antrean.`,
+    },
+
+    ledger: {
+      heading: 'Aktivitas token terakhir',
+      signup: 'token percobaan',
+      grant: 'ditambahkan untuk Anda',
+      spend: 'batch',
+      refund: 'dikembalikan',
+      adjust: 'penyesuaian',
+    },
   },
 }

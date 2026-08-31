@@ -280,7 +280,7 @@ export const tokenLedger = sqliteTable(
       .references(() => user.id, { onDelete: 'cascade' }),
     /** Negative to spend, positive to grant or refund. Never zero. */
     delta: integer('delta').notNull(),
-    // grant | spend | refund | adjust
+    // signup | grant | spend | refund | adjust
     reason: text('reason').notNull(),
     /** Plain text, no reference — a deleted job must not erase its charge. */
     jobId: text('job_id'),
@@ -297,6 +297,19 @@ export const tokenLedger = sqliteTable(
     index('token_ledger_userId_idx').on(table.userId),
     index('token_ledger_createdAt_idx').on(table.createdAt),
     uniqueIndex('token_ledger_file_reason_idx').on(table.fileId, table.reason),
+    /**
+     * One signup grant per account, ever — enforced here rather than by
+     * calling carefully, exactly like the refund index above it.
+     *
+     * Two callers write that row and neither knows about the other: the Better
+     * Auth hook when an account is created, and the vectorizer's own loader for
+     * every account that predates the hook. Partial, so it constrains nothing
+     * else in the table — a user has many `grant` and `spend` rows and only
+     * ever one `signup`.
+     */
+    uniqueIndex('token_ledger_signup_once_idx')
+      .on(table.userId)
+      .where(sql`reason = 'signup'`),
   ],
 )
 

@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `token_ledger_signup_once_idx` ON `token_ledger` (`user_id`) WHERE reason = 'signup';

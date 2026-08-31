@@ -19,7 +19,20 @@ import { tokenLedger } from '#/db/schema'
  * ledger, not an UPDATE.
  */
 
-export type LedgerReason = 'grant' | 'spend' | 'refund' | 'adjust'
+export type LedgerReason = 'signup' | 'grant' | 'spend' | 'refund' | 'adjust'
+
+/**
+ * What an account starts with, and the only credit nobody has to ask for.
+ *
+ * Ten images is enough to put a real set through the tracer and look at the
+ * SVGs in Illustrator — which is the question a trial has to answer — and
+ * small enough that a bad week of signups is a bounded amount of vectorizer.ai
+ * credit rather than an open tab. It is a constant rather than a setting for
+ * the same reason `TOKENS_PER_FILE` is: a number somebody can change from a
+ * screen is a number that has to be true retroactively for every row already
+ * in the ledger.
+ */
+export const SIGNUP_GRANT = 10
 
 export async function balanceOf(userId: string): Promise<number> {
   const [row] = await getDb()
@@ -88,6 +101,37 @@ export async function refundFile(input: {
       jobId: input.jobId,
       fileId: input.fileId,
       note: input.note,
+    })
+    .onConflictDoNothing()
+}
+
+/**
+ * The trial credit, at most once per account.
+ *
+ * Idempotent by constraint, not by care — `token_ledger_signup_once_idx` is a
+ * partial unique index on `user_id where reason = 'signup'`, so the second
+ * insert hits it and the balance does not move. That is what lets two
+ * unrelated callers both write it without coordinating:
+ *
+ *  - `databaseHooks.user.create.after` in `src/lib/auth.ts`, which is the real
+ *    path and gives a new account its credit before it reaches the dashboard;
+ *  - `getVectorOverview`, which is how every account that existed before this
+ *    change gets the same ten. One code path rather than a data migration, and
+ *    it stays as a backstop if the hook is ever missed.
+ *
+ * Not `grantTokens`: that is the human path and stamps an `actorEmail`, and
+ * "who authorised this" must stay a fact. Nobody authorised this one — the
+ * product did.
+ */
+export async function ensureSignupGrant(userId: string): Promise<void> {
+  await getDb()
+    .insert(tokenLedger)
+    .values({
+      id: crypto.randomUUID(),
+      userId,
+      delta: SIGNUP_GRANT,
+      reason: 'signup',
+      note: `Welcome — ${SIGNUP_GRANT} images to try the vectorizer`,
     })
     .onConflictDoNothing()
 }

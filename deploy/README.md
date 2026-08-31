@@ -92,10 +92,13 @@ sqlite3 /srv/stockflow/data/stockflow.db \
 
 Scope it with a WHERE. Without one, every account on the box becomes an admin.
 
-## The vectorizer tool (optional, admin-only)
+## The vectorizer tool (optional)
 
-Unset, it is simply absent: `/api/v1/vector/*` answers **503** and the tool's
-screen says storage is not configured. Nothing else on the box notices — those
+It is open to every signed-in account, and a new account arrives with
+`SIGNUP_GRANT` (10) tokens — so turning these variables on is turning on
+spending against your vectorizer.ai logins. Unset, it is simply absent:
+`/api/v1/vector/*` answers **503** and the tool's screen says storage is not
+configured. Nothing else on the box notices — those
 variables are checked at use, never at startup, so a deploy without them still
 boots and still serves the metadata tool.
 
@@ -145,9 +148,25 @@ polls for work — see `worker/README.md`. That machine can be this box (one fil
 at a time, next section) or anything else with the repo working; the two
 coexist with no coordination.
 
-Tokens are granted from the panel (`/dashboard/tokens`), which writes an
-append-only ledger row. There is no balance column to correct — a mistake is
-undone by writing a negative entry, not by editing the first one.
+Most token rows are now written by the machine: every account gets its trial
+credit the first time it is seen, and the queue writes a spend per file and a
+refund per failure. The panel (`/dashboard/tokens`) is where a human tops an
+account up past its trial, and it writes the same append-only row. There is no
+balance column to correct — a mistake is undone by writing a negative entry,
+not by editing the first one.
+
+The trial is `SIGNUP_GRANT` in `src/lib/server/tokens.ts` and changing it is a
+deploy, not a setting. Existing accounts are not re-granted when it changes:
+the row each one already has is the promise that was made to it.
+
+**What to watch after opening it up.** Ten credits times however many people
+sign in with Google is real vectorizer.ai spend, and nothing in the app caps
+the number of accounts. The two numbers worth checking are the ledger
+(`SELECT sum(delta) FROM token_ledger WHERE reason='signup'`) and how deep the
+queue is sitting — throughput is the number of `vector_account` logins, and a
+box running one file at a time is not a wide pipe. If it gets away from you,
+the lever is `SIGNUP_GRANT`, and after that removing the R2 variables turns the
+whole tool off without touching anything else.
 
 ## A worker on this box
 

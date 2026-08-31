@@ -15,6 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/ui/table'
+import { useMessages } from '#/lib/i18n'
 import { getVectorDownload, getVectorJob } from '#/lib/server/vector'
 
 /**
@@ -46,6 +47,8 @@ const FILE_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'ou
 }
 
 function JobPage() {
+  const copy = useMessages().vectorizer
+  const m = copy.job
   const { job, files } = Route.useLoaderData()
   const router = useRouter()
 
@@ -80,21 +83,21 @@ function JobPage() {
   return (
     <div className="space-y-8">
       <PageHead
-        index="Vectorizer"
+        index={copy.index}
         title={job.label}
         action={
           <Button asChild variant="ghost" className="eyebrow">
             <Link to="/tools/vectorizer">
               <ArrowLeft className="size-3.5" />
-              All batches
+              {m.back}
             </Link>
           </Button>
         }
       >
-        {job.filesDone} of {job.filesTotal} done
-        {job.filesFailed ? `, ${job.filesFailed} failed and refunded` : ''} ·{' '}
-        {job.tokensCharged} token{job.tokensCharged === 1 ? '' : 's'} charged
-        {settled ? '' : ' · this page refreshes itself while the worker runs'}
+        {m.progress(job.filesDone, job.filesTotal)}
+        {job.filesFailed ? m.refunded(job.filesFailed) : ''} ·{' '}
+        {m.charged(job.tokensCharged)}
+        {settled ? '' : ` · ${m.refreshing}`}
       </PageHead>
 
       <BulkDownload jobId={job.id} ready={ready} />
@@ -103,10 +106,10 @@ function JobPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>File</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Note</TableHead>
-              <TableHead className="text-right">Download</TableHead>
+              <TableHead>{m.file}</TableHead>
+              <TableHead>{copy.jobs.status}</TableHead>
+              <TableHead>{m.note}</TableHead>
+              <TableHead className="text-right">{m.download}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -131,7 +134,7 @@ function JobPage() {
                         onClick={() => void download(file.id, 'source')}
                       >
                         <ImageIcon className="size-3.5" />
-                        Original
+                        {m.original}
                       </Button>
                     ) : null}
                     {file.hasSvg ? (
@@ -142,7 +145,7 @@ function JobPage() {
                         onClick={() => void download(file.id, 'svg')}
                       >
                         <Download className="size-3.5" />
-                        SVG
+                        {m.svg}
                       </Button>
                     ) : null}
                     {file.hasEps ? (
@@ -153,7 +156,7 @@ function JobPage() {
                         onClick={() => void download(file.id, 'eps')}
                       >
                         <Download className="size-3.5" />
-                        EPS
+                        {m.eps}
                       </Button>
                     ) : null}
                   </div>

@@ -17,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/ui/table'
+import { useMessages } from '#/lib/i18n'
 import { createVectorJob, startVectorJob } from '#/lib/server/vector'
 
 /**
@@ -39,6 +40,18 @@ export const Route = createFileRoute('/tools/vectorizer/')({
 
 const shell = getRouteApi('/tools/vectorizer')
 
+type LedgerCopy = ReturnType<typeof useMessages>['vectorizer']['ledger']
+
+/**
+ * `reason` arrives as the word the ledger stores. A locale has a phrase for
+ * each one it knows about and the raw value is the fallback, so a reason added
+ * to the database before it is added to the dictionary reads oddly rather than
+ * rendering an empty column.
+ */
+function reasonLabel(copy: LedgerCopy, reason: string): string {
+  return reason in copy ? copy[reason as keyof LedgerCopy] : reason
+}
+
 const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   complete: 'default',
   running: 'secondary',
@@ -52,6 +65,7 @@ const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | '
 const UPLOAD_CONCURRENCY = 4
 
 function VectorizePage() {
+  const m = useMessages().vectorizer
   const router = useRouter()
   const overview = shell.useLoaderData()
 
@@ -70,7 +84,7 @@ function VectorizePage() {
     try {
       const job = await createVectorJob({
         data: {
-          label: label.trim() || `${files.length} image${files.length === 1 ? '' : 's'}`,
+          label: label.trim() || m.batch.placeholder(files.length),
           files: files.map((file) => ({
             filename: file.name,
             contentType: file.type as 'image/png',
@@ -102,9 +116,20 @@ function VectorizePage() {
             })
 
             if (response.ok) uploaded.push(next.fileId)
-            else toast.error(`${next.filename}: upload failed (${response.status})`)
+            else
+              toast.error(
+                m.batch.uploadFailed(
+                  next.filename,
+                  m.batch.uploadFailedStatus(response.status),
+                ),
+              )
           } catch (error) {
-            toast.error(`${next.filename}: ${error instanceof Error ? error.message : 'upload failed'}`)
+            toast.error(
+              m.batch.uploadFailed(
+                next.filename,
+                error instanceof Error ? error.message : m.batch.uploadFailedPlain,
+              ),
+            )
           }
 
           setProgress((current) => ({ ...current, done: current.done + 1 }))
@@ -116,15 +141,13 @@ function VectorizePage() {
       const result = await startVectorJob({ data: { jobId: job.jobId, uploaded } })
 
       if (result.refunded) {
-        toast.warning(
-          `${result.refunded} file${result.refunded === 1 ? '' : 's'} did not upload — ${result.refunded} token${result.refunded === 1 ? '' : 's'} refunded.`,
-        )
+        toast.warning(m.toast.refunded(result.refunded))
       }
 
       if (result.queued === 0) {
-        toast.error('Nothing was uploaded, so nothing was queued.')
+        toast.error(m.toast.nothingQueued)
       } else {
-        toast.success(`${result.queued} file${result.queued === 1 ? '' : 's'} queued.`)
+        toast.success(m.toast.queued(result.queued))
         setFiles([])
         setLabel('')
       }
@@ -140,19 +163,18 @@ function VectorizePage() {
 
   return (
     <div className="space-y-8">
-      <PageHead index="Vectorizer" title="Images to SVG and EPS">
-        Raster art in, 4000 px SVG and EPS out — the same settings the CLI uses
-        for microstock. One image costs one token, and a file that does not come
-        back gives its token back. Every finished file keeps all three: your
-        original, the SVG and the EPS.
+      <PageHead index={m.index} title={m.title}>
+        {m.lead(overview.trial)}
       </PageHead>
+
+      <p className="text-muted-foreground border-(--line) border-l-2 pl-4 text-sm text-pretty">
+        {m.queueNote}
+      </p>
 
       {overview.storageReady ? null : (
         <p className="border-destructive/40 text-destructive flex items-start gap-2 border p-4 text-sm">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-          Storage is not configured on this server, so nothing can be uploaded.
-          Set the <code className="font-mono text-xs">R2_*</code> variables — see{' '}
-          <code className="font-mono text-xs">.env.example</code>.
+          {m.storageMissing}
         </p>
       )}
 
@@ -171,21 +193,20 @@ function VectorizePage() {
             <div className="flex flex-wrap items-end gap-4">
               <div className="min-w-56 grow space-y-1.5">
                 <Label htmlFor="vector-label" className="eyebrow text-muted-foreground">
-                  Name this batch
+                  {m.batch.label}
                 </Label>
                 <Input
                   id="vector-label"
                   value={label}
                   onChange={(event) => setLabel(event.target.value)}
-                  placeholder={`${files.length} image${files.length === 1 ? '' : 's'}`}
+                  placeholder={m.batch.placeholder(files.length)}
                   disabled={busy}
                   maxLength={120}
                 />
               </div>
 
               <div className="text-muted-foreground font-mono text-xs">
-                {files.length} file{files.length === 1 ? '' : 's'} · {cost} token
-                {cost === 1 ? '' : 's'} · {overview.balance} available
+                {m.batch.cost(files.length, cost, overview.balance)}
               </div>
 
               <Button
@@ -194,14 +215,13 @@ function VectorizePage() {
                 onClick={submit}
               >
                 {busy ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
-                {busy ? `Uploading ${progress.done}/${progress.total}` : 'Queue batch'}
+                {busy ? m.batch.uploading(progress.done, progress.total) : m.batch.queue}
               </Button>
             </div>
 
             {affordable ? null : (
               <p className="text-destructive font-mono text-xs">
-                This batch costs {cost} and the balance is {overview.balance}. An admin can add
-                tokens from the Tokens screen in the panel.
+                {m.batch.cantAfford(cost, overview.balance)}
               </p>
             )}
 
@@ -213,7 +233,7 @@ function VectorizePage() {
                     disabled={busy}
                     onClick={() => setFiles(files.filter((entry) => entry.name !== file.name))}
                     className="hover:text-foreground"
-                    aria-label={`Remove ${file.name}`}
+                    aria-label={m.batch.remove(file.name)}
                   >
                     <X className="size-3" />
                   </button>
@@ -226,23 +246,23 @@ function VectorizePage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="font-display text-xl font-medium tracking-tight">Batches</h2>
+        <h2 className="font-display text-xl font-medium tracking-tight">
+          {m.jobs.heading}
+        </h2>
 
         {overview.jobs.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
-            Nothing queued yet. Drop some images above.
-          </p>
+          <p className="text-muted-foreground text-sm">{m.jobs.empty}</p>
         ) : (
           <div className="border-(--line) border">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Batch</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Done</TableHead>
-                  <TableHead className="text-right">Failed</TableHead>
-                  <TableHead className="text-right">Tokens</TableHead>
-                  <TableHead className="text-right">Created</TableHead>
+                  <TableHead>{m.jobs.batch}</TableHead>
+                  <TableHead>{m.jobs.status}</TableHead>
+                  <TableHead className="text-right">{m.jobs.done}</TableHead>
+                  <TableHead className="text-right">{m.jobs.failed}</TableHead>
+                  <TableHead className="text-right">{m.jobs.tokens}</TableHead>
+                  <TableHead className="text-right">{m.jobs.created}</TableHead>
                   <TableHead />
                 </TableRow>
               </TableHeader>
@@ -264,7 +284,7 @@ function VectorizePage() {
                     <TableCell className="text-right">
                       <Button asChild variant="ghost" size="sm" className="eyebrow">
                         <Link to="/tools/vectorizer/jobs/$jobId" params={{ jobId: job.id }}>
-                          Open
+                          {m.jobs.open}
                           <ArrowRight className="size-3.5" />
                         </Link>
                       </Button>
@@ -279,7 +299,7 @@ function VectorizePage() {
 
       {overview.ledger.length ? (
         <section className="border-(--line) space-y-2 border p-4">
-          <p className="eyebrow text-muted-foreground">Recent token activity</p>
+          <p className="eyebrow text-muted-foreground">{m.ledger.heading}</p>
           <ul className="text-muted-foreground space-y-1 font-mono text-xs">
             {overview.ledger.slice(0, 8).map((entry) => (
               <li key={entry.id} className="flex flex-wrap items-baseline gap-x-3">
@@ -291,7 +311,7 @@ function VectorizePage() {
                   {entry.delta > 0 ? '+' : ''}
                   {entry.delta}
                 </span>
-                <span className="w-14">{entry.reason}</span>
+                <span className="w-28">{reasonLabel(m.ledger, entry.reason)}</span>
                 <span className="grow truncate">{entry.note}</span>
                 <span>{new Date(entry.createdAt).toLocaleDateString()}</span>
               </li>

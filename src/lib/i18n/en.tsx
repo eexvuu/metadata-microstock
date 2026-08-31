@@ -156,11 +156,12 @@ export const en = {
     title: 'Your tools',
     lead: 'One account, one set of keys, and a room of its own for every tool. Open one to work inside it — its runs, its history and its settings stay there.',
     free: 'free',
+    trial: 'free trial',
     adminOnly: 'admin only',
     comingSoon: 'coming soon',
     planned: 'planned',
     vectorizerBody:
-      'Raster art traced to 4000 px SVG and EPS, batch at a time, on the settings Shutterstock and Adobe Stock accept. Runs on tokens rather than on your own key.',
+      'Raster art traced to 4000 px SVG and EPS, batch at a time, on the settings Shutterstock and Adobe Stock accept. Runs on tokens rather than on your own key, and every new account gets a handful to try it with.',
     metadataBody:
       'Titles, 49 keywords and the right category for a whole folder of images and videos, written into the CSV Adobe Stock and Shutterstock ask for.',
     open: 'Open',
@@ -487,6 +488,129 @@ export const en = {
       `Partial run: ${done}/${total} done, ${remaining} left. No CSV yet — re-run to resume.`,
     finished: (csvName: string, rows: number) =>
       `Wrote ${csvName} (${rows} rows)`,
+  },
+
+  /**
+   * The vectorizer, the second tool on the shelf.
+   *
+   * These are here because the tool went public. While it was admin-only its
+   * copy was hardcoded English, on the reasoning that translating a screen
+   * with one reader is copy that gets rewritten before anyone sees it — which
+   * was true, and stopped being true the moment the card unlocked. An
+   * Indonesian contributor meeting a tool that spends their trial credit in a
+   * language the rest of the app does not use is the worst place to save an
+   * afternoon.
+   *
+   * The trial number is a parameter rather than a word, because `SIGNUP_GRANT`
+   * lives in `src/lib/server/tokens.ts` and copy must not be the second place
+   * it is written down.
+   */
+  vectorizer: {
+    index: 'Vectorizer',
+    title: 'Images to SVG and EPS',
+    badge: 'beta',
+    vectorize: 'Vectorize',
+    tokens: (count: number) => `${count} token${count === 1 ? '' : 's'}`,
+    lead: (trial: number) =>
+      `Raster art in, 4000 px SVG and EPS out, on the settings Shutterstock and Adobe Stock accept. One image costs one token and a file that does not come back gives its token back. Every account starts with ${trial}, and every finished file keeps all three: your original, the SVG and the EPS.`,
+    queueNote:
+      'Tracing happens on our machines, a few images at a time, so a batch can sit in the queue for a while before it moves. This page keeps itself up to date — you can close it and come back.',
+    storageMissing: (
+      <>
+        Storage is not configured on this server, so nothing can be uploaded.
+        Set the <code className="font-mono text-xs">R2_*</code> variables — see{' '}
+        <code className="font-mono text-xs">.env.example</code>.
+      </>
+    ) as ReactNode,
+
+    picker: {
+      drop: 'Drop images here, or pick them.',
+      hint: (mb: number) => `PNG · JPEG · GIF · BMP · WebP · up to ${mb} MB each`,
+      choose: 'Choose images',
+      notRaster: (name: string) =>
+        `${name} — this tracer takes raster art (PNG, JPEG, GIF, BMP, WebP)`,
+      tooBig: (name: string, mb: number) => `${name} — over ${mb} MB`,
+      empty: (name: string) => `${name} — empty`,
+      sameStem: (name: string, other: string) =>
+        `${name} — same name as ${other} before the extension; both would save as one .svg`,
+      onlyFirst: (max: number) =>
+        `Only the first ${max} files were kept — that is one batch.`,
+    },
+
+    batch: {
+      label: 'Name this batch',
+      placeholder: (count: number) => `${count} image${count === 1 ? '' : 's'}`,
+      cost: (files: number, cost: number, balance: number) =>
+        `${files} file${files === 1 ? '' : 's'} · ${cost} token${cost === 1 ? '' : 's'} · ${balance} available`,
+      queue: 'Queue batch',
+      uploading: (done: number, total: number) => `Uploading ${done}/${total}`,
+      cantAfford: (cost: number, balance: number) =>
+        `This batch costs ${cost} and your balance is ${balance}. Ask us for more and we can add them to your account.`,
+      remove: (name: string) => `Remove ${name}`,
+      uploadFailed: (name: string, detail: string) => `${name}: ${detail}`,
+      uploadFailedStatus: (status: number) => `upload failed (${status})`,
+      uploadFailedPlain: 'upload failed',
+    },
+
+    jobs: {
+      heading: 'Batches',
+      empty: 'Nothing queued yet. Drop some images above.',
+      batch: 'Batch',
+      status: 'Status',
+      done: 'Done',
+      failed: 'Failed',
+      tokens: 'Tokens',
+      created: 'Created',
+      open: 'Open',
+    },
+
+    job: {
+      back: 'All batches',
+      progress: (done: number, total: number) => `${done} of ${total} done`,
+      refunded: (count: number) =>
+        `, ${count} failed and refunded`,
+      charged: (count: number) => `${count} token${count === 1 ? '' : 's'} charged`,
+      refreshing: 'this page refreshes itself while the worker runs',
+      file: 'File',
+      note: 'Note',
+      download: 'Download',
+      original: 'Original',
+      svg: 'SVG',
+      eps: 'EPS',
+    },
+
+    bulk: {
+      button: 'Download all as zip',
+      zipping: (done: number, ready: number) => `Zipping ${done}/${ready}`,
+      summary: (images: number, files: number) =>
+        `${images} image${images === 1 ? '' : 's'} · ${files} files (original + SVG + EPS)`,
+      nothingReady: 'Nothing finished in this batch yet.',
+      nothingDownloaded:
+        'Nothing downloaded — the batch may have passed its retention window.',
+      someFailed: (packed: number, failed: number) =>
+        `Zipped ${packed} file${packed === 1 ? '' : 's'}, ${failed} failed.`,
+      saved: (images: number, files: number, folder: string) =>
+        `${images} image${images === 1 ? '' : 's'} — ${files} files in ${folder}.zip`,
+      fileFailed: (name: string, detail: string) => `${name}: ${detail}`,
+      couldNotDownload: 'could not download',
+      r2Answered: (status: number) => `storage answered ${status}`,
+    },
+
+    toast: {
+      refunded: (count: number) =>
+        `${count} file${count === 1 ? '' : 's'} did not upload — ${count} token${count === 1 ? '' : 's'} refunded.`,
+      nothingQueued: 'Nothing was uploaded, so nothing was queued.',
+      queued: (count: number) => `${count} file${count === 1 ? '' : 's'} queued.`,
+    },
+
+    ledger: {
+      heading: 'Recent token activity',
+      signup: 'trial credit',
+      grant: 'added for you',
+      spend: 'batch',
+      refund: 'refunded',
+      adjust: 'adjustment',
+    },
   },
 }
 

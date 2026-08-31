@@ -5,17 +5,33 @@ import { z } from 'zod'
 import { getDb } from '#/db/index'
 import { vectorFile, vectorJob } from '#/db/schema'
 import { isR2Configured, objectKeys, presignGet, presignPut } from '#/lib/server/r2'
-import { requireAdmin } from '#/lib/server/session'
-import { balanceOf, recentLedger, refundFile, spendTokens } from '#/lib/server/tokens'
+import { requireSession } from '#/lib/server/session'
+import {
+  SIGNUP_GRANT,
+  balanceOf,
+  ensureSignupGrant,
+  recentLedger,
+  refundFile,
+  spendTokens,
+} from '#/lib/server/tokens'
 
 /**
  * The vectorizer tool, from the browser's side.
  *
- * **Admin-only, and not by hiding a card.** Every function here starts with
- * `requireAdmin()`, exactly like `src/lib/server/admin.ts`, because this tool
- * spends OUR vectorizer.ai credits rather than a key the user brought. Until
- * that has an audience and a price it has one user, and the gate is the server
- * function — the catalog card not rendering is a courtesy, never the control.
+ * **Open to every signed-in account, and the balance is the gate.** This was
+ * admin-only for its first month, and the reasoning is worth keeping rather
+ * than deleting because it was right at the time: the tool spends OUR
+ * vectorizer.ai credits rather than a key the user brought, so until there was
+ * a way to bound what one account could spend, the only safe audience was one
+ * person. `token_ledger` is that bound. Every function here still starts with
+ * a session check — an anonymous request has no balance to charge and no jobs
+ * to list — but the thing standing between an account and our credit card is
+ * now `spendTokens`, which refuses a batch it cannot pay for.
+ *
+ * A new account gets `SIGNUP_GRANT` tokens; anything past that is an admin
+ * writing a ledger row. There is no self-service top-up, deliberately — this
+ * tool has no price yet, and a trial that cannot be extended by the person
+ * using it is a trial.
  *
  * The bytes are not here and never will be. The browser is handed presigned
  * PUT URLs and uploads straight to R2; this process signs, counts and charges.
@@ -84,7 +100,12 @@ const fileInput = z.object({
 
 /** What the tool needs to render itself: the balance, the queue, the config. */
 export const getVectorOverview = createServerFn({ method: 'GET' }).handler(async () => {
-  const session = await requireAdmin()
+  const session = await requireSession()
+
+  // Where an account that predates the signup hook gets its ten. Idempotent by
+  // a unique index, so this is a no-op on every visit after the first — and it
+  // has to happen before `balanceOf`, or the first render says zero.
+  await ensureSignupGrant(session.user.id)
 
   const [balance, jobs, ledger] = await Promise.all([
     balanceOf(session.user.id),
@@ -95,6 +116,9 @@ export const getVectorOverview = createServerFn({ method: 'GET' }).handler(async
   return {
     balance,
     jobs,
+    // The copy says how many tokens a new account gets, so the number travels
+    // rather than being written down a second time in a dictionary.
+    trial: SIGNUP_GRANT,
     storageReady: isR2Configured(),
     maxFiles: MAX_FILES_PER_JOB,
     maxFileBytes: MAX_FILE_BYTES,
@@ -148,7 +172,7 @@ export const createVectorJob = createServerFn({ method: 'POST' })
     }),
   )
   .handler(async ({ data }) => {
-    const session = await requireAdmin()
+    const session = await requireSession()
     const userId = session.user.id
 
     if (!isR2Configured()) {
@@ -222,7 +246,7 @@ export const createVectorJob = createServerFn({ method: 'POST' })
 export const startVectorJob = createServerFn({ method: 'POST' })
   .inputValidator(z.object({ jobId: z.string(), uploaded: z.array(z.string()) }))
   .handler(async ({ data }) => {
-    const session = await requireAdmin()
+    const session = await requireSession()
     const db = getDb()
 
     const job = await ownedJob(data.jobId, session.user.id)
@@ -277,7 +301,7 @@ export const startVectorJob = createServerFn({ method: 'POST' })
 export const getVectorJob = createServerFn({ method: 'GET' })
   .inputValidator(z.object({ jobId: z.string() }))
   .handler(async ({ data }) => {
-    const session = await requireAdmin()
+    const session = await requireSession()
     const job = await ownedJob(data.jobId, session.user.id)
 
     const files = await getDb()
@@ -308,7 +332,7 @@ export const getVectorJob = createServerFn({ method: 'GET' })
 export const getVectorDownload = createServerFn({ method: 'POST' })
   .inputValidator(z.object({ fileId: z.string(), format: z.enum(['svg', 'eps', 'source']) }))
   .handler(async ({ data }) => {
-    const session = await requireAdmin()
+    const session = await requireSession()
 
     const [file] = await getDb()
       .select()
@@ -340,7 +364,7 @@ export const getVectorDownload = createServerFn({ method: 'POST' })
 export const getVectorJobDownloads = createServerFn({ method: 'POST' })
   .inputValidator(z.object({ jobId: z.string() }))
   .handler(async ({ data }) => {
-    const session = await requireAdmin()
+    const session = await requireSession()
     const job = await ownedJob(data.jobId, session.user.id)
 
     const files = await getDb()

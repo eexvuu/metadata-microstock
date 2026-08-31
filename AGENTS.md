@@ -549,9 +549,17 @@ real account, so it is a human step. Ask rather than creating accounts.
 # The vectorizer
 
 The second tool on the shelf, and the first one that does not play by the
-metadata tool's rules. **Admin-only and not released** — `requireAdmin()` at the
-top of every server function is the gate; the catalog card not rendering for a
-non-admin is a courtesy.
+metadata tool's rules. **Released, and open to every signed-in account.**
+
+It was admin-only for its first month, and the old reasoning is kept rather
+than deleted because it was right for as long as it was true: the tool spends
+OUR vectorizer.ai credits rather than a key the user brought, so until there
+was a way to bound what one account could spend, the only safe audience was one
+person. `token_ledger` is that bound, and it always was — what changed is that
+an account now arrives with a balance instead of a zero. Every server function
+in `src/lib/server/vector.ts` therefore starts with `requireSession()`, and the
+thing standing between a stranger and our credit card is `spendTokens`, which
+refuses a batch it cannot pay for.
 
 Raster art in, 4000 px SVG and EPS out, at the settings
 `D:/microstock/vector/vectorizer` uses for microstock. That repo is the source
@@ -606,6 +614,35 @@ same reason `audit_log` is, and there is no `balance` anywhere — it is
 explain it. Granting is writing a row; a mistake is undone by writing a
 negative one.
 
+**Every account starts with `SIGNUP_GRANT` tokens, and the database is what
+stops it happening twice.** `ensureSignupGrant` writes one `signup` row and is
+idempotent by `token_ledger_signup_once_idx` — a *partial* unique index on
+`user_id where reason = 'signup'`, which constrains nothing else in a table
+where one account has many `grant` and `spend` rows. That constraint is what
+lets two unrelated callers both write it without knowing about each other:
+Better Auth's `databaseHooks.user.create.after`, which is the real path, and
+`getVectorOverview`, which is how every account that predates the trial gets
+the same ten. The second is deliberately not a data migration — the same code
+path, self-healing, and still there as a backstop if the hook is ever missed.
+
+Two things that hook must keep doing. It has to **swallow its own failure**: a
+ledger write that throws would tell somebody their account could not be
+created when in fact it exists, and the loader writes the row on the next visit
+anyway. And it belongs on user *creation*, not sign-in — account linking, which
+is how a pre-Google account keeps its data, creates no user row, so a returning
+owner does not collect a second trial. The index makes that impossible either
+way, which is the point of putting it there rather than in a comment.
+
+`SIGNUP_GRANT` is a constant in `src/lib/server/tokens.ts` and is not
+configurable, for the reason `TOKENS_PER_FILE` is not: a number an admin can
+change from a screen is a number that has to stay true for every row already
+written. It travels to the copy as `overview.trial` rather than being spelled
+out a second time in a dictionary.
+
+There is no self-service top-up. Past the trial, tokens are an admin writing a
+row in `/dashboard/tokens`, and the tool says so. That is what a tool with no
+price yet can honestly offer.
+
 **A file that fails gives its token back.** One image costs one token, charged
 when the batch is created — before the upload, so a batch that cannot be paid
 for is refused before anyone waits ten minutes for it. Every path back is a
@@ -642,9 +679,11 @@ with R2's own 404 — is written down in `deploy/README.md`.
 The one deletion the app still does is the original of a permanently failed
 file (`failFile`): nobody will ever download it.
 
-**The copy is English and hardcoded**, like `src/routes/dashboard/admin/*`.
-Releasing this tool means an i18n pass, and that is the point at which the
-wording is worth settling.
+**The copy went through the i18n pass when the tool was released**, which is
+what this section used to say releasing would mean. It lives under
+`m.vectorizer` in `src/lib/i18n/en.tsx` and `id.tsx`, like every other
+user-facing screen; only `src/routes/dashboard/admin/*` is still hardcoded
+English, and that one has an audience of admins.
 
 ## Where things go
 
@@ -656,7 +695,8 @@ wording is worth settling.
 | Queue state, leases, refunds, retention | `src/lib/server/vector-queue.ts` |
 | The worker protocol | `src/api/vector.ts` + `worker/vector-worker.mjs` |
 | Presigning, object keys | `src/lib/server/r2.ts` |
-| Balances, grants, refunds | `src/lib/server/tokens.ts` |
+| Balances, grants, refunds, the signup credit | `src/lib/server/tokens.ts` |
+| The wording on any of its screens | `m.vectorizer` in `src/lib/i18n/` |
 | Which login a claim gets | `src/lib/server/vector-accounts.ts` |
 | Admin screens over any of it | `src/resources/vector-jobs.ts`, `src/resources/tokens.ts`, `src/resources/vector-accounts.ts` |
 | How an image is actually traced | not here — `D:/microstock/vector/vectorizer` |

@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { ImageUp, Upload } from 'lucide-react'
 
 import { Button } from '#/components/ui/button'
+import { useMessages } from '#/lib/i18n'
 
 /**
  * The way in: drop raster art, get a list.
@@ -29,6 +30,7 @@ export function ImagePicker({
   onChange: (files: File[]) => void
   disabled: boolean
 }) {
+  const m = useMessages().vectorizer.picker
   const [over, setOver] = useState(false)
   const [rejected, setRejected] = useState<string[]>([])
   const input = useRef<HTMLInputElement>(null)
@@ -39,11 +41,11 @@ export function ImagePicker({
 
     for (const file of incoming) {
       if (!accepted.includes(file.type)) {
-        bad.push(`${file.name} — vectorizer.ai takes raster art (PNG, JPEG, GIF, BMP, WebP)`)
+        bad.push(m.notRaster(file.name))
       } else if (file.size > maxBytes) {
-        bad.push(`${file.name} — over ${Math.round(maxBytes / 1024 / 1024)} MB`)
+        bad.push(m.tooBig(file.name, Math.round(maxBytes / 1024 / 1024)))
       } else if (file.size === 0) {
-        bad.push(`${file.name} — empty`)
+        bad.push(m.empty(file.name))
       } else {
         good.push(file)
       }
@@ -62,7 +64,7 @@ export function ImagePicker({
 
       const clash = merged.find((existing) => stem(existing.name) === stem(file.name))
       if (clash) {
-        bad.push(`${file.name} — same name as ${clash.name} before the extension; both would save as one .svg`)
+        bad.push(m.sameStem(file.name, clash.name))
         continue
       }
 
@@ -70,7 +72,7 @@ export function ImagePicker({
     }
 
     if (merged.length > maxFiles) {
-      bad.push(`Only the first ${maxFiles} files were kept — that is one batch.`)
+      bad.push(m.onlyFirst(maxFiles))
     }
 
     setRejected(bad)
@@ -95,9 +97,9 @@ export function ImagePicker({
         } ${disabled ? 'opacity-50' : ''}`}
       >
         <ImageUp className="text-muted-foreground size-7" strokeWidth={1.25} />
-        <p className="text-sm">Drop images here, or pick them.</p>
+        <p className="text-sm">{m.drop}</p>
         <p className="text-muted-foreground font-mono text-xs">
-          PNG · JPEG · GIF · BMP · WebP · up to {Math.round(maxBytes / 1024 / 1024)} MB each
+          {m.hint(Math.round(maxBytes / 1024 / 1024))}
         </p>
 
         <input
@@ -120,7 +122,7 @@ export function ImagePicker({
           onClick={() => input.current?.click()}
         >
           <Upload className="size-4" />
-          Choose images
+          {m.choose}
         </Button>
       </div>
 
