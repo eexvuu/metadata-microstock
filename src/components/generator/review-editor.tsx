@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { AlertTriangle, Download, Plus, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { AlertTriangle, Check, Copy, Download, Plus, X } from 'lucide-react'
 
 import { MediaThumb } from '#/components/generator/media-thumb'
 import { Button } from '#/components/ui/button'
@@ -214,6 +214,11 @@ export function ReviewEditor({
           const entry = byName.get(row.sourceName) ?? byName.get(row.filename)
           const keywords = splitKeywords(row.keywords)
           const issues = issuesOf(row, platform, m.review.issues)
+          // Adobe puts its sentence in `title`, Shutterstock in `description`;
+          // the label, the counter, the box and the copy button all follow it.
+          const text = platform === 'adobe' ? row.title : (row.description ?? '')
+          const titleLabel =
+            platform === 'adobe' ? m.review.titleLabel : m.review.descriptionLabel
 
           return (
             <article
@@ -275,25 +280,23 @@ export function ReviewEditor({
                 </div>
 
                 <div className="space-y-1.5">
-                  <div className="flex items-baseline justify-between">
-                    <Label htmlFor={`title-${row.sourceName}`}>
-                      {platform === 'adobe'
-                        ? m.review.titleLabel
-                        : m.review.descriptionLabel}
-                    </Label>
-                    <span className="text-muted-foreground font-mono text-[0.65rem] tabular-nums">
-                      {m.review.chars(
-                        (platform === 'adobe'
-                          ? row.title
-                          : (row.description ?? '')
-                        ).length,
-                      )}
-                    </span>
+                  <div className="flex items-center justify-between gap-3">
+                    <Label htmlFor={`title-${row.sourceName}`}>{titleLabel}</Label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground font-mono text-[0.65rem] tabular-nums">
+                        {m.review.chars(text.length)}
+                      </span>
+                      <CopyButton
+                        text={text}
+                        label={m.review.copyAria(titleLabel)}
+                        copied={m.review.copied}
+                      />
+                    </div>
                   </div>
                   <Textarea
                     id={`title-${row.sourceName}`}
                     rows={2}
-                    value={platform === 'adobe' ? row.title : (row.description ?? '')}
+                    value={text}
                     onChange={(event) =>
                       patch(
                         row.sourceName,
@@ -306,17 +309,30 @@ export function ReviewEditor({
                 </div>
 
                 <div className="space-y-1.5">
-                  <div className="flex items-baseline justify-between">
+                  <div className="flex items-center justify-between gap-3">
                     <Label>{m.review.keywords}</Label>
-                    <span
-                      className={`font-mono text-[0.65rem] tabular-nums ${
-                        keywords.length > MAX_KEYWORDS[platform]
-                          ? 'text-destructive'
-                          : 'text-muted-foreground'
-                      }`}
-                    >
-                      {keywords.length} / {MAX_KEYWORDS[platform]}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`font-mono text-[0.65rem] tabular-nums ${
+                          keywords.length > MAX_KEYWORDS[platform]
+                            ? 'text-destructive'
+                            : 'text-muted-foreground'
+                        }`}
+                      >
+                        {keywords.length} / {MAX_KEYWORDS[platform]}
+                      </span>
+                      {/*
+                        Joined rather than copied raw: the stored string is
+                        whatever the model wrote, and a stock site's keyword box
+                        wants one separator. `splitKeywords` already normalises
+                        spacing, so this is the same list the chips show.
+                      */}
+                      <CopyButton
+                        text={keywords.join(', ')}
+                        label={m.review.copyAria(m.review.keywords)}
+                        copied={m.review.copied}
+                      />
+                    </div>
                   </div>
 
                   <div className="flex flex-wrap gap-1.5">
@@ -414,6 +430,59 @@ export function ReviewEditor({
         </p>
       ) : null}
     </div>
+  )
+}
+
+/**
+ * One field to the clipboard, for the contributor who is filling a stock site's
+ * upload form by hand rather than uploading the CSV. The confirmation is the
+ * icon rather than a toast: this button exists once per field on every row, and
+ * a folder of eighty files would otherwise be eighty notifications.
+ */
+function CopyButton({
+  text,
+  label,
+  copied: copiedLabel,
+}: {
+  text: string
+  label: string
+  copied: string
+}) {
+  const [copied, setCopied] = useState(false)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current)
+  }, [])
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch {
+      // Denied permission or an insecure origin — nothing useful to say, and
+      // the field is still selectable by hand.
+      return
+    }
+    setCopied(true)
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = setTimeout(() => setCopied(false), 1200)
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      disabled={!text.trim()}
+      aria-label={copied ? copiedLabel : label}
+      title={copied ? copiedLabel : label}
+      className="text-muted-foreground hover:text-foreground disabled:pointer-events-none disabled:opacity-30 transition-colors"
+    >
+      {copied ? (
+        <Check className="text-primary size-3.5" />
+      ) : (
+        <Copy className="size-3.5" />
+      )}
+    </button>
   )
 }
 

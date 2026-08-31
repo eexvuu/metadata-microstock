@@ -452,6 +452,8 @@ export const en = {
     chars: (count: number) => `${count} chars`,
     keywords: 'Keywords',
     keywordPlaceholder: '+ keyword',
+    copyAria: (field: string) => `Copy ${field.toLowerCase()}`,
+    copied: 'Copied',
     category: 'Category',
     categories: 'Categories',
     noMatch: 'nothing matches that filter',

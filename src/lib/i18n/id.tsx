@@ -428,6 +428,8 @@ export const id: Messages = {
     chars: (count: number) => `${count} karakter`,
     keywords: 'Kata kunci',
     keywordPlaceholder: '+ kata kunci',
+    copyAria: (field: string) => `Salin ${field.toLowerCase()}`,
+    copied: 'Tersalin',
     category: 'Kategori',
     categories: 'Kategori',
     noMatch: 'tidak ada yang cocok dengan saringan itu',
