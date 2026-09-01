@@ -121,27 +121,78 @@ accounting is right and the cause is invisible. R2 → the bucket → Settings �
 CORS policy:
 
 ```json
-[{ "AllowedOrigins": ["https://tools.eexvuu.eu.org"],
+[{ "AllowedOrigins": ["https://tools.eexvuu.eu.org", "http://localhost:3000"],
    "AllowedMethods": ["GET", "PUT"],
    "AllowedHeaders": ["*"],
    "ExposeHeaders": ["ETag"],
    "MaxAgeSeconds": 86400 }]
 ```
 
-Add `http://localhost:3000` to `AllowedOrigins` while developing. The worker
-does not need this — it is a Node process, not a browser.
+`http://localhost:3000` is in there for development. The worker does not need
+any of this — it is a Node process, not a browser. The metadata tool's archive
+uploads ride the same policy unchanged: same origins, same PUT, and
+`AllowedHeaders: ["*"]` already covers the `Content-Type` it sends.
 
-**Retention is a bucket lifecycle rule, and it is the only one.** R2 → the
-bucket → Settings → Object lifecycle → expire objects under the prefix
-`vector/` after however long you want to keep results. The application deletes
-nothing on a schedule and refuses nothing for being old: one setting is easier
-to keep true than three code paths that have to agree with it, and two
-mechanisms deleting the same bytes on different clocks is how a row ends up
-promising a file that is not there.
+**One bucket, two prefixes.** The vectorizer keeps three objects per file under
+`vector/`. Since 2026-09-01 the metadata tool archives each original a run was
+given under `metadata/`, uploaded by the contributor's own tab straight to R2
+— nothing streams through the Node process on either path.
+
+**Retention is a bucket lifecycle rule, and it is the only one that deletes
+bytes.** R2 → the bucket → Settings → Object lifecycle → two rules, expiring
+objects under `vector/` and under `metadata/` after **30 days** each. The
+application deletes no object on a schedule and refuses nothing for being old:
+one setting is easier to keep true than three code paths that have to agree
+with it, and two mechanisms deleting the same bytes on different clocks is how
+a row ends up promising a file that is not there.
+
+Thirty days is the intended window, and it is deliberately the same thirty the
+metadata tool gives a saved result (`RESULT_DAYS`, `src/lib/server/runs.ts`):
+one promise for the whole shelf is easier to keep than two, and a contributor
+who learns it once has learned it everywhere. This file said seven until
+2026-09-01; the bucket had said thirty for longer than that, so what changed on
+that date was the code and this paragraph catching up with it. The two rules on
+the account are called **vector results 30 days** and **metadata originals 30
+days** (added 2026-09-01, before the code that fills the prefix shipped — an
+archive with no expiry is a bill that only grows). Note what applying or
+changing a rule does: it is retroactive, so everything already older than the
+window is reclaimed on the next sweep rather than from now on.
+
+Adding one warns that "R2 Data Catalog is enabled for bucket stockflow" and
+that the operation could leave the catalog invalid. The same settings page says
+the catalog is **disabled** for this bucket, so the warning is a blanket one and
+Proceed is correct — but check that line before agreeing to it.
+
+The bucket is `stockflow` (APAC), and it also carries R2's **Default Multipart
+Abort Rule** — incomplete multipart uploads dropped after 7 days, no prefix.
+Nothing here uses multipart, so it is a backstop rather than a policy; leave it
+alone.
+
+Setting it needs the dashboard, or an API token scoped to bucket settings. The
+credentials in `stockflow.env` are deliberately object-only — `GET /?lifecycle`
+with them answers 403 — because the app never needs to read or write bucket
+configuration and a key that can is a key that can turn retention off.
+
+One thing the app does prune, and it prunes ROWS only: the nightly job drops
+`run_media` at `RESULT_DAYS`, so `revealRunMedia` cannot show an admin a file
+after the month the contributor was told about. The bytes are still the
+lifecycle rule's to delete. Keep the two numbers equal — the failure mode
+either way is benign (a 404, or an object nothing lists any more), but they are
+one promise and should read as one.
 
 The trade is that a row can outlive its objects. A download of something the
 lifecycle rule has already reclaimed fails with R2's own 404 rather than a
-friendly message — worth knowing before you set the window short.
+friendly message — worth knowing before you set the window short. Both admin
+screens say as much next to the tiles that will not draw.
+
+**Both admin screens can open a user's files, and both write an audit row
+before they answer.** `/dashboard/admin/runs/<id>` shows a run's archived
+originals; `/dashboard/admin/vector-jobs/<id>` shows a batch's originals and
+the SVG and EPS that came back. Neither is reachable without a click, and the
+click is what is recorded — the loaders deliberately carry no URLs, so an
+audit entry means somebody looked, not that a page rendered. The user-facing
+copy on both tools says an admin can do this; that sentence is half of what
+makes the feature defensible, so do not quietly drop it from a translation.
 
 The tracing itself happens in a machine running the `vectorizer` repo, which
 polls for work — see `worker/README.md`. That machine can be this box (one file

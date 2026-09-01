@@ -32,12 +32,13 @@ export const id: Messages = {
   footer: {
     blurb: (
       <>
-        Perkakas untuk orang-orang yang mengunggah ke microstock. File Anda tetap
-        di komputer Anda; modelnya berjalan dengan{' '}
-        <span className="text-primary font-mono">kunci Anda sendiri</span>.
+        Perkakas untuk orang-orang yang mengunggah ke microstock. Modelnya
+        berjalan dengan{' '}
+        <span className="text-primary font-mono">kunci Anda sendiri</span>; apa
+        yang Anda berikan ke perkakas disimpan 30 hari, lalu dihapus.
       </>
     ),
-    stamp: 'Model Google · kunci Anda · komputer Anda',
+    stamp: 'Model Google · kunci Anda · disimpan 30 hari',
   },
 
   landing: {
@@ -81,8 +82,8 @@ export const id: Messages = {
       'Tiga hal ini berlaku untuk setiap perkakas di rak ini, dan akan tetap berlaku untuk yang belum ditulis.',
     rules: [
       {
-        title: 'File Anda tidak pernah sampai ke kami',
-        body: 'Pekerjaannya berjalan di browser Anda dan berbicara langsung ke Google. Foto dan footage Anda tidak pernah diunggah ke kami — tempat untuk menyimpannya pun kami tidak punya.',
+        title: 'File Anda disimpan 30 hari',
+        body: 'Pekerjaannya tetap berjalan di browser Anda dan berbicara langsung ke Google dengan kunci Anda sendiri. Salinan berkas yang Anda berikan ke perkakas kami simpan 30 hari supaya bisa ditelusuri kalau ada yang salah, setelah itu dihapus. Kalau Anda minta bantuan, admin bisa membukanya — dan tiap pembukaan tercatat atas nama admin tersebut.',
       },
       {
         title: 'Kunci Anda, kuota Anda',
@@ -90,7 +91,7 @@ export const id: Messages = {
       },
       {
         title: 'Tidak ada yang final sebelum Anda setuju',
-        body: 'Perkakasnya mengusulkan, Anda yang memutuskan. Apa pun hasilnya bisa Anda ubah sebelum ditulis, dan pekerjaan yang sudah selesai masih bisa dibuka lagi selama seminggu.',
+        body: 'Perkakasnya mengusulkan, Anda yang memutuskan. Apa pun hasilnya bisa Anda ubah sebelum ditulis, dan pekerjaan yang sudah selesai masih bisa dibuka lagi selama sebulan.',
       },
     ],
 
@@ -117,8 +118,8 @@ export const id: Messages = {
         body: 'Unggah JPEG atau SVG hasil ekspor Anda, lalu tentukan nama berkas yang dibawa CSV — .eps, .ai, .mp4, apa saja — untuk satu baris atau semua baris sekaligus.',
       },
       {
-        title: 'Seminggu untuk berubah pikiran',
-        body: 'Setiap run yang selesai masih bisa dibuka selama tujuh hari: perbaiki judul, tambah kata kunci, ambil CSV baru. Setelah itu tinggal angkanya saja.',
+        title: 'Sebulan untuk berubah pikiran',
+        body: 'Setiap run yang selesai masih bisa dibuka selama 30 hari: perbaiki judul, tambah kata kunci, ambil CSV baru. Setelah itu tinggal angkanya saja.',
       },
     ],
 
@@ -199,19 +200,19 @@ export const id: Messages = {
     expiresIn: (days: number) =>
       days <= 0 ? 'hilang hari ini' : `sisa ${days} hari`,
     resultsNote:
-      'Run yang selesai menyimpan barisnya selama tujuh hari, jadi Anda bisa membukanya lagi, membetulkan judul, dan mengambil CSV baru. Setelah itu yang tersisa hanya angka di atas. Selama hasilnya masih ada, admin juga bisa membukanya kalau Anda minta bantuan soal hasil itu — dan tiap pembukaan tercatat atas nama admin tersebut.',
+      'Run yang selesai menyimpan barisnya selama 30 hari, jadi Anda bisa membukanya lagi, membetulkan judul, dan mengambil CSV baru — dan berkas yang diproses run itu disimpan 30 hari juga. Setelah itu yang tersisa hanya angka di atas. Selama run-nya masih ada, admin juga bisa membuka baris maupun berkasnya kalau Anda minta bantuan — dan tiap pembukaan tercatat atas nama admin tersebut.',
 
     resultTitle: 'Hasil tersimpan',
     resultGone: 'Hasil ini sudah kedaluwarsa.',
     resultGoneBody:
-      'Baris disimpan tujuh hari setelah run. Run-nya sendiri masih ada di riwayat Anda — yang hilang hanya hasil yang bisa diedit.',
+      'Baris disimpan 30 hari setelah run. Run-nya sendiri masih ada di riwayat Anda — yang hilang hanya hasil yang bisa diedit.',
     backToHistory: 'Kembali ke riwayat',
     resultSaved: 'Tersimpan',
     resultSaveFailed: 'Tidak bisa menyimpan perubahan itu.',
     save: 'Simpan perubahan',
     saving: 'Menyimpan…',
     previewsMissing:
-      'Tidak ada pratinjau di browser ini — gambar kecilnya disimpan di komputer yang menjalankan run-nya, tidak pernah di server kami, jadi hanya muncul di sana.',
+      'Tidak ada pratinjau di browser ini — gambar kecilnya dibuat dan disimpan di komputer yang menjalankan run-nya, jadi hanya muncul di sana. Berkas aslinya sendiri tetap ada di penyimpanan kami selama 30 hari.',
   },
 
   auth: {
@@ -264,6 +265,8 @@ export const id: Messages = {
       'Tanpa izin ke folder itu tidak ada yang bisa dibaca. Pilih lagi folder yang sama di bawah, run akan lanjut dari tempat berhentinya.',
     runningNote:
       'Biarkan tab ini terbuka — model dipanggil dari sini. Kalau ditutup, semua yang sudah selesai tetap tersimpan: di folder Anda dan di Riwayat.',
+    archiveNote:
+      'Setelah run selesai, tab ini juga mengunggah salinan tiap berkas ke penyimpanan kami dan menyimpannya 30 hari, supaya kami bisa menelusuri kalau ada hasil yang salah. Kalau Anda minta bantuan, admin bisa membuka berkas itu, dan tiap pembukaan tercatat atas nama admin tersebut. Setelah 30 hari berkasnya dihapus.',
 
     scanning: 'membaca folder…',
     counts: (files: number, images: number, videos: number) =>
@@ -471,7 +474,7 @@ export const id: Messages = {
     vectorize: 'Vectorize',
     tokens: (count: number) => `${count} token`,
     lead: (trial: number) =>
-      `Gambar raster masuk, SVG dan EPS 4000 px keluar, dengan pengaturan yang diterima Shutterstock dan Adobe Stock. Satu gambar memakai satu token, dan berkas yang gagal tokennya dikembalikan. Tiap akun mulai dengan ${trial} token, dan tiap berkas yang selesai menyimpan ketiganya: gambar asli Anda, SVG dan EPS.`,
+      `Gambar raster masuk, SVG dan EPS 4000 px keluar, dengan pengaturan yang diterima Shutterstock dan Adobe Stock. Satu gambar memakai satu token, dan berkas yang gagal tokennya dikembalikan. Tiap akun mulai dengan ${trial} token, dan tiap berkas yang selesai menyimpan ketiganya: gambar asli Anda, SVG dan EPS. Ketiganya disimpan 30 hari lalu dihapus; kalau Anda minta bantuan soal satu batch, admin bisa membukanya, dan tiap pembukaan tercatat atas nama admin tersebut.`,
     queueNote:
       'Penelusurannya dikerjakan di mesin kami, beberapa gambar sekaligus, jadi satu batch bisa mengantre dulu sebelum jalan. Halaman ini memperbarui dirinya sendiri — boleh ditutup lalu dibuka lagi nanti.',
     storageMissing: (

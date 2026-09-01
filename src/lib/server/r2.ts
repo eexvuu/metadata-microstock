@@ -5,6 +5,10 @@ import { env } from '#/lib/runtime/env'
 /**
  * R2, and nothing but presigned URLs.
  *
+ * Two tools store bytes here now — the vectorizer's three objects per file, and
+ * (since 2026-09-01) the metadata tool's archived originals. One bucket, two
+ * prefixes, one door.
+ *
  * The rule this file exists to keep: **media bytes never pass through this
  * process.** The browser PUTs an original straight to R2, the worker GETs it
  * straight from R2 and PUTs its vectors back the same way, and the only thing
@@ -161,4 +165,22 @@ export async function deleteObject(key: string): Promise<void> {
 export function objectKeys(userId: string, jobId: string, fileId: string) {
   const base = `vector/${userId}/${jobId}/${fileId}`
   return { source: `${base}/source`, svg: `${base}/out.svg`, eps: `${base}/out.eps` }
+}
+
+/**
+ * Where one archived metadata original lives.
+ *
+ * A second top-level prefix rather than a second bucket, so the two tools share
+ * one set of credentials and one lifecycle configuration — `vector/` and
+ * `metadata/` each get their own rule, both at 30 days (`deploy/README.md`).
+ * The user id leads here for the same reason it does above: a clean-up scoped
+ * to one account must not need the database.
+ *
+ * No extension in the key. The contributor's filename is carried in the row
+ * and the content type with it, which is what the admin screen renders from —
+ * a key that tried to be a filename would only be a second place to get it
+ * wrong.
+ */
+export function runMediaKey(userId: string, runId: string, mediaId: string): string {
+  return `metadata/${userId}/${runId}/${mediaId}`
 }

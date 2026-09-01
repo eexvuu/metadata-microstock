@@ -159,7 +159,7 @@ export const auditLog = sqliteTable(
     actorEmail: text('actor_email').notNull(),
     /** One of AUDIT_ACTIONS in `src/lib/server/audit.ts`. */
     action: text('action').notNull(),
-    // user | session | key
+    // user | session | key | run | job
     targetType: text('target_type').notNull(),
     targetId: text('target_id'),
     /** An email, a key preview — whatever names the target to a human. */
@@ -205,9 +205,10 @@ export const usageDaily = sqliteTable('usage_daily', {
  * column of that table, and a blob per run would ride along on a screen that
  * never shows it.
  *
- * `expiresAt` is stamped at first save and NOT extended by editing. Seven days
+ * `expiresAt` is stamped at first save and NOT extended by editing. Thirty days
  * is a working window, not storage — the box is shared, and the numbers in
- * `generation_run` outlive this by design.
+ * `generation_run` outlive this by design. `RESULT_DAYS` is the one place that
+ * number lives; the archived originals in `run_media` share it.
  */
 export const runRows = sqliteTable(
   'run_rows',
@@ -236,6 +237,58 @@ export const runRows = sqliteTable(
   (table) => [
     index('run_rows_userId_idx').on(table.userId),
     index('run_rows_expiresAt_idx').on(table.expiresAt),
+  ],
+)
+
+/**
+ * One archived original per file a run processed — the bytes, not the metadata.
+ *
+ * **This reverses the oldest promise in the repo, on purpose, 2026-09-01.**
+ * The engine still runs in the tab and still posts media straight to Google
+ * with the contributor's own key; nothing about the run changed. What is new
+ * is that after the run finishes, the browser also PUTs each original to R2 so
+ * support can see the file somebody is asking about. "The titles come out
+ * wrong" was already answerable from `run_rows`; "it read my photo as a dog"
+ * was not, and asking a contributor to email a 60 MB .mov is worse for them
+ * than an admin opening a screen that records the opening.
+ *
+ * A row here means the bytes ARRIVED. Nothing is written before the upload —
+ * unlike `vector_file`, which must exist first because a token is charged
+ * against it — so this table never promises an object that was never made.
+ * The reverse can still happen: R2's lifecycle rule owns the deletion, and a
+ * row the nightly prune has not reached yet can outlive its object. That
+ * download fails with R2's own 404, and the admin screen says so.
+ *
+ * `objectKey` is derivable from (`userId`, `runId`, `id`) and is stored anyway,
+ * for the reason `vector_file` stores its three: a key is what a manual
+ * clean-up works from, and deriving it in two places is how they drift.
+ */
+export const runMedia = sqliteTable(
+  'run_media',
+  {
+    id: text('id').primaryKey(),
+    runId: text('run_id')
+      .notNull()
+      .references(() => generationRun.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    /** The contributor's own filename — the only name that means anything. */
+    filename: text('filename').notNull(),
+    contentType: text('content_type').notNull(),
+    sizeBytes: integer('size_bytes').notNull().default(0),
+    // image | video — what the admin screen needs to pick a preview element,
+    // without parsing an extension a second time.
+    kind: text('kind').notNull().default('image'),
+    objectKey: text('object_key').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`),
+  },
+  (table) => [
+    index('run_media_runId_idx').on(table.runId),
+    index('run_media_userId_idx').on(table.userId),
+    index('run_media_createdAt_idx').on(table.createdAt),
   ],
 )
 

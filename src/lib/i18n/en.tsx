@@ -37,12 +37,12 @@ export const en = {
   footer: {
     blurb: (
       <>
-        Tools for the people who upload to microstock. Your media stays on your
-        machine; the model runs on{' '}
-        <span className="text-primary font-mono">your own keys</span>.
+        Tools for the people who upload to microstock. The model runs on{' '}
+        <span className="text-primary font-mono">your own keys</span>; what you
+        give a tool is kept for 30 days, then deleted.
       </>
     ) as ReactNode,
-    stamp: "Google's model · your keys · your machine",
+    stamp: "Google's model · your keys · 30 days of storage",
   },
 
   landing: {
@@ -84,8 +84,8 @@ export const en = {
       'Three things are true of every tool on this shelf, and will stay true of the ones that are not written yet.',
     rules: [
       {
-        title: 'Your media never reaches us',
-        body: 'The work happens in your browser and talks to Google directly. Your photos and footage are never uploaded to us — we do not even have somewhere to put them.',
+        title: 'Your files are kept for 30 days',
+        body: 'The work still happens in your browser and talks to Google directly with your own key. A copy of what you gave the tool is kept for 30 days so we can look into it if something comes out wrong, and then it is deleted. If you ask us for help, an admin can open it — and every time one does, it is recorded against them.',
       },
       {
         title: 'Your keys, your quota',
@@ -93,7 +93,7 @@ export const en = {
       },
       {
         title: 'Nothing is final until you say so',
-        body: 'A tool proposes, you decide. Whatever it produced is yours to edit before anything is written, and you can reopen a finished job for a week afterwards.',
+        body: 'A tool proposes, you decide. Whatever it produced is yours to edit before anything is written, and you can reopen a finished job for a month afterwards.',
       },
     ],
 
@@ -120,8 +120,8 @@ export const en = {
         body: 'Upload the JPEG or SVG you exported, then set the filename the CSV should carry — .eps, .ai, .mp4, anything — for one row or for all of them at once.',
       },
       {
-        title: 'A week to change your mind',
-        body: 'Every finished run stays openable for seven days: fix a title, add a keyword, take a fresh CSV. After that only the numbers remain.',
+        title: 'A month to change your mind',
+        body: 'Every finished run stays openable for 30 days: fix a title, add a keyword, take a fresh CSV. After that only the numbers remain.',
       },
     ],
 
@@ -202,19 +202,19 @@ export const en = {
     expiresIn: (days: number) =>
       days <= 0 ? 'goes today' : `${days} day${days === 1 ? '' : 's'} left`,
     resultsNote:
-      'A finished run keeps its rows for seven days so you can open it, fix a title and take a fresh CSV. After that only the numbers above remain. While a result is still here, an admin can open it too if you ask us for help with it — every time one does, it is recorded against them.',
+      'A finished run keeps its rows for 30 days so you can open it, fix a title and take a fresh CSV, and the files it was given are kept for the same 30 days. After that only the numbers above remain. While a run is still here, an admin can open its rows and its files too if you ask us for help with it — every time one does, it is recorded against them.',
 
     resultTitle: 'Saved result',
     resultGone: 'This result has expired.',
     resultGoneBody:
-      'Rows are kept for seven days after a run. The run itself is still in your history — only the editable result is gone.',
+      'Rows are kept for 30 days after a run. The run itself is still in your history — only the editable result is gone.',
     backToHistory: 'Back to history',
     resultSaved: 'Saved',
     resultSaveFailed: 'Could not save those edits.',
     save: 'Save edits',
     saving: 'Saving…',
     previewsMissing:
-      'No previews in this browser — thumbnails are kept on the machine that did the run, never on our server, so they only show up there.',
+      'No previews in this browser — these thumbnails are made and kept on the machine that did the run, so they only show up there. The files themselves are on our storage for 30 days either way.',
   },
 
   auth: {
@@ -286,6 +286,8 @@ export const en = {
       'Without permission for that folder there is nothing to read. Choose it again below and the run picks up where it stopped.',
     runningNote:
       'Keep this tab open — the model is being called from here. Close it and everything finished so far is kept, in the folder and in History.',
+    archiveNote:
+      'When the run finishes, this tab also uploads a copy of each file to our storage and keeps it for 30 days, so we can look into it if something comes out wrong. If you ask us for help, an admin can open those files, and every time one does it is recorded against them. After 30 days they are deleted.',
 
     scanning: 'reading the folder…',
     counts: (files: number, images: number, videos: number) =>
@@ -514,7 +516,7 @@ export const en = {
     vectorize: 'Vectorize',
     tokens: (count: number) => `${count} token${count === 1 ? '' : 's'}`,
     lead: (trial: number) =>
-      `Raster art in, 4000 px SVG and EPS out, on the settings Shutterstock and Adobe Stock accept. One image costs one token and a file that does not come back gives its token back. Every account starts with ${trial}, and every finished file keeps all three: your original, the SVG and the EPS.`,
+      `Raster art in, 4000 px SVG and EPS out, on the settings Shutterstock and Adobe Stock accept. One image costs one token and a file that does not come back gives its token back. Every account starts with ${trial}, and every finished file keeps all three: your original, the SVG and the EPS. All three are kept for 30 days and then deleted; if you ask us for help with a batch, an admin can open them, and every time one does it is recorded against them.`,
     queueNote:
       'Tracing happens on our machines, a few images at a time, so a batch can sit in the queue for a while before it moves. This page keeps itself up to date — you can close it and come back.',
     storageMissing: (

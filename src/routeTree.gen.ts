@@ -24,6 +24,7 @@ import { Route as ToolsMetadataHistoryRouteImport } from './routes/tools/metadat
 import { Route as ToolsVectorizerIndexRouteImport } from './routes/tools/vectorizer/index'
 import { Route as DashboardAdminRunsRunIdRouteImport } from './routes/dashboard/admin/runs.$runId'
 import { Route as DashboardAdminUsersUserIdRouteImport } from './routes/dashboard/admin/users.$userId'
+import { Route as DashboardAdminVectorJobsJobIdRouteImport } from './routes/dashboard/admin/vector-jobs.$jobId'
 import { Route as ToolsMetadataHistoryRunIdRouteImport } from './routes/tools/metadata/history_.$runId'
 import { Route as ToolsVectorizerJobsJobIdRouteImport } from './routes/tools/vectorizer/jobs.$jobId'
 
@@ -103,6 +104,12 @@ const DashboardAdminUsersUserIdRoute =
     path: '/admin/users/$userId',
     getParentRoute: () => DashboardRouteRoute,
   } as any)
+const DashboardAdminVectorJobsJobIdRoute =
+  DashboardAdminVectorJobsJobIdRouteImport.update({
+    id: '/admin/vector-jobs/$jobId',
+    path: '/admin/vector-jobs/$jobId',
+    getParentRoute: () => DashboardRouteRoute,
+  } as any)
 const ToolsMetadataHistoryRunIdRoute =
   ToolsMetadataHistoryRunIdRouteImport.update({
     id: '/history_/$runId',
@@ -132,6 +139,7 @@ export interface FileRoutesByFullPath {
   '/tools/vectorizer/': typeof ToolsVectorizerIndexRoute
   '/dashboard/admin/runs/$runId': typeof DashboardAdminRunsRunIdRoute
   '/dashboard/admin/users/$userId': typeof DashboardAdminUsersUserIdRoute
+  '/dashboard/admin/vector-jobs/$jobId': typeof DashboardAdminVectorJobsJobIdRoute
   '/tools/metadata/history/$runId': typeof ToolsMetadataHistoryRunIdRoute
   '/tools/vectorizer/jobs/$jobId': typeof ToolsVectorizerJobsJobIdRoute
 }
@@ -148,6 +156,7 @@ export interface FileRoutesByTo {
   '/tools/vectorizer': typeof ToolsVectorizerIndexRoute
   '/dashboard/admin/runs/$runId': typeof DashboardAdminRunsRunIdRoute
   '/dashboard/admin/users/$userId': typeof DashboardAdminUsersUserIdRoute
+  '/dashboard/admin/vector-jobs/$jobId': typeof DashboardAdminVectorJobsJobIdRoute
   '/tools/metadata/history/$runId': typeof ToolsMetadataHistoryRunIdRoute
   '/tools/vectorizer/jobs/$jobId': typeof ToolsVectorizerJobsJobIdRoute
 }
@@ -168,6 +177,7 @@ export interface FileRoutesById {
   '/tools/vectorizer/': typeof ToolsVectorizerIndexRoute
   '/dashboard/admin/runs/$runId': typeof DashboardAdminRunsRunIdRoute
   '/dashboard/admin/users/$userId': typeof DashboardAdminUsersUserIdRoute
+  '/dashboard/admin/vector-jobs/$jobId': typeof DashboardAdminVectorJobsJobIdRoute
   '/tools/metadata/history_/$runId': typeof ToolsMetadataHistoryRunIdRoute
   '/tools/vectorizer/jobs/$jobId': typeof ToolsVectorizerJobsJobIdRoute
 }
@@ -189,6 +199,7 @@ export interface FileRouteTypes {
     | '/tools/vectorizer/'
     | '/dashboard/admin/runs/$runId'
     | '/dashboard/admin/users/$userId'
+    | '/dashboard/admin/vector-jobs/$jobId'
     | '/tools/metadata/history/$runId'
     | '/tools/vectorizer/jobs/$jobId'
   fileRoutesByTo: FileRoutesByTo
@@ -205,6 +216,7 @@ export interface FileRouteTypes {
     | '/tools/vectorizer'
     | '/dashboard/admin/runs/$runId'
     | '/dashboard/admin/users/$userId'
+    | '/dashboard/admin/vector-jobs/$jobId'
     | '/tools/metadata/history/$runId'
     | '/tools/vectorizer/jobs/$jobId'
   id:
@@ -224,6 +236,7 @@ export interface FileRouteTypes {
     | '/tools/vectorizer/'
     | '/dashboard/admin/runs/$runId'
     | '/dashboard/admin/users/$userId'
+    | '/dashboard/admin/vector-jobs/$jobId'
     | '/tools/metadata/history_/$runId'
     | '/tools/vectorizer/jobs/$jobId'
   fileRoutesById: FileRoutesById
@@ -343,6 +356,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardAdminUsersUserIdRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/dashboard/admin/vector-jobs/$jobId': {
+      id: '/dashboard/admin/vector-jobs/$jobId'
+      path: '/admin/vector-jobs/$jobId'
+      fullPath: '/dashboard/admin/vector-jobs/$jobId'
+      preLoaderRoute: typeof DashboardAdminVectorJobsJobIdRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
     '/tools/metadata/history_/$runId': {
       id: '/tools/metadata/history_/$runId'
       path: '/history/$runId'
@@ -366,6 +386,7 @@ interface DashboardRouteRouteChildren {
   DashboardAdminIndexRoute: typeof DashboardAdminIndexRoute
   DashboardAdminRunsRunIdRoute: typeof DashboardAdminRunsRunIdRoute
   DashboardAdminUsersUserIdRoute: typeof DashboardAdminUsersUserIdRoute
+  DashboardAdminVectorJobsJobIdRoute: typeof DashboardAdminVectorJobsJobIdRoute
 }
 
 const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
@@ -374,6 +395,7 @@ const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardAdminIndexRoute: DashboardAdminIndexRoute,
   DashboardAdminRunsRunIdRoute: DashboardAdminRunsRunIdRoute,
   DashboardAdminUsersUserIdRoute: DashboardAdminUsersUserIdRoute,
+  DashboardAdminVectorJobsJobIdRoute: DashboardAdminVectorJobsJobIdRoute,
 }
 
 const DashboardRouteRouteWithChildren = DashboardRouteRoute._addFileChildren(

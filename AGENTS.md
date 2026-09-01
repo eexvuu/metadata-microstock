@@ -204,8 +204,33 @@ browser tab, under Bun and under Node. The two seams are
 user's disk and posted straight to `generativelanguage.googleapis.com` with
 their own key. The 10 ms budget that originally forced this is gone, and the
 reason is now better rather than weaker: two shared cores would fall over long
-before a hundred contributors did, and the media never has to exist on a disk
-we own. Do not add a server route that proxies media.
+before a hundred contributors did. Do not add a server route that proxies
+media — that part has never changed and is not going to.
+
+**The originals are archived afterwards, and that half is new (2026-09-01).**
+This file used to end the paragraph above with "and the media never has to
+exist on a disk we own", which was true and is not any more. When a run
+finishes, the same tab uploads a copy of every file it processed to R2 on
+presigned PUT URLs and it is kept for `RESULT_DAYS` — see
+`src/lib/generator/archive.ts` and `src/lib/server/run-media.ts`. What was
+bought and what it cost, both worth knowing before anyone "restores" the old
+rule:
+
+- It exists so support can answer "it read my photo as a dog". `revealRunRows`
+  already answered "the titles come out wrong"; nothing answered a question
+  about the picture, and the alternative was asking a contributor to email a
+  60 MB .mov.
+- **Nothing about the run changed.** The archive happens after the last file,
+  in the background, so a run's pace is still the model's and not the uplink's.
+  A closed tab archives nothing, which is the same deal the run itself has.
+- **Not one byte goes through Node.** Browser → R2, exactly like the
+  vectorizer's uploads, for exactly the reason in `src/lib/server/r2.ts`.
+- **The copy says so, in both locales, on the screen where the person decides**
+  (`m.tool.archiveNote`), and the landing page's first house rule was rewritten
+  rather than left standing. That sentence is half of what makes
+  `revealRunMedia` defensible; a translation that drops it is a bug.
+- A row in `run_media` means the bytes ARRIVED — nothing is written before the
+  upload, unlike `vector_file`, which has a token charged against it.
 
 **Keys are held, not free-floating — and they belong to a user.** A Gemini key
 may travel to exactly two places: this app's server, where it is stored
@@ -237,10 +262,20 @@ own session, it writes a `run.revealed` audit row **before** it answers, and
 deliberate limits keep it support rather than surveillance: it is **read-only**
 (`updateRunRows` stays session-scoped, because fixing somebody's metadata for
 them is editing their work), and it refuses an expired result even though the
-row survives until the nightly prune reaches it — seven days is what the
+row survives until the nightly prune reaches it — thirty days is what the
 contributor was told, and an admin does not get a longer window than the owner.
 The loader (`getRunForAdmin`) deliberately carries no rows, so an audit entry
 means somebody clicked, not that a page rendered.
+
+**And so are the files, since 2026-09-01.** `revealRunMedia` is the same door
+for the archived originals and `revealVectorFiles` is its twin for a vectorize
+batch — audit row (`run.media.revealed`, `vector.revealed`) before the answer,
+presigned GETs afterwards, read-only, and no path to either outside the owner's
+own session. Both loaders carry no URLs for the same reason `getRunForAdmin`
+carries no rows. The parity that keeps the window honest is not a check in the
+handler: the nightly job prunes `run_media` at `RESULT_DAYS`, so there is
+nothing left to reveal once the month the contributor was told about has
+passed. Keep the bucket's lifecycle rule and that number equal.
 
 **The CSV bytes are a contract.** Adobe needs the UTF-8 BOM, Shutterstock must
 not have one; Adobe titles carry no commas or quotes, Shutterstock descriptions
@@ -375,6 +410,7 @@ download and is never renamed or asked for a progress file.
 |---|---|
 | A new stock platform | `src/lib/engine/profiles/<name>.ts` + the `PROFILES` map in `use-generator.ts` |
 | A new place files can live | `src/lib/sources/<name>.ts` implementing `FileSource` |
+| What is kept after a run, and for how long | `src/lib/generator/archive.ts` + `src/lib/server/run-media.ts` |
 | The review screen, the drop zone | `src/components/generator/` |
 | A new way to strip audio | `src/lib/video/` implementing `VideoPreprocessor` |
 | A new format the model cannot read | `src/lib/image/` implementing `ImagePreprocessor` |
@@ -675,6 +711,10 @@ a row ends up promising a file that is not there. `vector_file.expires_at`
 survives as an unused nullable column so putting it back is a code change, not
 a migration. The trade — a row can outlive its objects, and that download fails
 with R2's own 404 — is written down in `deploy/README.md`.
+
+The window is **30 days** as of 2026-09-01, and it is the same thirty
+`RESULT_DAYS` gives a metadata run: one promise for the whole shelf, on one
+bucket, under two prefixes (`vector/` and `metadata/`) with a rule each.
 
 The one deletion the app still does is the original of a permanently failed
 file (`failFile`): nobody will ever download it.

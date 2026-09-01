@@ -22,7 +22,8 @@ const STATUS = [
  *
  * The per-file rows are not a resource. They are queue state with a lease and
  * a refund attached to them, and a hand-edit would desynchronise a worker from
- * the ledger. The tool's own batch screen is where files are read.
+ * the ledger — which is why the detail route below is hand-written and
+ * read-only rather than a second `defineResource`.
  */
 export const vectorJobs = defineResource({
   name: 'vector-jobs',
@@ -40,6 +41,13 @@ export const vectorJobs = defineResource({
   joins: [{ table: user, on: eq(vectorJob.userId, user.id) }],
 
   searchPlaceholder: 'Search by batch name…',
+
+  /**
+   * The counts are in the row; the artwork is not. Opening a batch is how an
+   * admin gets from "3 failed" to the picture that failed — and the route is
+   * where that reveal is audited, so the link has to exist.
+   */
+  detailPath: '/dashboard/admin/vector-jobs/$jobId',
 
   columns: [
     {

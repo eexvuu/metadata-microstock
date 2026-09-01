@@ -3,6 +3,7 @@ import { ArrowLeft, Eye, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
+import { MediaPreview, formatBytes } from '#/components/admin/media-preview'
 import { PageHead } from '#/components/page-head'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
@@ -15,7 +16,7 @@ import {
   TableRow,
 } from '#/components/ui/table'
 import type { MetadataRow } from '#/lib/engine/types'
-import { getRunForAdmin, revealRunRows } from '#/lib/server/admin'
+import { getRunForAdmin, revealRunMedia, revealRunRows } from '#/lib/server/admin'
 
 /**
  * One run, from the admin side — the counts on load, the rows on request.
@@ -25,13 +26,27 @@ import { getRunForAdmin, revealRunRows } from '#/lib/server/admin'
  * `revealRunRows` writes into the audit log. Loading a page nobody read the
  * rows on should not accuse an admin of reading them.
  *
- * Read-only, and it has no thumbnails: previews live in the IndexedDB of the
- * browser that did the run and were never ours to serve.
+ * Read-only, and there are two reveals on it now rather than one: the rows the
+ * run produced, and (2026-09-01) the files it was given. Both cost a click for
+ * the same reason, and both write the same kind of audit row.
+ *
+ * The thumbnails the contributor sees are still not here — those live in the
+ * IndexedDB of the browser that did the run. What this screen draws is the
+ * archived original itself, straight from R2 on a presigned URL.
  */
 export const Route = createFileRoute('/dashboard/admin/runs/$runId')({
   loader: ({ params }) => getRunForAdmin({ data: { id: params.runId } }),
   component: AdminRunDetail,
 })
+
+interface RevealedFile {
+  id: string
+  filename: string
+  contentType: string
+  sizeBytes: number
+  kind: string
+  url: string
+}
 
 /** Empty keywords is 0, not 1 — `''.split(',')` would say otherwise. */
 function countKeywords(keywords: string): number {
@@ -55,6 +70,10 @@ function AdminRunDetail() {
   const [rows, setRows] = useState<MetadataRow[] | null>(null)
   const [revealing, setRevealing] = useState(false)
 
+  /** The archived originals, on the same terms — and the same non-persistence. */
+  const [files, setFiles] = useState<RevealedFile[] | null>(null)
+  const [opening, setOpening] = useState(false)
+
   const reveal = async () => {
     setRevealing(true)
     try {
@@ -64,6 +83,17 @@ function AdminRunDetail() {
       toast.error(error instanceof Error ? error.message : String(error))
     } finally {
       setRevealing(false)
+    }
+  }
+
+  const openFiles = async () => {
+    setOpening(true)
+    try {
+      setFiles(await revealRunMedia({ data: { id: runId } }))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error))
+    } finally {
+      setOpening(false)
     }
   }
 
@@ -135,7 +165,7 @@ function AdminRunDetail() {
           Result
         </h2>
         <p className="text-muted-foreground mt-1 text-sm">
-          The metadata this run produced, kept for seven days after it finished.
+          The metadata this run produced, kept for 30 days after it finished.
           Opening it is recorded against you in the audit log, and{' '}
           {run.ownerName} is told in the tool that an admin can do this. Nothing
           here is editable — a wrong title is theirs to fix, on their own screen.
@@ -245,6 +275,59 @@ function AdminRunDetail() {
                 ))}
               </TableBody>
             </Table>
+          </div>
+        )}
+      </section>
+
+      <section>
+        <h2 className="font-display text-xl font-medium tracking-tight">
+          Files
+        </h2>
+        <p className="text-muted-foreground mt-1 text-sm">
+          The originals this run was given, uploaded by {run.ownerName}'s
+          browser after it finished and kept for the same 30 days. Opening them
+          is recorded against you, and the tool tells them an admin can do it.
+          This is how "it read my photo as a dog" gets answered — a file that
+          cannot be drawn here (a .ai, a ProRes master) still has a link.
+        </p>
+
+        {files === null ? (
+          <div className="border-(--line) mt-4 border border-dashed py-8 text-center">
+            <Button variant="outline" disabled={opening} onClick={() => void openFiles()}>
+              {opening ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Eye className="size-4" />
+              )}
+              Open the files
+            </Button>
+          </div>
+        ) : files.length === 0 ? (
+          <p className="border-(--line) text-muted-foreground mt-4 border border-dashed py-8 text-center font-mono text-xs">
+            nothing was kept for this run
+          </p>
+        ) : (
+          <div className="mt-4 grid grid-cols-2 gap-px sm:grid-cols-3 lg:grid-cols-5">
+            {files.map((file) => (
+              <figure key={file.id} className="bg-card border-(--line) border">
+                <MediaPreview
+                  url={file.url}
+                  contentType={file.contentType}
+                  filename={file.filename}
+                />
+                <figcaption className="text-muted-foreground space-y-0.5 p-2">
+                  <span
+                    className="block truncate font-mono text-[0.7rem]"
+                    title={file.filename}
+                  >
+                    {file.filename}
+                  </span>
+                  <span className="block font-mono text-[0.65rem]">
+                    {formatBytes(file.sizeBytes)}
+                  </span>
+                </figcaption>
+              </figure>
+            ))}
           </div>
         )}
       </section>

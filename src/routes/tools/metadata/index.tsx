@@ -53,6 +53,7 @@ import {
   updatePendingProgress,
   type PendingRun,
 } from '#/lib/generator/resume'
+import { archiveOriginals } from '#/lib/generator/archive'
 import { captureThumbnails, saveThumbnails } from '#/lib/generator/thumbnails'
 import { useGenerator } from '#/lib/generator/use-generator'
 import { useMessages } from '#/lib/i18n'
@@ -343,7 +344,7 @@ function MetadataTool() {
       }
 
       /**
-       * Keep the result so History can reopen it for a week.
+       * Keep the result so History can reopen it for a month.
        *
        * Its own try/catch on purpose: a run that finished is finished. If the
        * rows are too large to store, or the request fails, the CSV is still
@@ -367,6 +368,19 @@ function MetadataTool() {
             .catch((error: unknown) => {
               console.warn('[stockflow] previews not stored:', error)
             })
+
+          /*
+           * And the originals themselves, to R2, for the same month the rows
+           * get. Not awaited for the same reason the thumbnails are not: the
+           * folder is open, the review screen is usable, and an upload nobody
+           * is waiting on has no business standing in front of it. Failures
+           * are the archive's own problem — see `archive.ts`.
+           */
+          void archiveOriginals(selected.source, entries, runId).catch(
+            (error: unknown) => {
+              console.warn('[stockflow] originals not archived:', error)
+            },
+          )
         } catch (error) {
           toast.warning(
             error instanceof Error ? error.message : String(error),
@@ -671,6 +685,16 @@ function MetadataTool() {
                   {m.tool.runningNote}
                 </p>
               ) : null}
+
+              {/*
+                Said before the button is pressed, not after. The tab uploads a
+                copy of every file when the run ends and an admin can open it —
+                which is only defensible if the person was told, in the place
+                they decide.
+              */}
+              <p className="text-muted-foreground text-xs text-pretty">
+                {m.tool.archiveNote}
+              </p>
 
               {!ready && !running ? (
                 <p className="text-muted-foreground font-mono text-xs">

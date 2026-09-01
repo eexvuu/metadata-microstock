@@ -1,7 +1,8 @@
 import { count, gte, lt, sum } from 'drizzle-orm'
 
 import { getDb } from '#/db/index'
-import { auditLog, generationRun, runRows, usageDaily } from '#/db/schema'
+import { auditLog, generationRun, runMedia, runRows, usageDaily } from '#/db/schema'
+import { RESULT_DAYS } from '#/lib/server/runs'
 import { reclaimStaleLeases, refundAbandonedUploads } from '#/lib/server/vector-queue'
 
 /**
@@ -50,13 +51,29 @@ export async function runNightly() {
   await db.delete(auditLog).where(lt(auditLog.createdAt, cutoff))
 
   // Saved run results are the only thing here that grows with use rather
-  // than with time. Seven days from the save, never extended by editing —
+  // than with time. Thirty days from the save, never extended by editing —
   // `getRunRows` already refuses an expired one, so this is reclaiming disk,
   // not enforcing the rule.
   const expired = await db
     .delete(runRows)
     .where(lt(runRows.expiresAt, new Date()))
     .returning({ runId: runRows.runId })
+
+  /*
+   * The pointers to a run's archived originals, on the same clock as the rows.
+   *
+   * This one IS the rule rather than a disk reclaim, and it is the parity that
+   * makes `revealRunMedia` defensible: R2's lifecycle rule owns the bytes, and
+   * without this an admin would keep a card — and a working link, until the
+   * bucket got round to the object — after the month the contributor was told
+   * about had passed. Rows only. Nothing here deletes an object, because two
+   * mechanisms deleting the same bytes on different clocks is how a row ends up
+   * promising a file that is not there.
+   */
+  const staleMedia = await db
+    .delete(runMedia)
+    .where(lt(runMedia.createdAt, new Date(Date.now() - RESULT_DAYS * DAY)))
+    .returning({ id: runMedia.id })
 
   // The vectorizer's two, and both hand tokens back: a worker died holding a
   // file, or a tab was closed mid-upload. A night these do not run is a night
@@ -77,7 +94,8 @@ export async function runNightly() {
 
   console.log(
     `[cron] ${day}: ${today?.runs ?? 0} runs, ${Number(today?.files ?? 0)} files; ` +
-      `${expired.length} expired results removed; audit pruned before ${cutoff.toISOString().slice(0, 10)}; ` +
+      `${expired.length} expired results removed; ${staleMedia.length} archived originals unlisted; ` +
+      `audit pruned before ${cutoff.toISOString().slice(0, 10)}; ` +
       `vector: ${vectors.reclaimed} leases reclaimed, ${vectors.refunded} uploads refunded`,
   )
 }

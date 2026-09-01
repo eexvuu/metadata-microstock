@@ -51,6 +51,9 @@ const TOKENS_PER_FILE = 1
  * same bytes on different clocks is how you get a row promising a file that is
  * not there. Retention is configured on the bucket — see `deploy/README.md`.
  *
+ * The window is thirty days as of 2026-09-01, and it is the same thirty the
+ * metadata tool gives a saved result. One promise for the whole shelf.
+ *
  * `vector_file.expires_at` survives as an unused nullable column, so turning
  * this back on is a code change and not a migration.
  */

@@ -18,13 +18,21 @@ import { readSession, requireSession } from '#/lib/server/session'
  */
 
 /**
- * How long a saved result stays openable.
+ * How long a saved result stays openable — and, since 2026-09-01, how long
+ * everything else a run leaves behind stays with it.
  *
- * Seven days is a working window, not storage: the box is shared and the rows
- * are the only large thing this app keeps. The counts in `generation_run`
- * outlive it — what expires is the editable result, not the history.
+ * It was seven days while the rows were the only thing kept: a working window,
+ * not storage. Thirty is what the whole shelf promises now, and the number is
+ * one promise rather than three — the archived originals in R2 have a bucket
+ * lifecycle rule set to the same month, and the nightly prune drops
+ * `run_media` on the same clock so an admin never gets a longer window than
+ * the owner. Change it here and change it on the bucket; `deploy/README.md`
+ * says where.
+ *
+ * The counts in `generation_run` still outlive all of it — what expires is the
+ * editable result and the files, not the history.
  */
-export const RESULT_DAYS = 7
+export const RESULT_DAYS = 30
 
 /**
  * 2 MB of JSON. A 500-file run is around 300 KB, so this is generous enough

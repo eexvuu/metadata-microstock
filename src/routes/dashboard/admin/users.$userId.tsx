@@ -532,7 +532,7 @@ function UserDetail() {
           Recent runs
         </h2>
         <p className="text-muted-foreground mt-1 text-sm">
-          A finished run keeps its rows for seven days, and Open shows them.
+          A finished run keeps its rows for 30 days, and Open shows them.
           Reading them is recorded against the admin who did it, the same way a
           key reveal is.
         </p>

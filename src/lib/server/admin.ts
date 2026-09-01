@@ -3,10 +3,20 @@ import { and, count, desc, eq, gt, gte, sum } from 'drizzle-orm'
 import { z } from 'zod'
 
 import { getDb } from '#/db/index'
-import { generationRun, geminiKey, runRows, session, user } from '#/db/schema'
+import {
+  generationRun,
+  geminiKey,
+  runMedia,
+  runRows,
+  session,
+  user,
+  vectorFile,
+  vectorJob,
+} from '#/db/schema'
 import type { AuditEntry } from '#/lib/server/audit'
 import { recordAudit } from '#/lib/server/audit'
 import { decryptSecret } from '#/lib/server/crypto'
+import { presignGet } from '#/lib/server/r2'
 import { requireAdmin } from '#/lib/server/session'
 import { balanceOf, grantTokens, recentLedger } from '#/lib/server/tokens'
 
@@ -17,14 +27,16 @@ import { balanceOf, grantTokens, recentLedger } from '#/lib/server/tokens'
  * authorisation is re-checked on the server, applied to the hand-written
  * screens too. A non-admin session is redirected, never answered.
  *
- * Two functions here return something the owner would call theirs:
- * `revealUserKey` (the plaintext of a Gemini key) and `revealRunRows` (the
- * metadata a run produced). Both exist so support can answer "it does not work
- * for me" without asking anyone to send their credential or their results over
- * a chat, and both are built the same way: they are the only paths to that data
- * outside the owner's own session, they write an audit row BEFORE they answer,
- * and the copy shown to users says an admin can do it. Every other screen here
- * sees previews and counts and nothing more.
+ * Four functions here return something the owner would call theirs:
+ * `revealUserKey` (the plaintext of a Gemini key), `revealRunRows` (the
+ * metadata a run produced), and — since 2026-09-01 — `revealRunMedia` and
+ * `revealVectorFiles`, the files themselves. All four exist so support can
+ * answer "it does not work for me" without asking anyone to send their
+ * credential, their results or a 60 MB .mov over a chat, and all four are
+ * built the same way: they are the only paths to that data outside the owner's
+ * own session, they write an audit row BEFORE they answer, and the copy shown
+ * to users says an admin can do it. Every other screen here sees previews and
+ * counts and nothing more.
  */
 
 const DAY = 24 * 60 * 60 * 1000
@@ -617,4 +629,188 @@ export const revealRunRows = createServerFn({ method: 'POST' })
     })
 
     return { rows: saved.rows }
+  })
+
+/**
+ * The files a run was given, to the admin looking at it.
+ *
+ * The third door of the same shape, and the one that needed the most reason to
+ * exist: `revealRunRows` answers "the titles come out wrong", and nothing
+ * answered "it read my photo as a dog". Since 2026-09-01 the tab uploads each
+ * original to R2 after a run (`src/lib/generator/archive.ts`), the tool's own
+ * copy says so, and this is the only way anybody but the owner reaches them.
+ *
+ * Same order as every reveal here: find the rows, refuse if there are none,
+ * write the audit row, then answer. There is no expiry check because there is
+ * nothing to check — the nightly prune drops `run_media` at `RESULT_DAYS`, so a
+ * row that is still here is inside the month the contributor was told about.
+ * Presigned GETs on the bulk TTL: a contact sheet of two hundred files is
+ * still loading long after the click.
+ *
+ * Read-only, and it deletes nothing: R2's lifecycle rule owns the bytes.
+ */
+export const revealRunMedia = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({ id: z.string().min(1) }))
+  .handler(async ({ data }) => {
+    const admin = await requireAdmin()
+    const run = await runWithOwner(data.id)
+
+    const files = await getDb()
+      .select({
+        id: runMedia.id,
+        filename: runMedia.filename,
+        contentType: runMedia.contentType,
+        sizeBytes: runMedia.sizeBytes,
+        kind: runMedia.kind,
+        objectKey: runMedia.objectKey,
+      })
+      .from(runMedia)
+      .where(eq(runMedia.runId, run.id))
+      .orderBy(runMedia.filename)
+
+    // Nothing was revealed, so nothing is recorded.
+    if (files.length === 0) {
+      throw new Error(
+        'No files were kept for this run — it predates the archive, or the month has passed.',
+      )
+    }
+
+    await recordAudit(admin.user.id, {
+      action: 'run.media.revealed',
+      targetType: 'run',
+      targetId: run.id,
+      targetLabel: run.folderName,
+      detail: `${files.length} file${files.length === 1 ? '' : 's'} · owner ${run.ownerEmail}`,
+    })
+
+    return await Promise.all(
+      files.map(async ({ objectKey, ...file }) => ({
+        ...file,
+        url: await presignGet(objectKey, true),
+      })),
+    )
+  })
+
+/** A batch and its owner — the counts, never the objects. */
+async function jobWithOwner(id: string) {
+  const db = getDb()
+
+  const [job] = await db.select().from(vectorJob).where(eq(vectorJob.id, id)).limit(1)
+
+  if (!job) throw new Error('That batch no longer exists.')
+
+  const [owner] = await db
+    .select({ id: user.id, name: user.name, email: user.email })
+    .from(user)
+    .where(eq(user.id, job.userId))
+    .limit(1)
+
+  return {
+    ...job,
+    ownerName: owner?.name ?? job.userId,
+    ownerEmail: owner?.email ?? job.userId,
+  }
+}
+
+/**
+ * One vectorize batch, from the admin side.
+ *
+ * The same split as `getRunForAdmin`: a loader runs again on every navigation,
+ * so it carries the counts and each file's status and not one URL to anything.
+ * Reaching an object costs a click, and the click is what is recorded.
+ */
+export const getVectorJobForAdmin = createServerFn({ method: 'GET' })
+  .inputValidator(z.object({ id: z.string().min(1) }))
+  .handler(async ({ data }) => {
+    await requireAdmin()
+    const job = await jobWithOwner(data.id)
+
+    const files = await getDb()
+      .select({
+        id: vectorFile.id,
+        filename: vectorFile.filename,
+        contentType: vectorFile.contentType,
+        sizeBytes: vectorFile.sizeBytes,
+        status: vectorFile.status,
+        attempts: vectorFile.attempts,
+        error: vectorFile.error,
+        svgKey: vectorFile.svgKey,
+        epsKey: vectorFile.epsKey,
+      })
+      .from(vectorFile)
+      .where(eq(vectorFile.jobId, job.id))
+      .orderBy(vectorFile.filename)
+
+    return {
+      id: job.id,
+      label: job.label,
+      status: job.status,
+      userId: job.userId,
+      ownerName: job.ownerName,
+      ownerEmail: job.ownerEmail,
+      filesTotal: job.filesTotal,
+      filesDone: job.filesDone,
+      filesFailed: job.filesFailed,
+      tokensCharged: job.tokensCharged,
+      createdAt: job.createdAt.getTime(),
+      finishedAt: job.finishedAt?.getTime() ?? null,
+      files: files.map(({ svgKey, epsKey, ...file }) => ({
+        ...file,
+        hasSvg: Boolean(svgKey),
+        hasEps: Boolean(epsKey),
+      })),
+    }
+  })
+
+/**
+ * The artwork in one batch — what went in, and what came back.
+ *
+ * `revealRunMedia` for the other tool, and the same bargain: "the trace came
+ * out wrong" cannot be answered without the picture that went in and the SVG
+ * that came out. Audit row first, then the URLs.
+ *
+ * A key here can name an object the lifecycle rule has already reclaimed —
+ * a row outliving its bytes is the documented trade of putting retention on
+ * the bucket (`deploy/README.md`). Those links 404, and the screen says what
+ * that means rather than leaving a tile spinning.
+ */
+export const revealVectorFiles = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({ id: z.string().min(1) }))
+  .handler(async ({ data }) => {
+    const admin = await requireAdmin()
+    const job = await jobWithOwner(data.id)
+
+    const files = await getDb()
+      .select({
+        id: vectorFile.id,
+        filename: vectorFile.filename,
+        contentType: vectorFile.contentType,
+        sourceKey: vectorFile.sourceKey,
+        svgKey: vectorFile.svgKey,
+        epsKey: vectorFile.epsKey,
+      })
+      .from(vectorFile)
+      .where(eq(vectorFile.jobId, job.id))
+      .orderBy(vectorFile.filename)
+
+    if (files.length === 0) throw new Error('That batch has no files.')
+
+    await recordAudit(admin.user.id, {
+      action: 'vector.revealed',
+      targetType: 'job',
+      targetId: job.id,
+      targetLabel: job.label,
+      detail: `${files.length} file${files.length === 1 ? '' : 's'} · owner ${job.ownerEmail}`,
+    })
+
+    return await Promise.all(
+      files.map(async (file) => ({
+        id: file.id,
+        filename: file.filename,
+        contentType: file.contentType,
+        source: await presignGet(file.sourceKey, true),
+        svg: file.svgKey ? await presignGet(file.svgKey, true) : null,
+        eps: file.epsKey ? await presignGet(file.epsKey, true) : null,
+      })),
+    )
   })

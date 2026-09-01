@@ -25,7 +25,7 @@ import { listRuns } from '#/lib/server/runs'
  * them for billing.
  *
  * A run whose result is still saved links to it. The rest show why they do
- * not, rather than a dead column: seven days is short enough that someone will
+ * not, rather than a dead column: the window is short enough that someone will
  * meet the edge, and "expired" is a better answer than an empty cell.
  */
 export const Route = createFileRoute('/tools/metadata/history')({

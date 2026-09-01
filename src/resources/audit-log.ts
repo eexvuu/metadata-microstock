@@ -12,6 +12,7 @@ const TARGETS = [
   { value: 'session', label: 'Session' },
   { value: 'key', label: 'Key' },
   { value: 'run', label: 'Run' },
+  { value: 'job', label: 'Batch' },
 ]
 
 /**

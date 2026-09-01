@@ -34,6 +34,8 @@ export const AUDIT_ACTIONS = {
   'key.disabled': 'Key disabled',
   'key.enabled': 'Key enabled',
   'run.revealed': 'Result opened by an admin',
+  'run.media.revealed': 'Run files opened by an admin',
+  'vector.revealed': 'Batch files opened by an admin',
   'tokens.granted': 'Tokens granted',
 } as const
 
@@ -41,7 +43,7 @@ export type AuditAction = keyof typeof AUDIT_ACTIONS
 
 export interface AuditEntry {
   action: AuditAction
-  targetType: 'user' | 'session' | 'key' | 'run'
+  targetType: 'user' | 'session' | 'key' | 'run' | 'job'
   targetId?: string | null
   /** How a human recognises the target: an email, a key preview. */
   targetLabel?: string | null
